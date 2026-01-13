@@ -2,10 +2,12 @@ import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import AboutSection from '@/components/AboutSection';
 import ServicesSection from '@/components/ServicesSection';
+import FAQSection from '@/components/FAQSection';
 import BlogSection from '@/components/BlogSection';
 import ContactSection from '@/components/ContactSection';
 import Footer from '@/components/Footer';
 import ScrollToTop from '@/components/ScrollToTop';
+import WhatsAppButton from '@/components/WhatsAppButton';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -29,11 +31,13 @@ const Index = () => {
         <HeroSection />
         <AboutSection />
         <ServicesSection />
+        <FAQSection />
         <BlogSection />
         <ContactSection />
       </main>
       <Footer />
       <ScrollToTop />
+      <WhatsAppButton />
     </div>
   );
 };
