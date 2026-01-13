@@ -104,10 +104,10 @@ const PortalActivities = () => {
 
   const toggleActivityStatus = (activityId: string) => {
     if (!patientId) return;
-    const next = activities.map((activity) => {
+    const next = activities.map((activity): Activity => {
       if (activity.id !== activityId) return activity;
       if (activity.patientId !== patientId) return activity;
-      const nextStatus = activity.status === "completed" ? "pending" : "completed";
+      const nextStatus: "pending" | "completed" = activity.status === "completed" ? "pending" : "completed";
       return {
         ...activity,
         status: nextStatus,

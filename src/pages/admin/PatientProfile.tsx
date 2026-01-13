@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
-import { storage, type Patient, type Activity, type SecureMessage, type JournalEntry, uid } from "@/lib/storage";
+import { storage, type Patient, type Activity as ActivityType, type SecureMessage, type JournalEntry, uid } from "@/lib/storage";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2 } from "lucide-react";
+import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+
+type Activity = ActivityType;
 
 const formatDayMonth = (iso?: string) => {
   if (!iso) return "—";
@@ -383,7 +385,7 @@ const PatientProfile = () => {
           averageIntervalDays && averageIntervalDays > 0
             ? `Intervalo médio de ${averageIntervalDays} dia(s) entre sessões.`
             : "Complete mais sessões para calcular o intervalo médio.",
-        icon: Activity,
+        icon: ActivityIcon,
         highlight: `${attendanceRate}% de presença`,
       },
       {
@@ -471,9 +473,9 @@ const PatientProfile = () => {
   };
 
   const toggleActivityStatus = (activityId: string) => {
-    const next = activities.map((activity) => {
+    const next = activities.map((activity): Activity => {
       if (activity.id !== activityId) return activity;
-      const nextStatus = activity.status === "completed" ? "pending" : "completed";
+      const nextStatus: "pending" | "completed" = activity.status === "completed" ? "pending" : "completed";
       return {
         ...activity,
         status: nextStatus,
@@ -931,7 +933,7 @@ const PatientProfile = () => {
                                   {activity.dueDate ? `Prazo: ${formatDueDate(activity.dueDate)}` : "Sem prazo"}
                                 </span>
                                 <span className="inline-flex items-center gap-1">
-                                  <Activity className="w-3 h-3" /> Criado em {formatDateTimeLong(activity.createdAt)}
+                                  <ActivityIcon className="w-3 h-3" /> Criado em {formatDateTimeLong(activity.createdAt)}
                                 </span>
                                 {activity.assignedBy && (
                                   <span className="inline-flex items-center gap-1">
