@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Clínica Equanimité Design System - Modern & Futuristic Psychology Clinic
+Colors: Verde esmeralda, lavanda, tons neutros com gradientes suaves
+Typography: Elegante e sofisticada
+Animations: Fade-in, hover effects, transições suaves
+*/
+
+@layer base {
+  :root {
+    /* Base colors - tons neutros suaves */
+    --background: 0 0% 99%;
+    --foreground: 220 15% 15%;
+
+    /* Card system */
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+
+    /* Popover system */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+
+    /* Primary - Verde sálvia (tons do print) */
+    --primary: 135 22% 45%; /* base: sage/olive */
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 135 24% 58%;
+    --primary-dark: 135 25% 36%;
+
+    /* Secondary - Lavanda suave */
+    --secondary: 270 60% 70%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 270 50% 85%;
+    --secondary-dark: 270 70% 55%;
+
+    /* Accent - Fundo esbranquiçado com leve verde */
+    --accent: 135 20% 97%;
+    --accent-foreground: 220 15% 15%;
+
+    /* Muted system */
+    --muted: 220 10% 96%;
+    --muted-foreground: 220 15% 45%;
+
+    /* System colors */
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 90%;
+    --input: 220 15% 92%;
+    --ring: 135 22% 45%;
+
+    --radius: 0.75rem;
+
+    /* Gradientes futuristas */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-light)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--secondary) / 0.1));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.8), hsl(0 0% 100% / 0.4));
+
+    /* Sombras elegantes */
+    --shadow-soft: 0 4px 20px hsl(var(--primary) / 0.1);
+    --shadow-glow: 0 0 30px hsl(var(--primary) / 0.2);
+    --shadow-card: 0 8px 32px hsl(220 15% 15% / 0.08);
+    --shadow-hover: 0 12px 40px hsl(var(--primary) / 0.15);
+
+    /* Animações */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* Sidebar system */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 220 15% 25%;
+    --sidebar-primary: 135 22% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 20% 95%;
+    --sidebar-accent-foreground: 220 15% 15%;
+    --sidebar-border: 220 15% 90%;
+    --sidebar-ring: 135 22% 45%;
+  }
+
+  .dark {
+    /* Base colors - modo escuro suave */
+    --background: 220 25% 8%;
+    --foreground: 0 0% 95%;
+
+    /* Card system */
+    --card: 220 20% 12%;
+    --card-foreground: 0 0% 95%;
+
+    /* Popover system */
+    --popover: 220 20% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    /* Primary - Sálvia no escuro (um pouco mais viva) */
+    --primary: 135 28% 52%;
+    --primary-foreground: 220 25% 8%;
+    --primary-light: 135 26% 64%;
+    --primary-dark: 135 30% 42%;
+
+    /* Secondary - Lavanda mais vibrante */
+    --secondary: 270 70% 75%;
+    --secondary-foreground: 220 25% 8%;
+    --secondary-light: 270 60% 85%;
+    --secondary-dark: 270 80% 65%;
+
+    /* Accent */
+    --accent: 220 20% 15%;
+    --accent-foreground: 0 0% 95%;
+
+    /* Muted system */
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 65%;
+
+    /* System colors */
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 18%;
+    --ring: 135 28% 52%;
+
+    /* Gradientes no modo escuro */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-light)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--secondary) / 0.15));
+    --gradient-card: linear-gradient(135deg, hsl(220 20% 12% / 0.8), hsl(220 20% 15% / 0.4));
+
+    /* Sombras com glow no escuro */
+    --shadow-soft: 0 4px 20px hsl(var(--primary) / 0.2);
+    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.3);
+    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.5);
+    --shadow-hover: 0 12px 40px hsl(var(--primary) / 0.25);
+
+    /* Sidebar system */
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 135 28% 52%;
+    --sidebar-primary-foreground: 220 25% 8%;
+    --sidebar-accent: 220 20% 15%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 15% 20%;
+    --sidebar-ring: 135 28% 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-light tracking-tight;
+  }
+}
+
+@layer components {
+  /* Botões futuristas com hover neon */
+  .btn-futuristic {
+    @apply relative bg-gradient-to-r from-primary to-primary-light text-primary-foreground px-8 py-3 rounded-full font-medium;
+    @apply transition-all duration-300 hover:shadow-glow hover:scale-105;
+    @apply before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-r before:from-primary-light before:to-secondary;
+    @apply before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-20;
+  }
+
+  .btn-outline-futuristic {
+    @apply relative border-2 border-primary/30 text-primary bg-transparent px-8 py-3 rounded-full font-medium;
+    @apply transition-all duration-300 hover:border-primary hover:shadow-soft hover:bg-primary/5;
+  }
+
+  /* Cards com efeito glass */
+  .card-glass {
+    @apply bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-lg border border-border/50;
+    @apply shadow-card rounded-2xl transition-all duration-300 hover:shadow-hover hover:-translate-y-1;
+  }
+
+  /* Seções com gradiente sutil */
+  .section-gradient {
+    @apply bg-gradient-to-br from-background via-accent/30 to-primary/10;
+  }
+
+  /* Animações de entrada */
+  .fade-in-up {
+    @apply opacity-0 translate-y-8 transition-all duration-700 ease-out;
+  }
+
+  .fade-in-up.animate {
+    @apply opacity-100 translate-y-0;
+  }
+
+  /* Header fixo com backdrop blur */
+  .header-glass {
+    @apply bg-background/80 backdrop-blur-lg border-b border-border/50;
+    @apply shadow-soft transition-all duration-300;
+  }
+
+  /* Hover effect para links */
+  .link-hover {
+    @apply relative text-muted-foreground transition-colors duration-300 hover:text-primary;
+    @apply after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-primary;
+    @apply after:transition-all after:duration-300 hover:after:w-full;
+  }
+}
