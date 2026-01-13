@@ -13,6 +13,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { SessionsModule } from "@/components/sessions/SessionsModule";
 
 type Activity = ActivityType;
 
@@ -895,7 +896,7 @@ const PatientProfile = () => {
           </div>
         </TabsContent>
         <TabsContent value="sessoes" className="mt-6">
-          <Card className="card-glass"><CardContent className="p-6 text-muted-foreground">Em breve: histórico de sessões.</CardContent></Card>
+          <SessionsModule patientId={patient.id} patientName={patient.name} />
         </TabsContent>
         <TabsContent value="atividades" className="mt-6">
           <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">

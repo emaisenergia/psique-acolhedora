@@ -14,7 +14,151 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      session_audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          changed_fields: Json | null
+          id: string
+          session_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: Json | null
+          id?: string
+          session_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: Json | null
+          id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_audit_log_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string
+          id: string
+          is_recording: boolean | null
+          session_id: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          is_recording?: boolean | null
+          session_id: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          is_recording?: boolean | null
+          session_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          ai_generated_summary: string | null
+          ai_insights: Json | null
+          appointment_id: string | null
+          cancellation_reason: string | null
+          clinical_observations: string | null
+          created_at: string
+          created_by: string | null
+          detailed_notes: string | null
+          duration_minutes: number | null
+          id: string
+          patient_id: string
+          psychologist_id: string | null
+          recurring_themes: Json | null
+          session_date: string
+          status: string
+          summary: string | null
+          transcription: string | null
+          treatment_goals: Json | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ai_generated_summary?: string | null
+          ai_insights?: Json | null
+          appointment_id?: string | null
+          cancellation_reason?: string | null
+          clinical_observations?: string | null
+          created_at?: string
+          created_by?: string | null
+          detailed_notes?: string | null
+          duration_minutes?: number | null
+          id?: string
+          patient_id: string
+          psychologist_id?: string | null
+          recurring_themes?: Json | null
+          session_date?: string
+          status?: string
+          summary?: string | null
+          transcription?: string | null
+          treatment_goals?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ai_generated_summary?: string | null
+          ai_insights?: Json | null
+          appointment_id?: string | null
+          cancellation_reason?: string | null
+          clinical_observations?: string | null
+          created_at?: string
+          created_by?: string | null
+          detailed_notes?: string | null
+          duration_minutes?: number | null
+          id?: string
+          patient_id?: string
+          psychologist_id?: string | null
+          recurring_themes?: Json | null
+          session_date?: string
+          status?: string
+          summary?: string | null
+          transcription?: string | null
+          treatment_goals?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
