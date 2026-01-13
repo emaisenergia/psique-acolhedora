@@ -10,10 +10,36 @@ import {
   Clock, 
   Calendar,
   MessageSquare,
-  Send
+  Send,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
+import { z } from 'zod';
+
+// Validation schema
+const contactSchema = z.object({
+  nome: z.string()
+    .trim()
+    .min(2, 'Nome deve ter pelo menos 2 caracteres')
+    .max(100, 'Nome deve ter no máximo 100 caracteres'),
+  email: z.string()
+    .trim()
+    .email('E-mail inválido')
+    .max(255, 'E-mail deve ter no máximo 255 caracteres'),
+  telefone: z.string()
+    .trim()
+    .regex(/^[\d\s()+-]*$/, 'Telefone inválido')
+    .max(20, 'Telefone deve ter no máximo 20 caracteres')
+    .optional()
+    .or(z.literal('')),
+  mensagem: z.string()
+    .trim()
+    .min(10, 'Mensagem deve ter pelo menos 10 caracteres')
+    .max(1000, 'Mensagem deve ter no máximo 1000 caracteres')
+});
+
+type FormErrors = Partial<Record<keyof z.infer<typeof contactSchema>, string>>;
 
 const ContactSection = () => {
   const { toast } = useToast();
@@ -23,29 +49,66 @@ const ContactSection = () => {
     telefone: '',
     mensagem: ''
   });
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: value
     }));
+    // Clear error when user starts typing
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    try {
+      contactSchema.parse(formData);
+      setErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: FormErrors = {};
+        error.errors.forEach(err => {
+          if (err.path[0]) {
+            newErrors[err.path[0] as keyof FormErrors] = err.message;
+          }
+        });
+        setErrors(newErrors);
+      }
+      return false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      toast({
+        title: "Erro de validação",
+        description: "Por favor, corrija os campos destacados.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      // Simulate API call - replace with actual edge function when Cloud is enabled
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       toast({
-        title: "Mensagem enviada com sucesso!",
+        title: "Mensagem enviada com sucesso! ✨",
         description: "Entraremos em contato em até 24 horas.",
       });
       
       setFormData({ nome: '', email: '', telefone: '', mensagem: '' });
-    } catch (error) {
+      setErrors({});
+    } catch {
       toast({
         title: "Erro ao enviar mensagem",
         description: "Por favor, tente novamente ou entre em contato por telefone.",
@@ -88,13 +151,15 @@ const ContactSection = () => {
       icon: Calendar,
       title: 'Agendamento Online',
       description: 'Agende sua consulta de forma prática e rápida',
-      action: 'Agendar'
+      action: 'Agendar',
+      href: '#agendamento'
     },
     {
       icon: MessageSquare,
       title: 'WhatsApp',
       description: 'Fale conosco diretamente pelo WhatsApp',
-      action: 'Conversar'
+      action: 'Conversar',
+      href: 'https://wa.me/5545991244303'
     }
   ];
 
@@ -198,7 +263,7 @@ const ContactSection = () => {
                     Envie sua mensagem
                   </h3>
                   
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                     <div className="grid md:grid-cols-2 gap-4">
                       <motion.div
                         initial={{ opacity: 0, x: -20 }}
@@ -213,12 +278,20 @@ const ContactSection = () => {
                           id="nome"
                           name="nome"
                           type="text"
-                          required
                           value={formData.nome}
                           onChange={handleInputChange}
                           placeholder="Seu nome completo"
-                          className="transition-all duration-300 focus:shadow-soft"
+                          className={`transition-all duration-300 focus:shadow-soft ${
+                            errors.nome ? 'border-destructive focus-visible:ring-destructive' : ''
+                          }`}
+                          maxLength={100}
                         />
+                        {errors.nome && (
+                          <p className="text-destructive text-xs mt-1 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {errors.nome}
+                          </p>
+                        )}
                       </motion.div>
                       
                       <motion.div
@@ -236,9 +309,18 @@ const ContactSection = () => {
                           type="tel"
                           value={formData.telefone}
                           onChange={handleInputChange}
-                          placeholder="(11) 99999-9999"
-                          className="transition-all duration-300 focus:shadow-soft"
+                          placeholder="(45) 99999-9999"
+                          className={`transition-all duration-300 focus:shadow-soft ${
+                            errors.telefone ? 'border-destructive focus-visible:ring-destructive' : ''
+                          }`}
+                          maxLength={20}
                         />
+                        {errors.telefone && (
+                          <p className="text-destructive text-xs mt-1 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {errors.telefone}
+                          </p>
+                        )}
                       </motion.div>
                     </div>
                     
@@ -255,12 +337,20 @@ const ContactSection = () => {
                         id="email"
                         name="email"
                         type="email"
-                        required
                         value={formData.email}
                         onChange={handleInputChange}
                         placeholder="seu@email.com"
-                        className="transition-all duration-300 focus:shadow-soft"
+                        className={`transition-all duration-300 focus:shadow-soft ${
+                          errors.email ? 'border-destructive focus-visible:ring-destructive' : ''
+                        }`}
+                        maxLength={255}
                       />
+                      {errors.email && (
+                        <p className="text-destructive text-xs mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {errors.email}
+                        </p>
+                      )}
                     </motion.div>
                     
                     <motion.div
@@ -275,12 +365,27 @@ const ContactSection = () => {
                       <Textarea
                         id="mensagem"
                         name="mensagem"
-                        required
                         value={formData.mensagem}
                         onChange={handleInputChange}
                         placeholder="Conte-nos como podemos ajudar..."
-                        className="min-h-32 transition-all duration-300 focus:shadow-soft"
+                        className={`min-h-32 transition-all duration-300 focus:shadow-soft ${
+                          errors.mensagem ? 'border-destructive focus-visible:ring-destructive' : ''
+                        }`}
+                        maxLength={1000}
                       />
+                      <div className="flex justify-between items-center mt-1">
+                        {errors.mensagem ? (
+                          <p className="text-destructive text-xs flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {errors.mensagem}
+                          </p>
+                        ) : (
+                          <span />
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {formData.mensagem.length}/1000
+                        </span>
+                      </div>
                     </motion.div>
                     
                     <motion.div
@@ -324,7 +429,7 @@ const ContactSection = () => {
             viewport={{ once: true, margin: "-50px" }}
           >
             <div className="grid gap-6">
-              {contactInfo.map((info, index) => (
+              {contactInfo.map((info) => (
                 <motion.div
                   key={info.title}
                   variants={itemVariants}
@@ -361,8 +466,11 @@ const ContactSection = () => {
               variants={slideInRight}
             >
               {quickActions.map((action) => (
-                <motion.div
+                <motion.a
                   key={action.title}
+                  href={action.href}
+                  target={action.href.startsWith('http') ? '_blank' : undefined}
+                  rel={action.href.startsWith('http') ? 'noopener noreferrer' : undefined}
                   whileHover={{ scale: 1.02, y: -5 }}
                   transition={{ duration: 0.2 }}
                 >
@@ -392,7 +500,7 @@ const ContactSection = () => {
                       </div>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </motion.a>
               ))}
             </motion.div>
           </motion.div>
