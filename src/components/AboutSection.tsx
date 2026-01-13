@@ -1,28 +1,8 @@
-import { useEffect, useRef } from 'react';
 import { Award, Heart, Users, Target } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { motion } from 'framer-motion';
 
 const AboutSection = () => {
-  const sectionRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('animate');
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    const elements = sectionRef.current?.querySelectorAll('.fade-in-up');
-    elements?.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, []);
-
   const values = [
     {
       icon: Heart,
@@ -49,25 +29,95 @@ const AboutSection = () => {
   const stats = [
     { number: '10+', label: 'Anos de Experiência' },
     { number: '1000+', label: 'Pacientes Atendidos' },
-
   ];
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: "easeOut" as const,
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 40, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut" as const,
+      },
+    },
+  };
+
+  const slideInLeft = {
+    hidden: { opacity: 0, x: -60 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.7,
+        ease: "easeOut" as const,
+      },
+    },
+  };
+
+  const slideInRight = {
+    hidden: { opacity: 0, x: 60 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.7,
+        ease: "easeOut" as const,
+      },
+    },
+  };
 
   return (
     <section 
       id="sobre" 
-      ref={sectionRef}
       className="py-24 bg-background"
     >
       <div className="container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-16 items-center mb-20">
           {/* Content */}
-          <div className="space-y-8">
-            <div className="fade-in-up">
+          <motion.div 
+            className="space-y-8"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+          >
+            <motion.div variants={slideInLeft}>
               <h2 className="text-4xl md:text-5xl font-display font-light mb-6">
                 Sobre a 
-                <span className="block bg-gradient-primary bg-clip-text text-transparent">
+                <motion.span 
+                  className="block bg-gradient-primary bg-clip-text text-transparent"
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                  viewport={{ once: true }}
+                >
                   Clínica Equanimité
-                </span>
+                </motion.span>
               </h2>
               <p className="text-xl text-muted-foreground leading-relaxed mb-6">
                Fundada com o propósito de promover o equilíbrio entre mente e vida, 
@@ -80,27 +130,53 @@ const AboutSection = () => {
                 pessoa pode encontrar o apoio necessário para superar desafios, 
                 desenvolver seu potencial e construir uma vida mais plena e equilibrada.
               </p>
-            </div>
+            </motion.div>
 
             {/* Stats */}
-            <div className="fade-in-up grid grid-cols-2 md:grid-cols-4 gap-6">
+            <motion.div 
+              className="grid grid-cols-2 md:grid-cols-4 gap-6"
+              variants={itemVariants}
+            >
               {stats.map((stat, index) => (
-                <div key={stat.label} className="text-center">
-                  <div className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+                <motion.div 
+                  key={stat.label} 
+                  className="text-center"
+                  whileHover={{ scale: 1.1 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <motion.div 
+                    className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.15, duration: 0.5 }}
+                    viewport={{ once: true }}
+                  >
                     {stat.number}
-                  </div>
+                  </motion.div>
                   <div className="text-sm text-muted-foreground">
                     {stat.label}
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Image/Visual Element */}
-          <div className="fade-in-up">
+          <motion.div
+            variants={slideInRight}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+          >
             <div className="relative">
-              <div className="card-glass p-8 rounded-3xl">
+              <motion.div 
+                className="card-glass p-8 rounded-3xl"
+                whileHover={{ 
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+                  y: -5
+                }}
+                transition={{ duration: 0.3 }}
+              >
                 <h3 className="text-2xl font-semibold mb-4 text-center">Nossa Missão</h3>
                 <blockquote className="text-lg text-muted-foreground italic leading-relaxed text-center">
                   "Promover o bem-estar psicológico através de atendimento 
@@ -109,58 +185,123 @@ const AboutSection = () => {
                   de relacionamentos mais saudáveis."
                 </blockquote>
                 
-                <div className="mt-8 text-center">
+                <motion.div 
+                  className="mt-8 text-center"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  viewport={{ once: true }}
+                >
                   <div className="inline-flex items-center space-x-2">
-                    <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <motion.div 
+                      className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
                       <Heart className="w-6 h-6 text-primary-foreground" />
-                    </div>
+                    </motion.div>
                     <div className="text-left">
                       <div className="font-semibold text-foreground">CRP 08/38431</div>
                       <div className="text-sm text-muted-foreground">Psi. Amanda</div>
                     </div>
                   </div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
               
               {/* Decorative elements */}
-              <div className="absolute -top-6 -left-6 w-20 h-20 bg-primary/20 rounded-full blur-2xl"></div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-secondary/20 rounded-full blur-3xl"></div>
+              <motion.div 
+                className="absolute -top-6 -left-6 w-20 h-20 bg-primary/20 rounded-full blur-2xl"
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  opacity: [0.5, 0.8, 0.5]
+                }}
+                transition={{ 
+                  duration: 4, 
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+              <motion.div 
+                className="absolute -bottom-6 -right-6 w-32 h-32 bg-secondary/20 rounded-full blur-3xl"
+                animate={{ 
+                  scale: [1, 1.3, 1],
+                  opacity: [0.4, 0.7, 0.4]
+                }}
+                transition={{ 
+                  duration: 5, 
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.5
+                }}
+              />
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Values */}
-        <div className="fade-in-up">
-          <h3 className="text-3xl font-display font-light text-center mb-12">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
+        >
+          <motion.h3 
+            className="text-3xl font-display font-light text-center mb-12"
+            variants={itemVariants}
+          >
             Nossos Valores
-          </h3>
+          </motion.h3>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {values.map((value, index) => (
-              <Card 
+          <motion.div 
+            className="grid md:grid-cols-2 lg:grid-cols-4 gap-8"
+            variants={containerVariants}
+          >
+            {values.map((value) => (
+              <motion.div
                 key={value.title}
-                className={`card-glass text-center hover:shadow-hover transition-all duration-300 fade-in-up`}
-                style={{ animationDelay: `${index * 100}ms` }}
+                variants={cardVariants}
+                whileHover={{ y: -8 }}
               >
-                <CardContent className="p-6">
-                  <div className="w-16 h-16 bg-gradient-secondary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <value.icon className="w-8 h-8 text-secondary-foreground" />
-                  </div>
-                  <h4 className="text-xl font-semibold text-foreground mb-3">
-                    {value.title}
-                  </h4>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {value.description}
-                  </p>
-                </CardContent>
-              </Card>
+                <Card className="card-glass text-center hover:shadow-hover transition-all duration-300 h-full">
+                  <CardContent className="p-6">
+                    <motion.div 
+                      className="w-16 h-16 bg-gradient-secondary rounded-2xl flex items-center justify-center mx-auto mb-4"
+                      whileHover={{ 
+                        scale: 1.15, 
+                        rotate: 10,
+                        transition: { type: "spring", stiffness: 300 }
+                      }}
+                    >
+                      <value.icon className="w-8 h-8 text-secondary-foreground" />
+                    </motion.div>
+                    <h4 className="text-xl font-semibold text-foreground mb-3">
+                      {value.title}
+                    </h4>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {value.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Mission Statement */}
-        <div className="fade-in-up mt-20 text-center">
-          <div className="max-w-4xl mx-auto card-glass p-12 rounded-3xl">
+        <motion.div 
+          className="mt-20 text-center"
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
+          viewport={{ once: true, margin: "-50px" }}
+        >
+          <motion.div 
+            className="max-w-4xl mx-auto card-glass p-12 rounded-3xl"
+            whileHover={{ 
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.1)",
+              scale: 1.01
+            }}
+            transition={{ duration: 0.3 }}
+          >
             <h3 className="text-3xl font-display font-light mb-8">
               Compromisso com o Cuidado Humano
             </h3>
@@ -174,8 +315,8 @@ const AboutSection = () => {
               Estamos constantemente atualizando nossos conhecimentos e práticas 
               para oferecer sempre o melhor cuidado em saúde mental.
             </p>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );
