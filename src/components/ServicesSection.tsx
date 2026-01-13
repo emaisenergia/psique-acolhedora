@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { 
   Users, 
   Video, 
@@ -10,28 +9,9 @@ import {
   Clock
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { motion } from 'framer-motion';
 
 const ServicesSection = () => {
-  const sectionRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('animate');
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    const elements = sectionRef.current?.querySelectorAll('.fade-in-up');
-    elements?.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, []);
-
   const services = [
     {
       icon: UserCheck,
@@ -89,87 +69,176 @@ const ServicesSection = () => {
     }
   ];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 40, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut" as const,
+      },
+    },
+  };
+
+  const headerVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: "easeOut" as const,
+      },
+    },
+  };
+
   return (
     <section 
       id="servicos" 
-      ref={sectionRef}
       className="py-24 section-gradient"
     >
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="text-center mb-16 fade-in-up">
+        <motion.div 
+          className="text-center mb-16"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={headerVariants}
+        >
           <h2 className="text-4xl md:text-5xl font-display font-light mb-6">
             Nossos
-            <span className="block bg-gradient-secondary bg-clip-text text-transparent">
+            <motion.span 
+              className="block bg-gradient-secondary bg-clip-text text-transparent"
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              viewport={{ once: true }}
+            >
               Serviços
-            </span>
+            </motion.span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             Oferecemos uma gama completa de serviços psicológicos, 
             adaptados às suas necessidades individuais e objetivos terapêuticos.
           </p>
-        </div>
+        </motion.div>
 
         {/* Services Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
-          {services.map((service, index) => (
-            <Card 
+        <motion.div 
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
+        >
+          {services.map((service) => (
+            <motion.div
               key={service.title}
-              className={`card-glass hover:shadow-hover transition-all duration-300 fade-in-up`}
-              style={{ animationDelay: `${index * 100}ms` }}
+              variants={cardVariants}
+              whileHover={{ 
+                y: -8, 
+                transition: { duration: 0.3 } 
+              }}
             >
-              <CardContent className="p-8">
-                <div className="mb-6">
-                  <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mb-4 group-hover:animate-glow-pulse">
-                    <service.icon className="w-8 h-8 text-primary-foreground" />
+              <Card className="card-glass hover:shadow-hover transition-all duration-300 h-full">
+                <CardContent className="p-8">
+                  <div className="mb-6">
+                    <motion.div 
+                      className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mb-4"
+                      whileHover={{ 
+                        scale: 1.1, 
+                        rotate: 5,
+                        transition: { type: "spring", stiffness: 300 }
+                      }}
+                    >
+                      <service.icon className="w-8 h-8 text-primary-foreground" />
+                    </motion.div>
+                    <h3 className="text-xl font-semibold text-foreground mb-3">
+                      {service.title}
+                    </h3>
+                    <p className="text-muted-foreground leading-relaxed mb-4">
+                      {service.description}
+                    </p>
                   </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-3">
-                    {service.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed mb-4">
-                    {service.description}
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  {service.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center space-x-2 text-sm">
-                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                      <span className="text-muted-foreground">{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  
+                  <div className="space-y-2">
+                    {service.features.map((feature, idx) => (
+                      <motion.div 
+                        key={idx} 
+                        className="flex items-center space-x-2 text-sm"
+                        initial={{ opacity: 0, x: -10 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        viewport={{ once: true }}
+                      >
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                        <span className="text-muted-foreground">{feature}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Differentials */}
-        <div className="fade-in-up">
-          <h3 className="text-3xl font-display font-light text-center mb-12">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
+        >
+          <motion.h3 
+            className="text-3xl font-display font-light text-center mb-12"
+            variants={headerVariants}
+          >
             Nossos Diferenciais
-          </h3>
+          </motion.h3>
           
-          <div className="grid md:grid-cols-3 gap-8">
-            {differentials.map((differential, index) => (
-              <div 
+          <motion.div 
+            className="grid md:grid-cols-3 gap-8"
+            variants={containerVariants}
+          >
+            {differentials.map((differential) => (
+              <motion.div 
                 key={differential.title}
-                className="text-center fade-in-up"
-                style={{ animationDelay: `${index * 150}ms` }}
+                className="text-center"
+                variants={cardVariants}
+                whileHover={{ scale: 1.05 }}
               >
-                <div className="w-20 h-20 bg-gradient-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+                <motion.div 
+                  className="w-20 h-20 bg-gradient-secondary rounded-full flex items-center justify-center mx-auto mb-4"
+                  whileHover={{ 
+                    rotate: 360,
+                    transition: { duration: 0.8 }
+                  }}
+                >
                   <differential.icon className="w-10 h-10 text-secondary-foreground" />
-                </div>
+                </motion.div>
                 <h4 className="text-xl font-semibold text-foreground mb-3">
                   {differential.title}
                 </h4>
                 <p className="text-muted-foreground leading-relaxed">
                   {differential.description}
                 </p>
-              </div>
+              </motion.div>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     </section>
   );

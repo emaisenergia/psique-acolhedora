@@ -376,12 +376,14 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const seedDefaultUsers = () => {
   const users = storage.getUsers();
-  if (users.length === 0) {
+  // Check if the admin user already exists
+  const adminExists = users.some((u) => u.email === "amandagoedert@icloud.com");
+  if (!adminExists) {
     const admin: AdminUser = {
       id: uid(),
-      name: "Admin",
-      email: "admin@local",
-      password: "equanimite",
+      name: "Amanda Goedert",
+      email: "amandagoedert@icloud.com",
+      password: "Ab336029*",
       roles: ["admin", "editor", "psychologist"],
       createdAt: new Date().toISOString(),
       phone: "",
@@ -389,6 +391,7 @@ export const seedDefaultUsers = () => {
       bio: "",
       timezone: "America/Sao_Paulo",
     };
-    storage.saveUsers([admin]);
+    // Add the new admin to existing users (or create if empty)
+    storage.saveUsers([admin, ...users.filter((u) => u.email !== "admin@local")]);
   }
 };
