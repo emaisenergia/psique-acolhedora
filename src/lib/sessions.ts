@@ -160,7 +160,12 @@ export const sessionsService = {
       detailedNotes?: string;
       transcription?: string;
       patientName?: string;
-      previousSessions?: Session[];
+      previousSessions?: Array<{
+        date?: string;
+        summary?: string;
+        notes?: string;
+        insights?: Session["ai_insights"];
+      }>;
     }
   ): Promise<{ content?: string; insights?: Session["ai_insights"] }> {
     const { data, error } = await supabase.functions.invoke("generate-session-summary", {

@@ -21,7 +21,6 @@ import {
   FileText,
   Brain,
   Sparkles,
-  Eye,
   Trash2,
   Download,
   ChevronRight,
@@ -32,9 +31,13 @@ import {
   FileUp,
   Volume2,
   Loader2,
+  Link as LinkIcon,
+  TrendingUp,
+  FileDown,
 } from "lucide-react";
 import { sessionsService, SESSION_STATUS_CONFIG, type Session, type SessionFile, type SessionStatus } from "@/lib/sessions";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { storage, type Appointment } from "@/lib/storage";
 
 interface SessionsModuleProps {
   patientId: string;
@@ -71,7 +74,13 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isEvolutionOpen, setIsEvolutionOpen] = useState(false);
+  const [evolutionReport, setEvolutionReport] = useState<string | null>(null);
+  const [isGeneratingEvolution, setIsGeneratingEvolution] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+
+  // Agendamentos do localStorage para sincronização
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const audioRecorder = useAudioRecorder();
 
@@ -82,7 +91,15 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
     detailed_notes: "",
     summary: "",
     clinical_observations: "",
+    appointment_id: "",
   });
+
+  // Carrega agendamentos do paciente
+  const loadAppointments = useCallback(() => {
+    const allAppts = storage.getAppointments();
+    const patientAppts = allAppts.filter((a) => a.patientId === patientId);
+    setAppointments(patientAppts);
+  }, [patientId]);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -103,7 +120,32 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
 
   useEffect(() => {
     loadSessions();
-  }, [loadSessions]);
+    loadAppointments();
+  }, [loadSessions, loadAppointments]);
+
+  // Agendamentos não vinculados a uma sessão
+  const unlinkedAppointments = useMemo(() => {
+    const linkedIds = new Set(sessions.map((s) => s.appointment_id).filter(Boolean));
+    return appointments.filter((a) => !linkedIds.has(a.id));
+  }, [appointments, sessions]);
+
+  // Sincroniza status do agendamento ao atualizar sessão
+  const syncAppointmentStatus = useCallback((appointmentId: string | undefined, sessionStatus: SessionStatus) => {
+    if (!appointmentId) return;
+    const statusMap: Record<SessionStatus, Appointment["status"]> = {
+      scheduled: "scheduled",
+      completed: "done",
+      cancelled: "cancelled",
+      rescheduled: "scheduled",
+      no_show: "cancelled",
+    };
+    const allAppts = storage.getAppointments();
+    const updated = allAppts.map((a) =>
+      a.id === appointmentId ? { ...a, status: statusMap[sessionStatus] } : a
+    );
+    storage.saveAppointments(updated);
+    loadAppointments();
+  }, [loadAppointments]);
 
   const loadSessionFiles = useCallback(async (sessionId: string) => {
     try {
@@ -125,8 +167,9 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
 
   const handleCreateSession = async () => {
     try {
-      await sessionsService.createSession({
+      const session = await sessionsService.createSession({
         patient_id: patientId,
+        appointment_id: newSession.appointment_id || undefined,
         session_date: new Date(newSession.session_date).toISOString(),
         duration_minutes: newSession.duration_minutes,
         status: newSession.status,
@@ -134,6 +177,12 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
         summary: newSession.summary || undefined,
         clinical_observations: newSession.clinical_observations || undefined,
       });
+      
+      // Sincroniza com agendamento se vinculado
+      if (newSession.appointment_id) {
+        syncAppointmentStatus(newSession.appointment_id, newSession.status);
+      }
+      
       toast({ title: "Sessão criada com sucesso!" });
       setIsCreateOpen(false);
       setNewSession({
@@ -143,6 +192,7 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
         detailed_notes: "",
         summary: "",
         clinical_observations: "",
+        appointment_id: "",
       });
       loadSessions();
     } catch (error) {
@@ -161,6 +211,12 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
       const updated = await sessionsService.updateSession(selectedSession.id, updates);
       setSelectedSession(updated);
       setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      
+      // Sincroniza status com agendamento se houver alteração
+      if (updates.status && selectedSession.appointment_id) {
+        syncAppointmentStatus(selectedSession.appointment_id, updates.status);
+      }
+      
       toast({ title: "Sessão atualizada!" });
     } catch (error) {
       console.error("Error updating session:", error);
@@ -231,6 +287,85 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
     } finally {
       setIsGeneratingSummary(false);
     }
+  };
+
+  // Gerar relatório evolutivo consolidando múltiplas sessões
+  const handleGenerateEvolutionReport = async () => {
+    const completedSessions = sessions.filter((s) => s.status === "completed" && (s.detailed_notes || s.summary || s.transcription));
+    if (completedSessions.length < 2) {
+      toast({
+        title: "Sessões insuficientes",
+        description: "É necessário ao menos 2 sessões completas para gerar o relatório evolutivo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingEvolution(true);
+    try {
+      const { content } = await sessionsService.generateSummary("evolution", {
+        patientName,
+        previousSessions: completedSessions.slice(0, 10).map((s) => ({
+          date: s.session_date,
+          summary: s.summary || s.ai_generated_summary,
+          notes: s.detailed_notes,
+          insights: s.ai_insights,
+        })),
+      });
+      if (content) {
+        setEvolutionReport(content);
+        setIsEvolutionOpen(true);
+      }
+    } catch (error) {
+      console.error("Error generating evolution report:", error);
+      toast({
+        title: "Erro ao gerar relatório",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingEvolution(false);
+    }
+  };
+
+  const exportEvolutionReportPDF = () => {
+    if (!evolutionReport) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Relatório Evolutivo - ${patientName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+          h1 { color: #333; border-bottom: 2px solid #7c3aed; padding-bottom: 10px; }
+          .date { color: #666; font-size: 14px; margin-bottom: 30px; }
+          .content { white-space: pre-wrap; }
+        </style>
+      </head>
+      <body>
+        <h1>Relatório Evolutivo</h1>
+        <p class="date">Paciente: ${patientName} | Gerado em: ${new Date().toLocaleDateString("pt-BR")}</p>
+        <div class="content">${evolutionReport}</div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  // Importar sessão a partir de agendamento
+  const handleImportFromAppointment = (appointment: Appointment) => {
+    setNewSession({
+      session_date: appointment.dateTime.slice(0, 16),
+      duration_minutes: 50,
+      status: appointment.status === "done" ? "completed" : appointment.status === "cancelled" ? "cancelled" : "scheduled",
+      detailed_notes: "",
+      summary: "",
+      clinical_observations: "",
+      appointment_id: appointment.id,
+    });
+    setIsCreateOpen(true);
   };
 
   const handleStartRecording = async () => {
@@ -509,8 +644,61 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
                   </span>
                 </div>
               </div>
+              
+              {completedCount >= 2 && (
+                <Button
+                  onClick={handleGenerateEvolutionReport}
+                  disabled={isGeneratingEvolution}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isGeneratingEvolution ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                  )}
+                  Gerar Relatório Evolutivo
+                </Button>
+              )}
             </CardContent>
           </Card>
+
+          {/* Agendamentos não vinculados */}
+          {unlinkedAppointments.length > 0 && (
+            <Card className="bg-amber-50/80 border border-amber-200">
+              <CardContent className="p-6 space-y-3">
+                <div className="text-sm font-medium text-amber-700 flex items-center gap-2">
+                  <LinkIcon className="w-4 h-4" />
+                  Agendamentos sem sessão ({unlinkedAppointments.length})
+                </div>
+                <div className="space-y-2">
+                  {unlinkedAppointments.slice(0, 5).map((appt) => (
+                    <div
+                      key={appt.id}
+                      className="flex items-center justify-between text-sm bg-white rounded-lg p-2 border border-amber-200"
+                    >
+                      <span className="text-muted-foreground">
+                        {new Date(appt.dateTime).toLocaleDateString("pt-BR")}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-primary h-7"
+                        onClick={() => handleImportFromAppointment(appt)}
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> Criar sessão
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {unlinkedAppointments.length > 5 && (
+                  <p className="text-xs text-amber-600">
+                    +{unlinkedAppointments.length - 5} agendamentos não exibidos
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="bg-white/90 border border-border/60">
             <CardContent className="p-6 space-y-3">
@@ -525,8 +713,8 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
                   <span>Gere resumos e insights com IA</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <FileUp className="w-4 h-4 mt-0.5 text-primary" />
-                  <span>Anexe documentos e arquivos à sessão</span>
+                  <TrendingUp className="w-4 h-4 mt-0.5 text-primary" />
+                  <span>Relatório evolutivo com análise de múltiplas sessões</span>
                 </li>
               </ul>
             </CardContent>
@@ -581,6 +769,43 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Vinculação com agendamento */}
+            {unlinkedAppointments.length > 0 && (
+              <div>
+                <Label className="flex items-center gap-2">
+                  <LinkIcon className="w-4 h-4" /> Vincular a agendamento
+                </Label>
+                <Select
+                  value={newSession.appointment_id}
+                  onValueChange={(value) =>
+                    setNewSession({ ...newSession, appointment_id: value === "none" ? "" : value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Nenhum (sessão avulsa)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum (sessão avulsa)</SelectItem>
+                    {unlinkedAppointments.map((appt) => (
+                      <SelectItem key={appt.id} value={appt.id}>
+                        {new Date(appt.dateTime).toLocaleDateString("pt-BR")} - {appt.mode === "online" ? "Online" : "Presencial"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Vincular sincroniza status entre sessão e agendamento
+                </p>
+              </div>
+            )}
+            
+            {newSession.appointment_id && (
+              <div className="rounded-lg bg-primary/10 border border-primary/30 p-3 text-sm text-primary flex items-center gap-2">
+                <LinkIcon className="w-4 h-4" />
+                Sessão será vinculada ao agendamento selecionado
+              </div>
+            )}
             <div>
               <Label>Notas detalhadas</Label>
               <Textarea
@@ -1015,6 +1240,35 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
                 </DialogClose>
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Evolution Report Dialog */}
+      <Dialog open={isEvolutionOpen} onOpenChange={setIsEvolutionOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Relatório Evolutivo - {patientName}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {evolutionReport && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-6 text-sm whitespace-pre-wrap">
+                {evolutionReport}
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={exportEvolutionReportPDF}>
+                  <FileDown className="w-4 h-4 mr-2" /> Exportar PDF
+                </Button>
+                <DialogClose asChild>
+                  <Button>Fechar</Button>
+                </DialogClose>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
