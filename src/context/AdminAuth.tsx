@@ -49,36 +49,6 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Set up auth state listener BEFORE checking session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id);
-      setSession(session);
-      setSupabaseUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Fetch profile and roles
-        await fetchUserData(session.user.id);
-      } else {
-        setProfile(null);
-        setRoles([]);
-      }
-      setIsLoading(false);
-    });
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setSupabaseUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const fetchUserData = async (userId: string) => {
     try {
       // Fetch profile
@@ -111,6 +81,62 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  useEffect(() => {
+    let mounted = true;
+
+    // Set up auth state listener BEFORE checking session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("Auth state changed:", event, newSession?.user?.id);
+      
+      if (!mounted) return;
+      
+      setSession(newSession);
+      setSupabaseUser(newSession?.user ?? null);
+      
+      if (newSession?.user) {
+        // Use setTimeout to avoid Supabase deadlock
+        setTimeout(async () => {
+          if (mounted) {
+            await fetchUserData(newSession.user.id);
+            setIsLoading(false);
+          }
+        }, 0);
+      } else {
+        setProfile(null);
+        setRoles([]);
+        setIsLoading(false);
+      }
+    });
+
+    // Check for existing session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        if (existingSession?.user) {
+          setSession(existingSession);
+          setSupabaseUser(existingSession.user);
+          await fetchUserData(existingSession.user.id);
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -122,11 +148,15 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
         return { success: false, error: error.message };
       }
 
-      if (data.user) {
+      if (data.user && data.session) {
+        // Manually set session and user immediately
+        setSession(data.session);
+        setSupabaseUser(data.user);
         await fetchUserData(data.user.id);
+        return { success: true };
       }
 
-      return { success: true };
+      return { success: false, error: "Falha ao autenticar" };
     } catch (error) {
       return { 
         success: false, 
