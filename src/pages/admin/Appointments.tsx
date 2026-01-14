@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Filter, Plus, Search } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Edit, Filter, Plus, Search } from "lucide-react";
 
 import AdminLayout from "./AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { storage, type Appointment, type Patient, uid } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,13 +33,18 @@ const defaultFormState: AppointmentFormState = {
   repeatCount: 1,
 };
 
-const statusMeta: Record<NonNullable<Appointment["status"]>, { label: string; color: string; bgColor: string }> = {
+type AppointmentStatus = "scheduled" | "confirmed" | "done" | "cancelled";
+
+const statusMeta: Record<AppointmentStatus, { label: string; color: string; bgColor: string }> = {
   scheduled: { label: "Pendente", color: "bg-amber-500", bgColor: "bg-amber-50 text-amber-700" },
+  confirmed: { label: "Confirmado", color: "bg-blue-500", bgColor: "bg-blue-50 text-blue-700" },
   done: { label: "Realizado", color: "bg-emerald-500", bgColor: "bg-emerald-50 text-emerald-700" },
   cancelled: { label: "Cancelado", color: "bg-red-500", bgColor: "bg-red-50 text-red-700" },
 };
 
-const getStatusMeta = (status?: Appointment["status"]) => statusMeta[status ?? "scheduled"];
+const statusOptions: AppointmentStatus[] = ["scheduled", "confirmed", "done", "cancelled"];
+
+const getStatusMeta = (status?: string) => statusMeta[(status as AppointmentStatus) ?? "scheduled"] ?? statusMeta.scheduled;
 
 const Appointments = () => {
   const [appointments, setAppointments] = useState<Appointment[]>(storage.getAppointments());
@@ -55,6 +61,22 @@ const Appointments = () => {
   const [newPatientContext, setNewPatientContext] = useState<"create" | "edit">("create");
   const [newPatientForm, setNewPatientForm] = useState({ name: "", email: "", phone: "" });
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState<string | null>(null);
+
+  const updateAppointmentStatus = (id: string, newStatus: AppointmentStatus) => {
+    const existing = appointments.find((appt) => appt.id === id);
+    if (!existing) return;
+
+    const updated: Appointment = {
+      ...existing,
+      status: newStatus as Appointment["status"],
+    };
+
+    const next = appointments.map((appt) => (appt.id === id ? updated : appt));
+    setAppointments(next);
+    storage.saveAppointments(next);
+    setStatusPopoverOpen(null);
+  };
 
   const resetCreateForm = () => {
     setForm({ ...defaultFormState });
@@ -469,27 +491,77 @@ const Appointments = () => {
                   const patientName = patientMap[appt.patientId] || "Paciente";
                   
                   return (
-                    <button
+                    <div
                       key={appt.id}
-                      type="button"
-                      onClick={() => startEditing(appt.id)}
                       className={cn(
-                        "w-full rounded-lg border p-4 text-left transition hover:border-primary/60 hover:bg-primary/5",
+                        "rounded-lg border p-4 transition hover:border-primary/60 hover:bg-primary/5",
                         editingId === appt.id && "border-primary bg-primary/10"
                       )}
                     >
                       <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1">
+                        <div className="space-y-1 flex-1">
                           <p className="font-medium">{patientName}</p>
                           <p className="text-sm text-muted-foreground">
                             {format(appt.date, "HH:mm")} • {appt.mode === "online" ? "Online" : "Presencial"}
                           </p>
                         </div>
-                        <Badge className={cn("shrink-0", statusInfo.bgColor)}>
-                          {statusInfo.label}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Popover 
+                            open={statusPopoverOpen === appt.id} 
+                            onOpenChange={(open) => setStatusPopoverOpen(open ? appt.id : null)}
+                          >
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                                  statusInfo.bgColor,
+                                  "hover:opacity-80"
+                                )}
+                              >
+                                <span className={cn("h-2 w-2 rounded-full", statusInfo.color)} />
+                                {statusInfo.label}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-2" align="end">
+                              <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground px-2 pb-1">
+                                  Alterar status
+                                </p>
+                                {statusOptions.map((status) => {
+                                  const meta = statusMeta[status];
+                                  const isSelected = appt.status === status;
+                                  return (
+                                    <button
+                                      key={status}
+                                      type="button"
+                                      onClick={() => updateAppointmentStatus(appt.id, status)}
+                                      className={cn(
+                                        "flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm transition-colors",
+                                        isSelected 
+                                          ? "bg-primary/10 text-primary" 
+                                          : "hover:bg-muted"
+                                      )}
+                                    >
+                                      <span className={cn("h-3 w-3 rounded-full", meta.color)} />
+                                      <span>{meta.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => startEditing(appt.id)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -742,9 +814,17 @@ const Appointments = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="scheduled">Pendente</SelectItem>
-                  <SelectItem value="done">Realizado</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                  {statusOptions.map((status) => {
+                    const meta = statusMeta[status];
+                    return (
+                      <SelectItem key={status} value={status}>
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-2 w-2 rounded-full", meta.color)} />
+                          <span>{meta.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
