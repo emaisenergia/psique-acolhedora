@@ -77,12 +77,14 @@ export type AdminBlogPost = {
   updatedAt?: string;
 };
 
+// NOTE: Admin authentication has been migrated to Supabase Auth
+// The AdminUser type below is kept for legacy compatibility but should not be used for new code
+// Use the AdminAuthProvider from src/context/AdminAuth.tsx instead
 export type Role = "admin" | "psychologist" | "editor";
 export type AdminUser = {
   id: string;
   name: string;
   email: string;
-  password: string; // demo only — do NOT use in prod
   roles: Role[];
   createdAt: string;
   phone?: string;
@@ -374,24 +376,11 @@ export const storage = {
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
+// NOTE: seedDefaultUsers is deprecated - admin users are now managed via Supabase Auth
+// This function is kept for backwards compatibility but does nothing
 export const seedDefaultUsers = () => {
-  const users = storage.getUsers();
-  // Check if the admin user already exists
-  const adminExists = users.some((u) => u.email === "amandagoedert@icloud.com");
-  if (!adminExists) {
-    const admin: AdminUser = {
-      id: uid(),
-      name: "Amanda Goedert",
-      email: "amandagoedert@icloud.com",
-      password: "Ab336029*",
-      roles: ["admin", "editor", "psychologist"],
-      createdAt: new Date().toISOString(),
-      phone: "",
-      credential: "",
-      bio: "",
-      timezone: "America/Sao_Paulo",
-    };
-    // Add the new admin to existing users (or create if empty)
-    storage.saveUsers([admin, ...users.filter((u) => u.email !== "admin@local")]);
-  }
+  // Admin authentication has been migrated to Supabase Auth
+  // New admin users should be created through the signup flow
+  // and roles assigned via the user_roles table in the database
+  console.log("seedDefaultUsers is deprecated - use Supabase Auth instead");
 };
