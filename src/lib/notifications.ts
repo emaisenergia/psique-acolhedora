@@ -1,12 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
 
-type NotificationType = "new_message" | "new_activity" | "appointment_reminder" | "appointment_confirmation";
+type NotificationType = 
+  | "new_message" 
+  | "new_activity" 
+  | "appointment_reminder" 
+  | "appointment_confirmation"
+  | "appointment_created"
+  | "appointment_updated"
+  | "appointment_cancelled";
 
 interface NotificationData {
   content?: string;
   activityTitle?: string;
   appointmentDate?: string;
   appointmentTime?: string;
+  appointmentMode?: string;
+  previousDate?: string;
+  previousTime?: string;
 }
 
 export const sendNotificationEmail = async (
@@ -31,15 +41,70 @@ export const sendNotificationEmail = async (
   }
 };
 
-// Convenience functions
+// Convenience functions for messages and activities
 export const notifyNewMessage = (patientId: string, content: string) =>
   sendNotificationEmail("new_message", patientId, { content });
 
 export const notifyNewActivity = (patientId: string, activityTitle: string) =>
   sendNotificationEmail("new_activity", patientId, { activityTitle });
 
-export const notifyAppointmentReminder = (patientId: string, appointmentDate: string, appointmentTime: string) =>
-  sendNotificationEmail("appointment_reminder", patientId, { appointmentDate, appointmentTime });
+// Appointment-specific notifications
+export const notifyAppointmentCreated = (
+  patientId: string, 
+  appointmentDate: string, 
+  appointmentTime: string,
+  appointmentMode?: string
+) =>
+  sendNotificationEmail("appointment_created", patientId, { 
+    appointmentDate, 
+    appointmentTime,
+    appointmentMode 
+  });
 
-export const notifyAppointmentConfirmation = (patientId: string, appointmentDate: string, appointmentTime: string) =>
-  sendNotificationEmail("appointment_confirmation", patientId, { appointmentDate, appointmentTime });
+export const notifyAppointmentUpdated = (
+  patientId: string, 
+  appointmentDate: string, 
+  appointmentTime: string,
+  appointmentMode?: string,
+  previousDate?: string,
+  previousTime?: string
+) =>
+  sendNotificationEmail("appointment_updated", patientId, { 
+    appointmentDate, 
+    appointmentTime,
+    appointmentMode,
+    previousDate,
+    previousTime
+  });
+
+export const notifyAppointmentCancelled = (
+  patientId: string, 
+  appointmentDate: string, 
+  appointmentTime: string
+) =>
+  sendNotificationEmail("appointment_cancelled", patientId, { 
+    appointmentDate, 
+    appointmentTime 
+  });
+
+export const notifyAppointmentReminder = (
+  patientId: string, 
+  appointmentDate: string, 
+  appointmentTime: string,
+  appointmentMode?: string
+) =>
+  sendNotificationEmail("appointment_reminder", patientId, { 
+    appointmentDate, 
+    appointmentTime,
+    appointmentMode 
+  });
+
+export const notifyAppointmentConfirmation = (
+  patientId: string, 
+  appointmentDate: string, 
+  appointmentTime: string
+) =>
+  sendNotificationEmail("appointment_confirmation", patientId, { 
+    appointmentDate, 
+    appointmentTime 
+  });

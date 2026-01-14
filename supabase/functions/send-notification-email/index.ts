@@ -9,18 +9,32 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+type NotificationType = 
+  | "new_message" 
+  | "new_activity" 
+  | "appointment_reminder" 
+  | "appointment_confirmation"
+  | "appointment_created"
+  | "appointment_updated"
+  | "appointment_cancelled";
+
 interface NotificationRequest {
-  type: "new_message" | "new_activity" | "appointment_reminder" | "appointment_confirmation";
+  type: NotificationType;
   patientId: string;
   data?: {
     content?: string;
     activityTitle?: string;
     appointmentDate?: string;
     appointmentTime?: string;
+    appointmentMode?: string;
+    previousDate?: string;
+    previousTime?: string;
   };
 }
 
-const getEmailContent = (type: string, patientName: string, data?: NotificationRequest["data"]) => {
+const getEmailContent = (type: NotificationType, patientName: string, data?: NotificationRequest["data"]) => {
+  const siteUrl = Deno.env.get("SITE_URL") || "https://id-preview--8e860f77-0c7c-487f-81b8-1b842b8bb60f.lovable.app";
+  
   switch (type) {
     case "new_message":
       return {
@@ -35,7 +49,7 @@ const getEmailContent = (type: string, patientName: string, data?: NotificationR
               <p style="font-size: 14px; color: #6b7280; margin: 0;">Prévia da mensagem:</p>
               <p style="font-size: 16px; color: #1f2937; margin-top: 8px;">${data?.content?.substring(0, 150)}${(data?.content?.length || 0) > 150 ? "..." : ""}</p>
             </div>
-            <a href="${Deno.env.get("SITE_URL") || "https://id-preview--8e860f77-0c7c-487f-81b8-1b842b8bb60f.lovable.app"}/portal/mensagens" 
+            <a href="${siteUrl}/portal/mensagens" 
                style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
               Ver mensagem completa
             </a>
@@ -59,7 +73,7 @@ const getEmailContent = (type: string, patientName: string, data?: NotificationR
               <p style="font-size: 14px; color: #6b7280; margin: 0;">Atividade:</p>
               <p style="font-size: 18px; color: #1f2937; font-weight: 600; margin-top: 8px;">${data?.activityTitle}</p>
             </div>
-            <a href="${Deno.env.get("SITE_URL") || "https://id-preview--8e860f77-0c7c-487f-81b8-1b842b8bb60f.lovable.app"}/portal/atividades" 
+            <a href="${siteUrl}/portal/atividades" 
                style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
               Ver atividade
             </a>
@@ -72,22 +86,23 @@ const getEmailContent = (type: string, patientName: string, data?: NotificationR
 
     case "appointment_reminder":
       return {
-        subject: "Lembrete: Sua sessão está chegando",
+        subject: "🔔 Lembrete: Sua sessão é amanhã!",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #2563eb; margin-bottom: 20px;">Olá, ${patientName}!</h1>
             <p style="font-size: 16px; color: #374151; line-height: 1.6;">
-              Este é um lembrete da sua próxima sessão de terapia.
+              Este é um lembrete da sua próxima sessão de terapia que acontecerá <strong>amanhã</strong>.
             </p>
-            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-              <p style="font-size: 14px; color: #6b7280; margin: 0;">Data e horário:</p>
-              <p style="font-size: 18px; color: #1f2937; font-weight: 600; margin-top: 8px;">
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #f59e0b;">
+              <p style="font-size: 14px; color: #92400e; margin: 0;">📅 Data e horário:</p>
+              <p style="font-size: 18px; color: #92400e; font-weight: 600; margin-top: 8px;">
                 ${data?.appointmentDate} às ${data?.appointmentTime}
               </p>
+              ${data?.appointmentMode ? `<p style="font-size: 14px; color: #92400e; margin-top: 8px;">Modalidade: ${data.appointmentMode === "online" ? "Online" : "Presencial"}</p>` : ""}
             </div>
-            <a href="${Deno.env.get("SITE_URL") || "https://id-preview--8e860f77-0c7c-487f-81b8-1b842b8bb60f.lovable.app"}/portal/sessoes" 
+            <a href="${siteUrl}/portal/sessoes" 
                style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-              Ver sessões
+              Ver minhas sessões
             </a>
             <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
               Esta é uma notificação automática. Por favor, não responda este email.
@@ -97,23 +112,89 @@ const getEmailContent = (type: string, patientName: string, data?: NotificationR
       };
 
     case "appointment_confirmation":
+    case "appointment_created":
       return {
-        subject: "Sessão confirmada",
+        subject: "✅ Sessão agendada com sucesso!",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #2563eb; margin-bottom: 20px;">Olá, ${patientName}!</h1>
             <p style="font-size: 16px; color: #374151; line-height: 1.6;">
-              Sua sessão foi confirmada com sucesso!
+              Sua sessão foi agendada com sucesso!
             </p>
             <div style="background-color: #dcfce7; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #22c55e;">
               <p style="font-size: 14px; color: #166534; margin: 0;">✓ Sessão agendada para:</p>
               <p style="font-size: 18px; color: #166534; font-weight: 600; margin-top: 8px;">
                 ${data?.appointmentDate} às ${data?.appointmentTime}
               </p>
+              ${data?.appointmentMode ? `<p style="font-size: 14px; color: #166534; margin-top: 8px;">Modalidade: ${data.appointmentMode === "online" ? "Online" : "Presencial"}</p>` : ""}
             </div>
-            <a href="${Deno.env.get("SITE_URL") || "https://id-preview--8e860f77-0c7c-487f-81b8-1b842b8bb60f.lovable.app"}/portal/sessoes" 
+            <a href="${siteUrl}/portal/sessoes" 
                style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
               Ver minhas sessões
+            </a>
+            <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
+              Esta é uma notificação automática. Por favor, não responda este email.
+            </p>
+          </div>
+        `,
+      };
+
+    case "appointment_updated":
+      return {
+        subject: "📝 Sua sessão foi reagendada",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb; margin-bottom: 20px;">Olá, ${patientName}!</h1>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Sua sessão foi alterada. Confira os novos detalhes abaixo:
+            </p>
+            ${data?.previousDate || data?.previousTime ? `
+            <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ef4444;">
+              <p style="font-size: 14px; color: #991b1b; margin: 0;">❌ Horário anterior:</p>
+              <p style="font-size: 16px; color: #991b1b; text-decoration: line-through; margin-top: 8px;">
+                ${data?.previousDate || ""} ${data?.previousTime ? `às ${data.previousTime}` : ""}
+              </p>
+            </div>
+            ` : ""}
+            <div style="background-color: #dcfce7; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #22c55e;">
+              <p style="font-size: 14px; color: #166534; margin: 0;">✓ Novo horário:</p>
+              <p style="font-size: 18px; color: #166534; font-weight: 600; margin-top: 8px;">
+                ${data?.appointmentDate} às ${data?.appointmentTime}
+              </p>
+              ${data?.appointmentMode ? `<p style="font-size: 14px; color: #166534; margin-top: 8px;">Modalidade: ${data.appointmentMode === "online" ? "Online" : "Presencial"}</p>` : ""}
+            </div>
+            <a href="${siteUrl}/portal/sessoes" 
+               style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Ver minhas sessões
+            </a>
+            <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
+              Esta é uma notificação automática. Por favor, não responda este email.
+            </p>
+          </div>
+        `,
+      };
+
+    case "appointment_cancelled":
+      return {
+        subject: "❌ Sua sessão foi cancelada",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb; margin-bottom: 20px;">Olá, ${patientName}!</h1>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Infelizmente, sua sessão foi cancelada.
+            </p>
+            <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ef4444;">
+              <p style="font-size: 14px; color: #991b1b; margin: 0;">❌ Sessão cancelada:</p>
+              <p style="font-size: 16px; color: #991b1b; margin-top: 8px;">
+                ${data?.appointmentDate} às ${data?.appointmentTime}
+              </p>
+            </div>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Entre em contato para reagendar sua sessão.
+            </p>
+            <a href="${siteUrl}/portal/sessoes" 
+               style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Agendar nova sessão
             </a>
             <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
               Esta é uma notificação automática. Por favor, não responda este email.
