@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAdminAuth } from "@/context/AdminAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   defaultAdminPreferences,
   defaultScheduleConfig,
@@ -88,11 +89,19 @@ const emptyProfile = {
 
 const emptyPassword = { current: "", next: "", confirm: "" };
 
-const emptyUserForm: Partial<AdminUser> = {
+// User form for adding new users - now uses Supabase Auth
+type NewUserForm = {
+  name: string;
+  email: string;
+  password: string;
+  role: "psychologist" | "admin";
+};
+
+const emptyUserForm: NewUserForm = {
   name: "",
   email: "",
   password: "",
-  roles: ["psychologist"],
+  role: "psychologist",
 };
 
 const emptyInsuranceForm = { name: "", code: "", coverage: "", notes: "" };
@@ -123,7 +132,7 @@ const Configuracoes = () => {
   const [initialSchedule, setInitialSchedule] = useState<AdminScheduleConfig>(() => cloneSchedule(defaultScheduleConfig));
 
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [userForm, setUserForm] = useState<Partial<AdminUser>>({ ...emptyUserForm });
+  const [userForm, setUserForm] = useState<NewUserForm>({ ...emptyUserForm });
 
   const [insurances, setInsurances] = useState<AdminInsurance[]>([]);
   const [insuranceForm, setInsuranceForm] = useState({ ...emptyInsuranceForm });
@@ -232,7 +241,7 @@ const Configuracoes = () => {
     toast({ title: "Agenda restaurada", description: "Horários e dias retomados ao padrão." });
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
@@ -252,9 +261,8 @@ const Configuracoes = () => {
     }
 
     setSavingProfile(true);
-    updateUser({
+    await updateUser({
       name,
-      email,
       phone: profileForm.phone.trim(),
       credential: profileForm.credential.trim(),
       bio: profileForm.bio.trim(),
@@ -262,7 +270,7 @@ const Configuracoes = () => {
     });
     setProfileForm({
       name,
-      email,
+      email: profileForm.email, // Keep email display only
       phone: profileForm.phone.trim(),
       credential: profileForm.credential.trim(),
       bio: profileForm.bio.trim(),
@@ -273,18 +281,13 @@ const Configuracoes = () => {
     toast({ title: "Perfil atualizado", description: "Suas informações foram atualizadas." });
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     const { current, next, confirm } = passwordForm;
     if (!current || !next || !confirm) {
       toast({ title: "Campos obrigatórios", description: "Preencha todos os campos de senha.", variant: "destructive" });
-      return;
-    }
-
-    if (current !== user.password) {
-      toast({ title: "Senha atual incorreta", description: "A senha atual não confere.", variant: "destructive" });
       return;
     }
 
@@ -299,10 +302,19 @@ const Configuracoes = () => {
     }
 
     setSavingPassword(true);
-    updateUser({ password: next });
-    setPasswordForm({ ...emptyPassword });
+    try {
+      // Use Supabase Auth to update password
+      const { error } = await supabase.auth.updateUser({ password: next });
+      if (error) {
+        toast({ title: "Erro ao atualizar senha", description: error.message, variant: "destructive" });
+      } else {
+        setPasswordForm({ ...emptyPassword });
+        toast({ title: "Senha atualizada", description: "Use a nova senha no próximo acesso." });
+      }
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message || "Erro desconhecido", variant: "destructive" });
+    }
     setSavingPassword(false);
-    toast({ title: "Senha atualizada", description: "Use a nova senha no próximo acesso." });
   };
 
   const handleSavePreferences = (e: React.FormEvent) => {
@@ -325,38 +337,44 @@ const Configuracoes = () => {
     toast({ title: "Agenda salva", description: "Disponibilidades atualizadas para novos agendamentos." });
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userForm.name || !userForm.email || !userForm.password || !userForm.roles?.length) {
+    if (!userForm.name || !userForm.email || !userForm.password) {
       toast({ title: "Preencha os campos do usuário", variant: "destructive" });
       return;
     }
 
-    const existingUsers = storage.getUsers();
-    const emailTaken = existingUsers.some((u) => u.email === userForm.email);
-    if (emailTaken) {
-      toast({ title: "E-mail já cadastrado", description: "Use um e-mail diferente para este profissional.", variant: "destructive" });
-      return;
+    try {
+      // Create user via Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userForm.email,
+        password: userForm.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (authError) {
+        toast({ title: "Erro ao criar usuário", description: authError.message, variant: "destructive" });
+        return;
+      }
+
+      if (authData.user) {
+        // Create profile
+        await supabase.from("admin_profiles").insert({
+          user_id: authData.user.id,
+          name: userForm.name,
+        });
+
+        toast({ 
+          title: "Profissional adicionado", 
+          description: `${userForm.name} foi criado. Atribua permissões via banco de dados (user_roles).` 
+        });
+        setUserForm({ ...emptyUserForm });
+      }
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message || "Erro desconhecido", variant: "destructive" });
     }
-
-    const newUser: AdminUser = {
-      id: uid(),
-      name: userForm.name,
-      email: userForm.email,
-      password: userForm.password,
-      roles: userForm.roles as Role[],
-      createdAt: new Date().toISOString(),
-      phone: "",
-      credential: "",
-      bio: "",
-      timezone: "America/Sao_Paulo",
-    };
-
-    const nextUsers = [newUser, ...existingUsers];
-    storage.saveUsers(nextUsers);
-    setUsers(nextUsers);
-    setUserForm({ ...emptyUserForm });
-    toast({ title: "Profissional adicionado", description: `${newUser.name} agora tem acesso ao painel.` });
   };
 
   const handleRemoveUser = (id: string) => {
@@ -846,15 +864,14 @@ const Configuracoes = () => {
                       <div className="flex flex-col gap-2">
                         <Label htmlFor="users-role">Permissão</Label>
                         <Select
-                          value={(userForm.roles?.[0] as Role) || "psychologist"}
-                          onValueChange={(value) => setUserForm((prev) => ({ ...prev, roles: [value as Role] }))}
+                          value={userForm.role}
+                          onValueChange={(value) => setUserForm((prev) => ({ ...prev, role: value as "psychologist" | "admin" }))}
                         >
                           <SelectTrigger id="users-role">
                             <SelectValue placeholder="Selecione a permissão" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="psychologist">Psychologist</SelectItem>
-                            <SelectItem value="editor">Editor</SelectItem>
+                            <SelectItem value="psychologist">Psicólogo</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
