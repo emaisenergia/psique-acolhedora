@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState, DragEvent } from "react";
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Edit, Filter, GripVertical, Plus, Search } from "lucide-react";
+import { Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, GripVertical, Plus, Repeat, Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 
 import AdminLayout from "./AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -22,22 +24,32 @@ type CalendarAppointment = AppointmentRow & { date: Date };
 
 type RepeatFrequency = "none" | "weekly" | "biweekly" | "monthly";
 
+type PaymentType = "single" | "package";
+
 type AppointmentFormState = {
   patientId?: string;
-  dateTime?: string;
+  date?: string;
+  time?: string;
   mode?: string;
   status?: string;
   service?: string;
   notes?: string;
+  isRecurring?: boolean;
   repeatFrequency?: RepeatFrequency;
   repeatCount?: number;
+  paymentType?: PaymentType;
+  sessionValue?: string;
 };
 
 const defaultFormState: AppointmentFormState = {
   status: "scheduled",
   mode: "presencial",
+  service: "individual",
+  isRecurring: false,
   repeatFrequency: "none",
   repeatCount: 1,
+  paymentType: "single",
+  sessionValue: "0,00",
 };
 
 const statusMeta: Record<AppointmentStatus, { label: string; color: string; bgColor: string }> = {
@@ -100,18 +112,22 @@ const Appointments = () => {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.patientId || !form.dateTime) return;
+    if (!form.patientId || !form.date || !form.time) return;
     
     setIsSaving(true);
-    const frequency = form.repeatFrequency ?? "none";
-    const rawRepeatCount = form.repeatCount ?? 1;
-    const repeatCount = frequency === "none" ? 1 : Math.max(1, rawRepeatCount);
-
-    const baseDate = parseISO(form.dateTime);
+    
+    // Combine date and time into datetime
+    const dateTimeString = `${form.date}T${form.time}`;
+    const baseDate = parseISO(dateTimeString);
+    
     if (Number.isNaN(baseDate.getTime())) {
       setIsSaving(false);
       return;
     }
+
+    const frequency = form.isRecurring ? (form.repeatFrequency ?? "weekly") : "none";
+    const rawRepeatCount = form.repeatCount ?? 1;
+    const repeatCount = frequency === "none" ? 1 : Math.max(1, rawRepeatCount);
 
     for (let i = 0; i < repeatCount; i++) {
       const occurrenceDate =
@@ -238,29 +254,35 @@ const Appointments = () => {
     const appt = appointments.find((item) => item.id === id);
     if (!appt) return;
     setEditingId(id);
+    const parsedDate = appt.date_time ? parseISO(appt.date_time) : null;
     setEditForm({
       patientId: appt.patient_id,
-      dateTime: appt.date_time ? format(parseISO(appt.date_time), "yyyy-MM-dd'T'HH:mm") : "",
+      date: parsedDate ? format(parsedDate, "yyyy-MM-dd") : "",
+      time: parsedDate ? format(parsedDate, "HH:mm") : "",
       mode: appt.mode ?? "presencial",
       status: appt.status ?? "scheduled",
-      service: appt.service ?? "",
+      service: appt.service ?? "individual",
       notes: appt.notes ?? "",
+      isRecurring: false,
       repeatFrequency: "none",
       repeatCount: 1,
+      paymentType: "single",
+      sessionValue: "0,00",
     });
-    if (appt.date_time) {
-      updateSelectedDate(parseISO(appt.date_time));
+    if (parsedDate) {
+      updateSelectedDate(parsedDate);
     }
     setEditDialogOpen(true);
   };
 
   const saveEdit = async () => {
-    if (!editingId || !editForm.patientId || !editForm.dateTime) return;
+    if (!editingId || !editForm.patientId || !editForm.date || !editForm.time) return;
 
     setIsSaving(true);
+    const dateTimeString = `${editForm.date}T${editForm.time}`;
     await updateAppointment(editingId, {
       patient_id: editForm.patientId,
-      date_time: parseISO(editForm.dateTime).toISOString(),
+      date_time: parseISO(dateTimeString).toISOString(),
       mode: editForm.mode ?? "presencial",
       status: editForm.status ?? "scheduled",
       service: editForm.service,
@@ -749,45 +771,65 @@ const Appointments = () => {
 
       {/* Create Form Dialog */}
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Nova Sessão</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Agendar Nova Sessão</DialogTitle>
+            <p className="text-sm text-muted-foreground">Preencha os dados para agendar uma nova sessão</p>
           </DialogHeader>
-          <form onSubmit={save} className="space-y-4">
+          <form onSubmit={save} className="space-y-5">
+            {/* Paciente */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Paciente</label>
-                <Button type="button" variant="outline" size="sm" onClick={() => openNewPatientDialog("create")}>
-                  Novo paciente
+                <label className="text-sm font-medium">Paciente <span className="text-destructive">*</span></label>
+                <Button type="button" variant="ghost" size="sm" className="text-xs h-7" onClick={() => openNewPatientDialog("create")}>
+                  + Novo paciente
                 </Button>
               </div>
               <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Selecione um paciente" />
                 </SelectTrigger>
                 <SelectContent>
                   {patients.length === 0 && <SelectItem value="__none" disabled>Nenhum paciente cadastrado</SelectItem>}
                   {patients.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name}
+                      {p.name.toUpperCase()}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Data e Horário */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Data e Hora</label>
+                <label className="text-sm font-medium">Data <span className="text-destructive">*</span></label>
                 <Input 
-                  type="datetime-local" 
-                  value={form.dateTime || ""} 
-                  onChange={(e) => setForm({ ...form, dateTime: e.target.value })} 
+                  type="date" 
+                  className="h-11"
+                  value={form.date || ""} 
+                  onChange={(e) => setForm({ ...form, date: e.target.value })} 
                 />
               </div>
               <div className="space-y-2">
+                <label className="text-sm font-medium">Horário <span className="text-destructive">*</span></label>
+                <div className="relative">
+                  <Input 
+                    type="time" 
+                    className="h-11"
+                    value={form.time || ""} 
+                    onChange={(e) => setForm({ ...form, time: e.target.value })} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modalidade e Tipo de Atendimento */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Modalidade</label>
                 <Select value={form.mode ?? "presencial"} onValueChange={(value) => setForm({ ...form, mode: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -796,46 +838,176 @@ const Appointments = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Repetir</label>
-                <Select
-                  value={form.repeatFrequency ?? "none"}
-                  onValueChange={(value) => setForm({ ...form, repeatFrequency: value as RepeatFrequency })}
-                >
-                  <SelectTrigger>
+                <label className="text-sm font-medium">Tipo de Atendimento</label>
+                <Select value={form.service ?? "individual"} onValueChange={(value) => setForm({ ...form, service: value })}>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Não repetir</SelectItem>
-                    <SelectItem value="weekly">Semanal</SelectItem>
-                    <SelectItem value="biweekly">Quinzenal</SelectItem>
-                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="casal">Casal</SelectItem>
+                    <SelectItem value="familia">Família</SelectItem>
+                    <SelectItem value="grupo">Grupo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Quantidade</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="26"
-                  value={form.repeatCount ?? 1}
-                  disabled={(form.repeatFrequency ?? "none") === "none"}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setForm({ ...form, repeatCount: Number.isNaN(value) ? 1 : value });
-                  }}
-                />
+            </div>
+
+            <Separator />
+
+            {/* Agendamento Recorrente */}
+            <div className="flex items-center space-x-3">
+              <Checkbox 
+                id="recurring"
+                checked={form.isRecurring ?? false}
+                onCheckedChange={(checked) => setForm({ 
+                  ...form, 
+                  isRecurring: checked === true,
+                  repeatFrequency: checked ? "weekly" : "none"
+                })}
+              />
+              <div className="flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-muted-foreground" />
+                <label htmlFor="recurring" className="text-sm font-medium cursor-pointer">
+                  Agendamento Recorrente
+                </label>
               </div>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={resetCreateForm}>
+
+            {form.isRecurring && (
+              <div className="grid gap-4 sm:grid-cols-2 pl-7">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Frequência</label>
+                  <Select
+                    value={form.repeatFrequency ?? "weekly"}
+                    onValueChange={(value) => setForm({ ...form, repeatFrequency: value as RepeatFrequency })}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">Semanal</SelectItem>
+                      <SelectItem value="biweekly">Quinzenal</SelectItem>
+                      <SelectItem value="monthly">Mensal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Repetições</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="26"
+                    className="h-11"
+                    value={form.repeatCount ?? 4}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setForm({ ...form, repeatCount: Number.isNaN(value) ? 1 : value });
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Forma de Pagamento */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-sm font-semibold">Forma de Pagamento</span>
+              </div>
+              
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* Valor Avulso */}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, paymentType: "single" })}
+                  className={cn(
+                    "relative rounded-lg border-2 p-4 text-left transition-all",
+                    form.paymentType === "single" 
+                      ? "border-emerald-500 bg-emerald-50" 
+                      : "border-border hover:border-muted-foreground/30"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={cn(
+                      "h-5 w-5 rounded-full border-2 flex items-center justify-center mt-0.5",
+                      form.paymentType === "single" 
+                        ? "border-emerald-500" 
+                        : "border-muted-foreground/40"
+                    )}>
+                      {form.paymentType === "single" && (
+                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-emerald-600" />
+                        <span className="font-medium text-sm">Valor Avulso</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">Definir valor individual</p>
+                    </div>
+                  </div>
+                  
+                  {form.paymentType === "single" && (
+                    <div className="mt-3 pt-3 border-t border-emerald-200">
+                      <Input
+                        type="text"
+                        placeholder="R$ 0,00"
+                        className="h-10 border-emerald-300 focus:border-emerald-500"
+                        value={form.sessionValue ? `R$ ${form.sessionValue}` : ""}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^\d,]/g, "");
+                          setForm({ ...form, sessionValue: value });
+                        }}
+                      />
+                    </div>
+                  )}
+                </button>
+
+                {/* Pacote */}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, paymentType: "package" })}
+                  className={cn(
+                    "relative rounded-lg border-2 p-4 text-left transition-all",
+                    form.paymentType === "package" 
+                      ? "border-emerald-500 bg-emerald-50" 
+                      : "border-border hover:border-muted-foreground/30"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={cn(
+                      "h-5 w-5 rounded-full border-2 flex items-center justify-center mt-0.5",
+                      form.paymentType === "package" 
+                        ? "border-emerald-500" 
+                        : "border-muted-foreground/40"
+                    )}>
+                      {form.paymentType === "package" && (
+                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-sm">Pacote</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">Usar pacote existente</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="ghost" onClick={resetCreateForm}>
                 Cancelar
               </Button>
               <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSaving}>
-                {isSaving ? "Salvando..." : "Agendar Sessão"}
+                {isSaving ? "Salvando..." : "Agendar"}
               </Button>
             </DialogFooter>
           </form>
@@ -875,25 +1047,54 @@ const Appointments = () => {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Data e Hora</label>
+                <label className="text-sm font-medium">Data</label>
                 <Input
-                  type="datetime-local"
-                  value={editForm.dateTime || ""}
-                  onChange={(e) => setEditForm({ ...editForm, dateTime: e.target.value })}
+                  type="date"
+                  className="h-11"
+                  value={editForm.date || ""}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Horário</label>
+                <Input
+                  type="time"
+                  className="h-11"
+                  value={editForm.time || ""}
+                  onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Modalidade</label>
                 <Select
                   value={editForm.mode ?? "presencial"}
                   onValueChange={(value) => setEditForm({ ...editForm, mode: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="presencial">Presencial</SelectItem>
                     <SelectItem value="online">Online</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tipo de Atendimento</label>
+                <Select
+                  value={editForm.service ?? "individual"}
+                  onValueChange={(value) => setEditForm({ ...editForm, service: value })}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="casal">Casal</SelectItem>
+                    <SelectItem value="familia">Família</SelectItem>
+                    <SelectItem value="grupo">Grupo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
