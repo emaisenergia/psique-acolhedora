@@ -1,21 +1,19 @@
 import { useCallback, useMemo, useState } from "react";
-import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, isSameYear, parseISO, startOfDay, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Filter, Plus, Search } from "lucide-react";
 
 import AdminLayout from "./AdminLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Badge } from "@/components/ui/badge";
 import { storage, type Appointment, type Patient, uid } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const weekOptions = { weekStartsOn: 1 as const };
-
-type CalendarView = "day" | "week" | "month";
+const weekOptions = { weekStartsOn: 0 as const };
 
 type CalendarAppointment = Appointment & { date: Date };
 
@@ -34,10 +32,10 @@ const defaultFormState: AppointmentFormState = {
   repeatCount: 1,
 };
 
-const statusMeta: Record<NonNullable<Appointment["status"]>, { label: string; dotClass: string }> = {
-  scheduled: { label: "Agendado", dotClass: "bg-muted-foreground/60" },
-  done: { label: "Confirmado", dotClass: "bg-emerald-500" },
-  cancelled: { label: "Cancelado", dotClass: "bg-destructive" },
+const statusMeta: Record<NonNullable<Appointment["status"]>, { label: string; color: string; bgColor: string }> = {
+  scheduled: { label: "Pendente", color: "bg-amber-500", bgColor: "bg-amber-50 text-amber-700" },
+  done: { label: "Realizado", color: "bg-emerald-500", bgColor: "bg-emerald-50 text-emerald-700" },
+  cancelled: { label: "Cancelado", color: "bg-red-500", bgColor: "bg-red-50 text-red-700" },
 };
 
 const getStatusMeta = (status?: Appointment["status"]) => statusMeta[status ?? "scheduled"];
@@ -50,12 +48,13 @@ const Appointments = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<AppointmentFormState>({ ...defaultFormState });
-  const [view, setView] = useState<CalendarView>("month");
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
   const today = useMemo(() => startOfDay(new Date()), []);
   const [newPatientDialogOpen, setNewPatientDialogOpen] = useState(false);
   const [newPatientContext, setNewPatientContext] = useState<"create" | "edit">("create");
   const [newPatientForm, setNewPatientForm] = useState({ name: "", email: "", phone: "" });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const resetCreateForm = () => {
     setForm({ ...defaultFormState });
@@ -151,62 +150,63 @@ const Appointments = () => {
     setSelectedDate(startOfDay(date));
   }, []);
 
-  const navigate = (direction: "prev" | "next" | "today") => {
-    if (direction === "today") {
-      updateSelectedDate(new Date());
-      return;
-    }
-
+  const navigateMonth = (direction: "prev" | "next") => {
     const delta = direction === "prev" ? -1 : 1;
-
-    if (view === "month") {
-      updateSelectedDate(addMonths(selectedDate, delta));
-    } else if (view === "week") {
-      updateSelectedDate(addWeeks(selectedDate, delta));
-    } else {
-      updateSelectedDate(addDays(selectedDate, delta));
-    }
+    setCurrentMonth(addMonths(currentMonth, delta));
   };
 
-  const periodLabel = useMemo(() => {
-    if (view === "month") {
-      const monthDate = startOfMonth(selectedDate);
-      const month = format(monthDate, "MMMM yyyy", { locale: ptBR });
-      return month.charAt(0).toUpperCase() + month.slice(1);
-    }
-
-    if (view === "week") {
-      const weekStart = startOfWeek(selectedDate, weekOptions);
-      const weekDisplayEnd = addDays(weekStart, 4);
-      const sameYear = isSameYear(weekStart, weekDisplayEnd);
-      const startLabel = format(weekStart, "d 'de' MMMM" + (sameYear ? "" : " yyyy"), { locale: ptBR });
-      const endLabel = format(weekDisplayEnd, "d 'de' MMMM yyyy", { locale: ptBR });
-      const composed = `${startLabel} — ${endLabel}`;
-      return composed.charAt(0).toUpperCase() + composed.slice(1);
-    }
-
-    const full = format(selectedDate, "EEEE, d 'de' MMMM yyyy", { locale: ptBR });
-    return full.charAt(0).toUpperCase() + full.slice(1);
-  }, [selectedDate, view]);
-
   const monthDays = useMemo(() => {
-    if (view !== "month") return [];
-    const monthStart = startOfMonth(selectedDate);
+    const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(monthStart);
     const calendarStart = startOfWeek(monthStart, weekOptions);
     const calendarEnd = endOfWeek(monthEnd, weekOptions);
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  }, [selectedDate, view]);
+  }, [currentMonth]);
 
+  // Weekly view calculation
+  const weekStart = useMemo(() => startOfWeek(selectedDate, weekOptions), [selectedDate]);
   const weekDays = useMemo(() => {
-    if (view !== "week") return [];
-    const weekStart = startOfWeek(selectedDate, weekOptions);
-    const businessWeekEnd = addDays(weekStart, 4);
-    return eachDayOfInterval({ start: weekStart, end: businessWeekEnd });
-  }, [selectedDate, view]);
+    return eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
+  }, [weekStart]);
+
+  const navigateWeek = (direction: "prev" | "next" | "today") => {
+    if (direction === "today") {
+      updateSelectedDate(today);
+      return;
+    }
+    const delta = direction === "prev" ? -7 : 7;
+    updateSelectedDate(addDays(selectedDate, delta));
+  };
+
+  const weekLabel = useMemo(() => {
+    const start = weekStart;
+    const end = addDays(start, 6);
+    return `${format(start, "dd/MM")} - ${format(end, "dd/MM")}`;
+  }, [weekStart]);
 
   const selectedDayKey = format(selectedDate, "yyyy-MM-dd");
   const selectedDayAppointments = appointmentsByDay.get(selectedDayKey) ?? [];
+
+  // Count appointments for the week
+  const weekStats = useMemo(() => {
+    let total = 0;
+    let confirmed = 0;
+    let pending = 0;
+    let done = 0;
+    
+    for (const day of weekDays) {
+      const key = format(day, "yyyy-MM-dd");
+      const dayAppts = appointmentsByDay.get(key) ?? [];
+      total += dayAppts.length;
+      for (const appt of dayAppts) {
+        if (appt.status === "scheduled") pending++;
+        else if (appt.status === "done") done++;
+      }
+    }
+    confirmed = total - pending - (total - pending - done);
+    
+    return { total, confirmed: done, pending, done };
+  }, [weekDays, appointmentsByDay]);
 
   const startEditing = (id: string) => {
     const appt = appointments.find((item) => item.id === id);
@@ -289,56 +289,337 @@ const Appointments = () => {
     closeNewPatientDialog();
   };
 
+  // Count appointments for current month display
+  const monthAppointmentsCount = useMemo(() => {
+    let count = 0;
+    for (const day of monthDays) {
+      if (isSameMonth(day, currentMonth)) {
+        const key = format(day, "yyyy-MM-dd");
+        count += (appointmentsByDay.get(key) ?? []).length;
+      }
+    }
+    return count;
+  }, [monthDays, currentMonth, appointmentsByDay]);
+
+  const selectedDateFormatted = format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const capitalizedDate = selectedDateFormatted.charAt(0).toUpperCase() + selectedDateFormatted.slice(1);
+
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-display font-light">Agendamentos</h1>
-        <p className="text-muted-foreground">Crie e acompanhe horários agendados.</p>
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-display font-semibold">Agenda</h1>
+        <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowCreateForm(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nova Sessão
+        </Button>
       </div>
 
-      <Card className="card-glass mb-6">
-        <CardContent className="space-y-5 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">Novo agendamento</h2>
-              <p className="text-sm text-muted-foreground">
-                Clique no botão para cadastrar um horário.
-              </p>
+      {/* Search and Filters */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="relative flex-1 min-w-[280px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, CPF ou email do paciente..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
-            {!showCreateForm && (
-              <Button className="btn-futuristic" onClick={() => setShowCreateForm(true)}>
-                Novo agendamento
+            <Button variant="outline" className="gap-2">
+              <Filter className="h-4 w-4" />
+              Filtros
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Main Content - Calendar and Day Details */}
+      <div className="grid gap-6 lg:grid-cols-[400px_1fr] mb-6">
+        {/* Calendar Card */}
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <CalendarIcon className="h-5 w-5" />
+              Calendário
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {/* Month Navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="ghost" size="icon" onClick={() => navigateMonth("prev")}>
+                <ChevronLeft className="h-4 w-4" />
               </Button>
+              <div className="text-center">
+                <span className="text-sm font-medium">
+                  {format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+                </span>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <button 
+                    onClick={() => {
+                      setCurrentMonth(startOfMonth(today));
+                      updateSelectedDate(today);
+                    }}
+                    className="hover:text-primary"
+                  >
+                    Hoje
+                  </button>
+                  <span>{monthAppointmentsCount} consultas</span>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => navigateMonth("next")}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1 mb-4">
+              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
+                <div key={label} className="text-center text-xs font-medium text-muted-foreground py-2">
+                  {label}
+                </div>
+              ))}
+              {monthDays.map((day) => {
+                const key = format(day, "yyyy-MM-dd");
+                const dayAppointments = appointmentsByDay.get(key) ?? [];
+                const isSelected = isSameDay(day, selectedDate);
+                const inMonth = isSameMonth(day, currentMonth);
+                const isToday = isSameDay(day, today);
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => updateSelectedDate(day)}
+                    className={cn(
+                      "relative flex items-center justify-center h-10 w-full rounded-lg text-sm transition-colors",
+                      !inMonth && "text-muted-foreground/40",
+                      inMonth && !isSelected && !isToday && "hover:bg-muted",
+                      isToday && !isSelected && "bg-primary text-primary-foreground",
+                      isSelected && "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"
+                    )}
+                  >
+                    {format(day, "d")}
+                    {dayAppointments.length > 0 && !isSelected && !isToday && (
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Legend */}
+            <div className="pt-4 border-t">
+              <p className="text-xs text-muted-foreground mb-2">Legenda:</p>
+              <div className="flex flex-wrap gap-4 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span>Pendente</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  <span>Confirmado</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span>Realizado</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <span>Cancelado</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Day Details Card */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between pb-4">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Clock className="h-5 w-5" />
+              {capitalizedDate}
+            </CardTitle>
+            <Badge variant="outline">{selectedDayAppointments.length} consultas</Badge>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {selectedDayAppointments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <CalendarIcon className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground mb-1">
+                  Nenhuma consulta agendada
+                </h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Este dia está livre. Clique em "Nova Sessão" para agendar.
+                </p>
+                <Button 
+                  className="bg-primary hover:bg-primary/90"
+                  onClick={() => setShowCreateForm(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agendar Sessão
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedDayAppointments.map((appt) => {
+                  const statusInfo = getStatusMeta(appt.status);
+                  const patientName = patientMap[appt.patientId] || "Paciente";
+                  
+                  return (
+                    <button
+                      key={appt.id}
+                      type="button"
+                      onClick={() => startEditing(appt.id)}
+                      className={cn(
+                        "w-full rounded-lg border p-4 text-left transition hover:border-primary/60 hover:bg-primary/5",
+                        editingId === appt.id && "border-primary bg-primary/10"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <p className="font-medium">{patientName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format(appt.date, "HH:mm")} • {appt.mode === "online" ? "Online" : "Presencial"}
+                          </p>
+                        </div>
+                        <Badge className={cn("shrink-0", statusInfo.bgColor)}>
+                          {statusInfo.label}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Weekly View */}
+      <Card>
+        <CardHeader className="flex-row items-center justify-between pb-4">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <CalendarIcon className="h-5 w-5" />
+            Agenda Semanal
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigateWeek("prev")}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigateWeek("today")}>
+              Hoje
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigateWeek("next")}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Badge variant="outline" className="ml-2">{weekLabel}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {/* Week Days Grid */}
+          <div className="grid grid-cols-7 gap-3 mb-6">
+            {weekDays.map((day) => {
+              const key = format(day, "yyyy-MM-dd");
+              const dayAppointments = appointmentsByDay.get(key) ?? [];
+              const isSelected = isSameDay(day, selectedDate);
+              const isToday = isSameDay(day, today);
+              const dayLabel = format(day, "EEE", { locale: ptBR }).slice(0, 3) + ".";
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => updateSelectedDate(day)}
+                  className={cn(
+                    "flex flex-col items-center justify-center rounded-xl border-2 p-4 min-h-[120px] transition-colors",
+                    "hover:border-primary/60 hover:bg-primary/5",
+                    isSelected && "border-green-200 bg-green-50",
+                    !isSelected && "border-border",
+                    isToday && !isSelected && "border-primary/40"
+                  )}
+                >
+                  <span className="text-xs text-muted-foreground mb-1">{dayLabel}</span>
+                  <span className={cn(
+                    "text-xl font-semibold",
+                    isToday && "text-primary"
+                  )}>
+                    {format(day, "d")}
+                  </span>
+                  {dayAppointments.length > 0 && (
+                    <span className="text-xs text-muted-foreground mt-2">
+                      {dayAppointments.length} consulta{dayAppointments.length > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {showCreateForm && (
-            <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm">Paciente</label>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openNewPatientDialog("create")}>Novo paciente</Button>
-                </div>
-                <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {patients.length === 0 && <SelectItem value="__none" disabled>Nenhum paciente cadastrado</SelectItem>}
-                    {patients.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          {/* Week Stats */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t">
+            <div className="flex flex-wrap gap-6 text-sm">
+              <span>
+                <strong>Total da semana:</strong> {weekStats.total} consultas
+              </span>
+              <span>
+                <strong>Confirmadas:</strong> {weekStats.confirmed}
+              </span>
+              <span>
+                <strong>Pendentes:</strong> {weekStats.pending}
+              </span>
+              <span>
+                <strong>Realizadas:</strong> {weekStats.done}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              💡 Arraste as consultas para mover entre dias
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Create Form Dialog */}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Sessão</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={save} className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Paciente</label>
+                <Button type="button" variant="outline" size="sm" onClick={() => openNewPatientDialog("create")}>
+                  Novo paciente
+                </Button>
               </div>
-              <div>
-                <label className="text-sm">Data e Hora</label>
-                <Input type="datetime-local" value={form.dateTime || ""} onChange={(e) => setForm({ ...form, dateTime: e.target.value })} />
+              <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um paciente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.length === 0 && <SelectItem value="__none" disabled>Nenhum paciente cadastrado</SelectItem>}
+                  {patients.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Data e Hora</label>
+                <Input 
+                  type="datetime-local" 
+                  value={form.dateTime || ""} 
+                  onChange={(e) => setForm({ ...form, dateTime: e.target.value })} 
+                />
               </div>
-              <div>
-                <label className="text-sm">Modalidade</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Modalidade</label>
                 <Select value={form.mode ?? "presencial"} onValueChange={(value) => setForm({ ...form, mode: value as Appointment["mode"] })}>
                   <SelectTrigger>
                     <SelectValue />
@@ -349,299 +630,94 @@ const Appointments = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="md:col-span-2 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="text-sm">Repetir</label>
-                  <Select
-                    value={form.repeatFrequency ?? "none"}
-                    onValueChange={(value) => setForm({ ...form, repeatFrequency: value as RepeatFrequency })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Não repetir</SelectItem>
-                      <SelectItem value="weekly">Semanal</SelectItem>
-                      <SelectItem value="biweekly">Quinzenal</SelectItem>
-                      <SelectItem value="monthly">Mensal</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm">Quantidade</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="26"
-                    value={form.repeatCount ?? 1}
-                    disabled={(form.repeatFrequency ?? "none") === "none"}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      setForm({ ...form, repeatCount: Number.isNaN(value) ? 1 : value });
-                    }}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Inclui o primeiro agendamento.</p>
-                </div>
-              </div>
-              <div className="md:col-span-2 flex flex-wrap items-center gap-2">
-                <Button type="submit" className="btn-futuristic">
-                  Adicionar Agendamento
-                </Button>
-                <Button type="button" variant="outline" onClick={resetCreateForm}>
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="card-glass">
-        <CardContent className="space-y-4 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">Agenda</h2>
-                <p className="text-sm text-muted-foreground">Visualize compromissos por dia, semana ou mês.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Button type="button" variant="outline" size="icon" onClick={() => navigate("prev")}>
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className="sr-only">Anterior</span>
-                  </Button>
-                  <Button type="button" variant="outline" size="icon" onClick={() => navigate("next")}>
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="sr-only">Próximo</span>
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => navigate("today")}>
-                    Hoje
-                  </Button>
-                </div>
-                <ToggleGroup
-                  type="single"
-                  value={view}
-                  onValueChange={(value) => value && setView(value as CalendarView)}
-                  className="rounded-md border bg-background/80 p-1"
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Repetir</label>
+                <Select
+                  value={form.repeatFrequency ?? "none"}
+                  onValueChange={(value) => setForm({ ...form, repeatFrequency: value as RepeatFrequency })}
                 >
-                  <ToggleGroupItem value="day" className="px-3 py-1 text-sm">
-                    Dia
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="week" className="px-3 py-1 text-sm">
-                    Semana
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="month" className="px-3 py-1 text-sm">
-                    Mês
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não repetir</SelectItem>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="biweekly">Quinzenal</SelectItem>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Quantidade</label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="26"
+                  value={form.repeatCount ?? 1}
+                  disabled={(form.repeatFrequency ?? "none") === "none"}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setForm({ ...form, repeatCount: Number.isNaN(value) ? 1 : value });
+                  }}
+                />
               </div>
             </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={resetCreateForm}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
+                Agendar Sessão
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <p className="text-sm font-medium">{periodLabel}</p>
-
-            {view === "month" && (
-              <div className="space-y-2">
-                <div className="grid grid-cols-7 text-center text-xs uppercase text-muted-foreground">
-                  {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((label) => (
-                    <div key={label} className="py-1 font-medium tracking-wide">
-                      {label}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {monthDays.map((day) => {
-                    const key = format(day, "yyyy-MM-dd");
-                    const dayAppointments = appointmentsByDay.get(key) ?? [];
-                    const isSelected = isSameDay(day, selectedDate);
-                    const inMonth = isSameMonth(day, selectedDate);
-                    const isToday = isSameDay(day, today);
-
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => updateSelectedDate(day)}
-                        className={cn(
-                          "flex min-h-[90px] flex-col gap-1 rounded-lg border p-2 text-left transition",
-                          inMonth ? "bg-background/60" : "bg-muted/30 text-muted-foreground/80",
-                          "hover:border-primary/60 hover:bg-primary/5",
-                          isSelected && "border-primary bg-primary/10",
-                          !isSelected && isToday && "border-primary/60"
-                        )}
-                      >
-                        <div className="flex items-center justify-between text-sm font-semibold">
-                          <span>{format(day, "d")}</span>
-                          {isToday && <span className="inline-flex h-2 w-2 rounded-full bg-primary" />}
-                        </div>
-                        <div className="space-y-1">
-                          {dayAppointments.slice(0, 2).map((appt) => {
-                            const statusInfo = getStatusMeta(appt.status);
-                            return (
-                              <button
-                                type="button"
-                                key={appt.id}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  startEditing(appt.id);
-                                }}
-                                className={cn(
-                                  "rounded bg-primary/10 px-2 py-1 text-left text-xs font-medium text-primary transition hover:bg-primary/20",
-                                  editingId === appt.id && "border border-primary/70 bg-primary/20"
-                                )}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className={cn("h-2 w-2 rounded-full", statusInfo.dotClass)} aria-hidden />
-                                  <span className="truncate">
-                                    {format(appt.date, "HH:mm")} • {patientMap[appt.patientId] || "Paciente"}
-                                  </span>
-                                </div>
-                                <span className="mt-1 block text-[10px] font-normal text-muted-foreground">{statusInfo.label}</span>
-                              </button>
-                            );
-                          })}
-                          {dayAppointments.length > 2 && (
-                            <span className="text-xs text-muted-foreground">+ {dayAppointments.length - 2} agendamento(s)</span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {view === "week" && (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-5">
-                {weekDays.map((day) => {
-                  const key = format(day, "yyyy-MM-dd");
-                  const isSelected = isSameDay(day, selectedDate);
-                  const dayAppointments = appointmentsByDay.get(key) ?? [];
-                  const isToday = isSameDay(day, today);
-
-                  return (
-                    <div
-                      key={key}
-                      className={cn(
-                        "rounded-lg border bg-background/50 p-3",
-                        isSelected && "border-primary shadow-sm",
-                        !isSelected && isToday && "border-primary/60"
-                      )}
-                    >
-                      <button type="button" onClick={() => updateSelectedDate(day)} className="w-full text-left">
-                        <div className="flex items-baseline justify-between">
-                          <span className={cn("text-sm font-semibold", isToday && "text-primary")}>{format(day, "EEE", { locale: ptBR })}</span>
-                          <span className={cn("text-lg font-semibold", isToday && "text-primary")}>{format(day, "d")}</span>
-                        </div>
-                      </button>
-                      <div className="mt-2 space-y-2">
-                        {dayAppointments.length === 0 && <p className="text-xs text-muted-foreground">Sem agendamentos</p>}
-                        {dayAppointments.map((appt) => {
-                          const statusInfo = getStatusMeta(appt.status);
-                          return (
-                            <div
-                              key={appt.id}
-                              onClick={() => startEditing(appt.id)}
-                              className={cn(
-                                "cursor-pointer rounded border border-border/60 bg-background/80 p-2 transition hover:border-primary/60 hover:bg-primary/10",
-                                editingId === appt.id && "border-primary bg-primary/15"
-                              )}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-medium leading-tight">{patientMap[appt.patientId] || "Paciente"}</p>
-                                  <p className="text-xs text-muted-foreground">{format(appt.date, "HH:mm")} • {appt.service || "Agenda"}</p>
-                                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                    <span className={cn("h-2 w-2 rounded-full", statusInfo.dotClass)} aria-hidden />
-                                    <span>{statusInfo.label}</span>
-                                  </div>
-                                </div>
-                                <span className="sr-only">Editar agendamento</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {view === "day" && (
-              <div className="space-y-3">
-                {selectedDayAppointments.length === 0 && <p className="text-sm text-muted-foreground">Nenhum agendamento para este dia.</p>}
-                {selectedDayAppointments.map((appt) => {
-                  const statusInfo = getStatusMeta(appt.status);
-                  return (
-                    <div
-                      key={appt.id}
-                      onClick={() => startEditing(appt.id)}
-                      className={cn(
-                        "cursor-pointer rounded-lg border border-border/70 bg-background/80 p-3 shadow-sm transition hover:border-primary/60 hover:bg-primary/10",
-                        editingId === appt.id && "border-primary bg-primary/15"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-base font-semibold leading-tight">{patientMap[appt.patientId] || "Paciente"}</p>
-                          <p className="text-sm text-muted-foreground">{format(appt.date, "HH:mm")} • {appt.service || "Agenda"}</p>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            <span>{appt.mode === "online" ? "Online" : "Presencial"}</span>
-                            <span className="flex items-center gap-1">
-                              <span className={cn("h-2 w-2 rounded-full", statusInfo.dotClass)} aria-hidden />
-                              <span>{statusInfo.label}</span>
-                            </span>
-                          </div>
-                          {appt.notes && <p className="mt-2 text-sm text-muted-foreground">{appt.notes}</p>}
-                        </div>
-                        <span className="sr-only">Editar agendamento</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+      {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => (open ? setEditDialogOpen(true) : closeEditDialog())}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar agendamento</DialogTitle>
           </DialogHeader>
           <form onSubmit={submitEdit} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm">Paciente</label>
-                  <Button type="button" variant="outline" size="sm" onClick={() => openNewPatientDialog("edit")}>Novo paciente</Button>
-                </div>
-                <Select
-                  value={editForm.patientId}
-                  onValueChange={(value) => setEditForm({ ...editForm, patientId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {patients.length === 0 && <SelectItem value="__none" disabled>Nenhum paciente cadastrado</SelectItem>}
-                    {patients.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Paciente</label>
+                <Button type="button" variant="outline" size="sm" onClick={() => openNewPatientDialog("edit")}>
+                  Novo paciente
+                </Button>
               </div>
-              <div>
-                <label className="text-sm">Data e Hora</label>
+              <Select
+                value={editForm.patientId}
+                onValueChange={(value) => setEditForm({ ...editForm, patientId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.length === 0 && <SelectItem value="__none" disabled>Nenhum paciente cadastrado</SelectItem>}
+                  {patients.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Data e Hora</label>
                 <Input
                   type="datetime-local"
                   value={editForm.dateTime || ""}
                   onChange={(e) => setEditForm({ ...editForm, dateTime: e.target.value })}
                 />
               </div>
-              <div>
-                <label className="text-sm">Modalidade</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Modalidade</label>
                 <Select
                   value={editForm.mode ?? "presencial"}
                   onValueChange={(value) => setEditForm({ ...editForm, mode: value as Appointment["mode"] })}
@@ -655,22 +731,22 @@ const Appointments = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-sm">Status</label>
-                <Select
-                  value={editForm.status ?? "scheduled"}
-                  onValueChange={(value) => setEditForm({ ...editForm, status: value as Appointment["status"] })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="scheduled">Agendado</SelectItem>
-                    <SelectItem value="done">Confirmado</SelectItem>
-                    <SelectItem value="cancelled">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select
+                value={editForm.status ?? "scheduled"}
+                onValueChange={(value) => setEditForm({ ...editForm, status: value as Appointment["status"] })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">Pendente</SelectItem>
+                  <SelectItem value="done">Realizado</SelectItem>
+                  <SelectItem value="cancelled">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeEditDialog}>
@@ -683,7 +759,7 @@ const Appointments = () => {
               >
                 Excluir
               </Button>
-              <Button type="submit" className="btn-futuristic">
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
                 Salvar alterações
               </Button>
             </DialogFooter>
@@ -691,6 +767,7 @@ const Appointments = () => {
         </DialogContent>
       </Dialog>
 
+      {/* New Patient Dialog */}
       <Dialog open={newPatientDialogOpen} onOpenChange={(open) => (open ? setNewPatientDialogOpen(true) : closeNewPatientDialog())}>
         <DialogContent>
           <DialogHeader>
@@ -698,24 +775,24 @@ const Appointments = () => {
           </DialogHeader>
           <form onSubmit={submitNewPatient} className="space-y-4">
             <div className="space-y-3">
-              <div>
-                <label className="text-sm">Nome completo</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nome completo</label>
                 <Input
                   value={newPatientForm.name}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, name: e.target.value })}
                   required
                 />
               </div>
-              <div>
-                <label className="text-sm">E-mail</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">E-mail</label>
                 <Input
                   type="email"
                   value={newPatientForm.email}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, email: e.target.value })}
                 />
               </div>
-              <div>
-                <label className="text-sm">Telefone</label>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Telefone</label>
                 <Input
                   value={newPatientForm.phone}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, phone: e.target.value })}
@@ -726,14 +803,13 @@ const Appointments = () => {
               <Button type="button" variant="outline" onClick={closeNewPatientDialog}>
                 Cancelar
               </Button>
-              <Button type="submit" className="btn-futuristic">
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
                 Salvar paciente
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
     </AdminLayout>
   );
 };
