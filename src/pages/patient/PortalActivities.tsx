@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { usePatientAuth } from "@/context/PatientAuth";
-import { storage, type Patient, type Activity } from "@/lib/storage";
+import { usePatientActivities } from "@/hooks/usePatientData";
 import {
   Shield,
   Calendar,
@@ -18,12 +18,12 @@ import {
   UserCircle,
 } from "lucide-react";
 
-const formatDueDate = (iso?: string) => {
+const formatDueDate = (iso?: string | null) => {
   if (!iso) return "Sem prazo definido";
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long" }).format(new Date(iso));
 };
 
-const formatDateTimeLong = (iso?: string) => {
+const formatDateTimeLong = (iso?: string | null) => {
   if (!iso) return "—";
   const date = new Date(iso);
   const datePart = date.toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });
@@ -32,38 +32,18 @@ const formatDateTimeLong = (iso?: string) => {
 };
 
 const PortalActivities = () => {
-  const { email, logout } = usePatientAuth();
+  const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-
-  useEffect(() => {
-    setPatients(storage.getPatients());
-    setActivities(storage.getActivities());
-  }, []);
-
-  const me = useMemo(
-    () =>
-      patients.find(
-        (patient) => (patient.email || "").toLowerCase() === (email || "").toLowerCase()
-      ) || null,
-    [patients, email]
-  );
-
-  const patientId = me?.id || null;
+  const { activities, loading, toggleActivityStatus } = usePatientActivities();
 
   const myActivities = useMemo(() => {
-    if (!patientId) return [] as Activity[];
-    return activities
-      .filter((activity) => activity.patientId === patientId)
-      .slice()
-      .sort((a, b) => {
-        const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
-        const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
-        if (aDue !== bDue) return aDue - bDue;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-  }, [activities, patientId]);
+    return [...activities].sort((a, b) => {
+      const aDue = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+      const bDue = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
+      if (aDue !== bDue) return aDue - bDue;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [activities]);
 
   const pendingActivities = useMemo(
     () => myActivities.filter((activity) => activity.status === "pending"),
@@ -84,8 +64,8 @@ const PortalActivities = () => {
     return pendingActivities
       .slice()
       .sort((a, b) => {
-        const aDue = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
-        const bDue = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
+        const aDue = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
+        const bDue = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
         return aDue - bDue;
       })[0];
   }, [pendingActivities]);
@@ -94,28 +74,8 @@ const PortalActivities = () => {
     if (completedActivities.length === 0) return null;
     return completedActivities
       .slice()
-      .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())[0];
+      .sort((a, b) => new Date(b.completed_at || 0).getTime() - new Date(a.completed_at || 0).getTime())[0];
   }, [completedActivities]);
-
-  const persistActivities = (next: Activity[]) => {
-    setActivities(next);
-    storage.saveActivities(next);
-  };
-
-  const toggleActivityStatus = (activityId: string) => {
-    if (!patientId) return;
-    const next = activities.map((activity): Activity => {
-      if (activity.id !== activityId) return activity;
-      if (activity.patientId !== patientId) return activity;
-      const nextStatus: "pending" | "completed" = activity.status === "completed" ? "pending" : "completed";
-      return {
-        ...activity,
-        status: nextStatus,
-        completedAt: nextStatus === "completed" ? new Date().toISOString() : undefined,
-      };
-    });
-    persistActivities(next);
-  };
 
   const TabButton = ({
     label,
@@ -143,6 +103,14 @@ const PortalActivities = () => {
 
   const contentReady = myActivities.length > 0;
 
+  if (isLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen section-gradient relative overflow-hidden">
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
@@ -165,7 +133,7 @@ const PortalActivities = () => {
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                   <UserCircle className="w-5 h-5 text-primary" />
                 </div>
-                <span>{me?.name || (email?.split("@")[0] || "Paciente")}</span>
+                <span>{patient?.name || "Paciente"}</span>
               </div>
               <Button
                 variant="outline"
@@ -229,11 +197,11 @@ const PortalActivities = () => {
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span className="inline-flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {activity.dueDate ? `Prazo: ${formatDueDate(activity.dueDate)}` : "Sem prazo"}
+                                {activity.due_date ? `Prazo: ${formatDueDate(activity.due_date)}` : "Sem prazo"}
                               </span>
                               <span className="inline-flex items-center gap-1">
                                 <Target className="w-3 h-3" />
-                                Criado em {formatDateTimeLong(activity.createdAt)}
+                                Criado em {formatDateTimeLong(activity.created_at)}
                               </span>
                             </div>
                             {activity.description && (
@@ -243,7 +211,11 @@ const PortalActivities = () => {
                             )}
                           </div>
                           <div className="flex items-center gap-2 md:flex-col">
-                            <Button size="sm" className="rounded-full inline-flex items-center gap-2" onClick={() => toggleActivityStatus(activity.id)}>
+                            <Button 
+                              size="sm" 
+                              className="rounded-full inline-flex items-center gap-2" 
+                              onClick={() => toggleActivityStatus(activity.id)}
+                            >
                               <CheckCircle2 className="w-3 h-3" /> Marcar concluída
                             </Button>
                           </div>
@@ -275,7 +247,7 @@ const PortalActivities = () => {
                   {nextDueActivity ? nextDueActivity.title : "Sem atividade pendente"}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {nextDueActivity ? formatDueDate(nextDueActivity.dueDate) : "Aguarde novas orientações do seu psicólogo"}
+                  {nextDueActivity ? formatDueDate(nextDueActivity.due_date) : "Aguarde novas orientações do seu psicólogo"}
                 </div>
               </div>
               <div className="rounded-xl border border-border/60 bg-white p-4">
@@ -284,7 +256,7 @@ const PortalActivities = () => {
                   {lastCompletedActivity ? lastCompletedActivity.title : "Ainda não concluída"}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {lastCompletedActivity?.completedAt ? formatDateTimeLong(lastCompletedActivity.completedAt) : "Complete uma atividade para registrar seu avanço"}
+                  {lastCompletedActivity?.completed_at ? formatDateTimeLong(lastCompletedActivity.completed_at) : "Complete uma atividade para registrar seu avanço"}
                 </div>
               </div>
             </CardContent>
@@ -309,7 +281,7 @@ const PortalActivities = () => {
                           {activity.title}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {activity.completedAt ? `Concluída em ${formatDateTimeLong(activity.completedAt)}` : "Concluída"}
+                          {activity.completed_at ? `Concluída em ${formatDateTimeLong(activity.completed_at)}` : "Concluída"}
                         </div>
                         {activity.description && (
                           <div className="text-xs text-muted-foreground/90 whitespace-pre-line">
@@ -318,7 +290,12 @@ const PortalActivities = () => {
                         )}
                       </div>
                       <div className="mt-3">
-                        <Button size="sm" variant="outline" className="rounded-full" onClick={() => toggleActivityStatus(activity.id)}>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="rounded-full" 
+                          onClick={() => toggleActivityStatus(activity.id)}
+                        >
                           Reabrir atividade
                         </Button>
                       </div>

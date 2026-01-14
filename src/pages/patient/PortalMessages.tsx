@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,13 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePatientAuth } from "@/context/PatientAuth";
-import {
-  storage,
-  type Patient,
-  type SecureMessage,
-  type Activity,
-  uid,
-} from "@/lib/storage";
+import { usePatientMessages, usePatientActivities } from "@/hooks/usePatientData";
 import {
   Shield,
   Calendar,
@@ -43,38 +37,19 @@ const formatDateTimeLong = (iso?: string) => {
 };
 
 const PortalMessages = () => {
-  const { email, logout } = usePatientAuth();
+  const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [messages, setMessages] = useState<SecureMessage[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const { messages, loading, sendMessage } = usePatientMessages();
+  const { activities } = usePatientActivities();
   const [draft, setDraft] = useState("");
   const [urgency, setUrgency] = useState<"normal" | "urgente">("normal");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    setPatients(storage.getPatients());
-    setMessages(storage.getMessages());
-    setActivities(storage.getActivities());
-  }, []);
-
-  const me = useMemo(
-    () =>
-      patients.find(
-        (patient) => (patient.email || "").toLowerCase() === (email || "").toLowerCase()
-      ) || null,
-    [patients, email]
-  );
-
-  const patientId = me?.id || null;
-
   const myMessages = useMemo(() => {
-    if (!patientId) return [] as SecureMessage[];
-    return messages
-      .filter((message) => message.patientId === patientId)
-      .slice()
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [messages, patientId]);
+    return [...messages].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [messages]);
 
   const lastPsychologistMessage = useMemo(
     () =>
@@ -85,36 +60,22 @@ const PortalMessages = () => {
   );
 
   const pendingActivities = useMemo(
-    () =>
-      activities.filter(
-        (activity) => activity.patientId === patientId && activity.status === "pending"
-      ),
-    [activities, patientId]
+    () => activities.filter((activity) => activity.status === "pending"),
+    [activities]
   );
 
-  const persistMessages = (next: SecureMessage[]) => {
-    setMessages(next);
-    storage.saveMessages(next);
-  };
-
   const handleSubmit = async () => {
-    if (!patientId) return;
     const content = draft.trim();
     if (!content) return;
+    
     setSubmitting(true);
-    const message: SecureMessage = {
-      id: uid(),
-      patientId,
-      author: "patient",
-      content,
-      createdAt: new Date().toISOString(),
-      urgent: urgency === "urgente",
-      read: false,
-    };
-    persistMessages([...messages, message]);
-    setDraft("");
-    setUrgency("normal");
+    const { error } = await sendMessage(content, urgency === "urgente");
     setSubmitting(false);
+    
+    if (!error) {
+      setDraft("");
+      setUrgency("normal");
+    }
   };
 
   const TabButton = ({
@@ -141,6 +102,14 @@ const PortalMessages = () => {
     </button>
   );
 
+  if (isLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen section-gradient relative overflow-hidden">
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
@@ -163,7 +132,7 @@ const PortalMessages = () => {
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                   <UserCircle className="w-5 h-5 text-primary" />
                 </div>
-                <span>{me?.name || (email?.split("@")[0] || "Paciente")}</span>
+                <span>{patient?.name || "Paciente"}</span>
               </div>
               <Button
                 variant="outline"
@@ -242,7 +211,7 @@ const PortalMessages = () => {
                 <Button
                   className="rounded-full inline-flex items-center gap-2"
                   onClick={handleSubmit}
-                  disabled={!draft.trim() || submitting || !patientId}
+                  disabled={!draft.trim() || submitting}
                 >
                   <Send className="w-4 h-4" />
                   {submitting ? "Enviando..." : "Enviar"}
@@ -258,7 +227,7 @@ const PortalMessages = () => {
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Último retorno</div>
                 <div className="mt-2 text-sm text-foreground">
                   {lastPsychologistMessage
-                    ? `Resposta enviada em ${formatDateTimeLong(lastPsychologistMessage.createdAt)}`
+                    ? `Resposta enviada em ${formatDateTimeLong(lastPsychologistMessage.created_at)}`
                     : "Ainda não há respostas registradas."}
                 </div>
               </div>
@@ -305,7 +274,7 @@ const PortalMessages = () => {
                             )}
                             {isPatient ? "Você" : "Terapeuta"}
                           </span>
-                          <span>{formatDateTimeLong(message.createdAt)}</span>
+                          <span>{formatDateTimeLong(message.created_at)}</span>
                         </div>
                         {message.urgent && (
                           <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">

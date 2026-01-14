@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -9,7 +9,6 @@ import {
   LogOut,
   Clock,
   CheckCircle2,
-  XCircle,
   Shield,
   UserCircle,
   Video,
@@ -18,8 +17,13 @@ import {
   FileDown,
 } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
-import { storage, type Appointment, type Patient } from "@/lib/storage";
+import { usePatientAppointments } from "@/hooks/usePatientData";
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 
 const formatLongDate = (iso?: string) => {
   if (!iso) return "—";
@@ -37,61 +41,88 @@ const formatTime = (iso?: string) => {
 };
 
 const PortalSessions = () => {
-  const { email, logout } = usePatientAuth();
+  const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const { toast } = useToast();
+  const { appointments, createAppointment, updateAppointment } = usePatientAppointments();
   const [selected, setSelected] = useState<string | null>(null);
   const [historyRange, setHistoryRange] = useState<"30" | "90" | "all">("90");
-
-  useEffect(() => {
-    setPatients(storage.getPatients());
-    setAppointments(storage.getAppointments());
-  }, []);
-
-  const me = useMemo(
-    () =>
-      patients.find(
-        (p) => (p.email || "").toLowerCase() === (email || "").toLowerCase()
-      ) || null,
-    [patients, email]
-  );
+  const [newSessionOpen, setNewSessionOpen] = useState(false);
+  const [newSession, setNewSession] = useState({
+    date: "",
+    time: "",
+    mode: "presencial" as "online" | "presencial",
+    service: "Terapia Individual",
+    notes: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   const myAppointments = useMemo(() => {
-    if (!me) return [] as Appointment[];
-    return appointments
-      .filter((a) => a.patientId === me.id)
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(a.dateTime || 0).getTime() -
-          new Date(b.dateTime || 0).getTime()
-      );
-  }, [appointments, me]);
+    return [...appointments].sort(
+      (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime()
+    );
+  }, [appointments]);
 
   const upcoming = myAppointments.filter(
-    (a) => new Date(a.dateTime || 0).getTime() >= Date.now() && a.status !== "cancelled"
+    (a) => new Date(a.date_time).getTime() >= Date.now() && a.status !== "cancelled"
   );
   const history = myAppointments.filter(
-    (a) => new Date(a.dateTime || 0).getTime() < Date.now() || a.status === "cancelled"
+    (a) => new Date(a.date_time).getTime() < Date.now() || a.status === "cancelled"
   );
   const doneHistory = history
     .filter((a) => a.status === "done")
-    .slice()
-    .sort((a, b) => new Date(b.dateTime || 0).getTime() - new Date(a.dateTime || 0).getTime());
+    .sort((a, b) => new Date(b.date_time).getTime() - new Date(a.date_time).getTime());
 
   const filteredHistory = useMemo(() => {
     if (historyRange === "all") return doneHistory;
     const days = historyRange === "30" ? 30 : 90;
     const since = new Date();
     since.setDate(since.getDate() - days);
-    return doneHistory.filter((a) => new Date(a.dateTime || 0) >= since);
+    return doneHistory.filter((a) => new Date(a.date_time) >= since);
   }, [doneHistory, historyRange]);
 
+  const handleCreateSession = async () => {
+    if (!patient?.id || !newSession.date || !newSession.time) {
+      toast({ title: "Preencha data e horário", variant: "destructive" });
+      return;
+    }
+
+    setSubmitting(true);
+    const dateTime = `${newSession.date}T${newSession.time}:00`;
+    
+    const { error } = await createAppointment({
+      patient_id: patient.id,
+      psychologist_id: null,
+      date_time: dateTime,
+      duration_minutes: 50,
+      service: newSession.service,
+      mode: newSession.mode,
+      status: "scheduled",
+      notes: newSession.notes || null,
+      meeting_url: null,
+    });
+
+    setSubmitting(false);
+    
+    if (error) {
+      toast({ title: "Erro ao agendar", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Sessão agendada!", description: "Aguarde a confirmação do psicólogo." });
+      setNewSessionOpen(false);
+      setNewSession({ date: "", time: "", mode: "presencial", service: "Terapia Individual", notes: "" });
+    }
+  };
+
+  const handleCancelAppointment = async (id: string) => {
+    const { error } = await updateAppointment(id, { status: "cancelled" });
+    if (error) {
+      toast({ title: "Erro ao cancelar", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Sessão cancelada" });
+    }
+  };
+
   const exportHistoryPdf = () => {
-    const rows = filteredHistory
-      .map((a) => `${formatLongDate(a.dateTime)} • ${formatTime(a.dateTime)} • ${a.service || "Sessão"} • ${a.mode === "online" ? "Online" : "Presencial"}`)
-      .join("\n");
     const html = `<!doctype html><html><head><meta charset='utf-8'><title>Histórico de Sessões</title>
       <style>
         body{font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding:24px; color:#111827}
@@ -101,7 +132,7 @@ const PortalSessions = () => {
       <h1>Histórico de Sessões</h1>
       ${filteredHistory
         .map(
-          (a) => `<div class='row'>${formatLongDate(a.dateTime)} • ${formatTime(a.dateTime)} • ${a.service || "Sessão"} • ${a.mode === "online" ? "Online" : "Presencial"}</div>`
+          (a) => `<div class='row'>${formatLongDate(a.date_time)} • ${formatTime(a.date_time)} • ${a.service || "Sessão"} • ${a.mode === "online" ? "Online" : "Presencial"}</div>`
         )
         .join("")}
       <script>setTimeout(()=>window.print(), 100);</script>
@@ -111,8 +142,6 @@ const PortalSessions = () => {
     w.document.write(html);
     w.document.close();
   };
-
-  const selectedAppt = myAppointments.find((a) => a.id === selected) || null;
 
   const TabButton = ({
     label,
@@ -132,6 +161,14 @@ const PortalSessions = () => {
       {label}
     </button>
   );
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen section-gradient relative overflow-hidden">
@@ -156,7 +193,7 @@ const PortalSessions = () => {
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                   <UserCircle className="w-5 h-5 text-primary" />
                 </div>
-                <span>{me?.name || (email?.split("@")[0] || "Paciente")}</span>
+                <span>{patient?.name || "Paciente"}</span>
               </div>
               <Button
                 variant="outline"
@@ -188,9 +225,85 @@ const PortalSessions = () => {
         {/* Header row */}
         <div className="mt-8 flex items-center justify-between">
           <h2 className="text-xl font-display font-light">Próximas Sessões</h2>
-          <Button variant="outline" className="rounded-full inline-flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Nova Sessão
-          </Button>
+          <Dialog open={newSessionOpen} onOpenChange={setNewSessionOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="rounded-full inline-flex items-center gap-2">
+                <Plus className="w-4 h-4" /> Nova Sessão
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Solicitar Nova Sessão</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Data</label>
+                    <Input
+                      type="date"
+                      value={newSession.date}
+                      onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
+                      min={new Date().toISOString().split("T")[0]}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Horário</label>
+                    <Input
+                      type="time"
+                      value={newSession.time}
+                      onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Modalidade</label>
+                  <Select
+                    value={newSession.mode}
+                    onValueChange={(v) => setNewSession({ ...newSession, mode: v as "online" | "presencial" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="presencial">Presencial</SelectItem>
+                      <SelectItem value="online">Online</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Serviço</label>
+                  <Select
+                    value={newSession.service}
+                    onValueChange={(v) => setNewSession({ ...newSession, service: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Terapia Individual">Terapia Individual</SelectItem>
+                      <SelectItem value="Terapia de Casal">Terapia de Casal</SelectItem>
+                      <SelectItem value="Orientação Familiar">Orientação Familiar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Observações (opcional)</label>
+                  <Textarea
+                    placeholder="Alguma preferência ou observação?"
+                    value={newSession.notes}
+                    onChange={(e) => setNewSession({ ...newSession, notes: e.target.value })}
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleCreateSession}
+                  disabled={submitting || !newSession.date || !newSession.time}
+                >
+                  {submitting ? "Agendando..." : "Solicitar Agendamento"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="mt-4 grid lg:grid-cols-2 gap-6 items-start">
@@ -198,12 +311,12 @@ const PortalSessions = () => {
           <div className="space-y-6">
             {upcoming.length === 0 && (
               <Card className="card-glass">
-                <CardContent className="p-6 text-muted-foreground">Nenhuma sessão futura.</CardContent>
+                <CardContent className="p-6 text-muted-foreground">Nenhuma sessão futura agendada.</CardContent>
               </Card>
             )}
             {upcoming.map((a) => {
-              const dateStr = formatLongDate(a.dateTime);
-              const timeStr = formatTime(a.dateTime);
+              const dateStr = formatLongDate(a.date_time);
+              const timeStr = formatTime(a.date_time);
               const isOnline = a.mode === "online";
               const isCancelled = a.status === "cancelled";
               return (
@@ -217,44 +330,54 @@ const PortalSessions = () => {
                       <div>
                         <div className="text-sm text-muted-foreground">{dateStr}</div>
                         <div className="mt-1 text-sm text-muted-foreground inline-flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-primary" /> {timeStr} • 50 min • {isOnline ? "Online" : "Presencial"}
+                          <Clock className="w-4 h-4 text-primary" /> {timeStr} • {a.duration_minutes} min • {isOnline ? "Online" : "Presencial"}
                         </div>
-                        <div className="mt-1 text-xs text-muted-foreground">{new Date(a.dateTime || 0).getTime() < Date.now() ? "Passado" : "Agendado"} • Lembrete enviado</div>
 
                         <div className="mt-4">
                           <div className="font-semibold">{a.service || "Terapia Individual"}</div>
-                          <div className="text-sm text-muted-foreground">Foco: {a.notes || "Técnicas de relaxamento e gestão de ansiedade"}</div>
-                        </div>
-
-                        <div className="mt-4 flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                            <UserCircle className="w-5 h-5 text-primary" />
-                          </div>
-                          <div className="text-sm">
-                            <div className="font-medium">Dra. Ana Silva</div>
-                            <div className="text-muted-foreground">Psicóloga Clínica - CRP 06/12345</div>
-                          </div>
+                          {a.notes && <div className="text-sm text-muted-foreground">Observações: {a.notes}</div>}
                         </div>
                       </div>
                       <div>
-                        <span className={`px-3 py-1 rounded-full text-xs ${isCancelled ? 'bg-rose-100 text-rose-700' : 'bg-green-100 text-green-700'}`}>
-                          {isCancelled ? 'Cancelada' : 'Confirmada'}
+                        <span className={`px-3 py-1 rounded-full text-xs ${
+                          isCancelled ? 'bg-rose-100 text-rose-700' : 
+                          a.status === 'confirmed' ? 'bg-green-100 text-green-700' : 
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {isCancelled ? 'Cancelada' : a.status === 'confirmed' ? 'Confirmada' : 'Aguardando'}
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-4 pt-4 border-t border-border/60 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {isOnline ? (
-                          <Button size="sm" className="btn-futuristic rounded-full inline-flex items-center gap-2">
-                            <Video className="w-4 h-4" /> Entrar
+                        {isOnline && a.meeting_url ? (
+                          <a href={a.meeting_url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" className="btn-futuristic rounded-full inline-flex items-center gap-2">
+                              <Video className="w-4 h-4" /> Entrar
+                            </Button>
+                          </a>
+                        ) : isOnline ? (
+                          <Button size="sm" disabled className="rounded-full inline-flex items-center gap-2">
+                            <Video className="w-4 h-4" /> Link em breve
                           </Button>
                         ) : null}
-                        <Button variant="ghost" size="sm" className="text-muted-foreground">Reagendar</Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-muted-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelAppointment(a.id);
+                          }}
+                        >
+                          Cancelar
+                        </Button>
                       </div>
                       <div className="text-muted-foreground">
                         <span className="inline-flex items-center gap-1 text-xs">
-                          {isOnline ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />} Detalhes
+                          {isOnline ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />} 
+                          {isOnline ? "Videochamada" : "Consultório"}
                         </span>
                       </div>
                     </div>
@@ -262,11 +385,9 @@ const PortalSessions = () => {
                 </Card>
               );
             })}
-
-            {/* History moved to right column */}
           </div>
 
-          {/* Right column: History of completed sessions */}
+          {/* Right column: History */}
           <div>
             <Card className="bg-white/90 border border-border/60 rounded-2xl shadow-card">
               <CardContent className="p-6">
@@ -304,8 +425,8 @@ const PortalSessions = () => {
                     {filteredHistory.map((a) => (
                       <div key={a.id} className="flex items-start justify-between p-3 border border-border/60 rounded-xl bg-white/80">
                         <div className="text-sm">
-                          <div className="font-medium">{formatLongDate(a.dateTime)}</div>
-                          <div className="text-muted-foreground">{formatTime(a.dateTime)} • {a.service || 'Sessão'} • {a.mode === 'online' ? 'Online' : 'Presencial'}</div>
+                          <div className="font-medium">{formatLongDate(a.date_time)}</div>
+                          <div className="text-muted-foreground">{formatTime(a.date_time)} • {a.service || 'Sessão'} • {a.mode === 'online' ? 'Online' : 'Presencial'}</div>
                         </div>
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">
                           <CheckCircle2 className="w-4 h-4" /> Concluída
@@ -318,6 +439,7 @@ const PortalSessions = () => {
             </Card>
           </div>
         </div>
+        <div className="h-16" />
       </div>
     </div>
   );
