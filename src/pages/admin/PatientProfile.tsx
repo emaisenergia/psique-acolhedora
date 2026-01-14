@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield } from "lucide-react";
+import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield, UserPlus, Key, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useMemo, useState, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -86,6 +88,13 @@ const PatientProfile = () => {
     assignedBy: "",
   });
   const [replyText, setReplyText] = useState("");
+  
+  // Patient user account state
+  const [userAccountLoading, setUserAccountLoading] = useState(false);
+  const [userAccountCreating, setUserAccountCreating] = useState(false);
+  const [patientHasAccount, setPatientHasAccount] = useState<boolean | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const patientId = patient?.id || null;
 
@@ -566,6 +575,99 @@ const PatientProfile = () => {
     navigate("/admin/pacientes");
   };
 
+  // Check if patient has a user account
+  const checkPatientAccount = async () => {
+    if (!patient?.email) return;
+    setUserAccountLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('patients')
+        .select('user_id')
+        .eq('email', patient.email)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking patient account:', error);
+      }
+      setPatientHasAccount(!!data?.user_id);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setUserAccountLoading(false);
+    }
+  };
+
+  // Create user account for patient
+  const createPatientAccount = async () => {
+    if (!patient?.email || !newPassword) {
+      toast.error("Email e senha são obrigatórios");
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    setUserAccountCreating(true);
+    try {
+      // Create user in auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: patient.email,
+        password: newPassword,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            name: patient.name,
+          }
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Falha ao criar usuário");
+
+      // Update patient with user_id
+      const { error: updateError } = await supabase
+        .from('patients')
+        .update({ user_id: authData.user.id })
+        .eq('email', patient.email);
+
+      if (updateError) throw updateError;
+
+      // Add patient role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: authData.user.id, role: 'patient' });
+
+      if (roleError) {
+        console.error('Error adding role:', roleError);
+      }
+
+      toast.success("Conta do paciente criada com sucesso!");
+      setPatientHasAccount(true);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: unknown) {
+      console.error('Error creating patient account:', error);
+      const message = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(`Erro ao criar conta: ${message}`);
+    } finally {
+      setUserAccountCreating(false);
+    }
+  };
+
+  // Check account status when tab changes to access
+  useMemo(() => {
+    if (tab === 'acesso' && patientHasAccount === null) {
+      checkPatientAccount();
+    }
+  }, [tab]);
+
   if (!patient) {
     return (
       <AdminLayout>
@@ -626,7 +728,7 @@ const PatientProfile = () => {
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab} className="mb-6">
-        <TabsList className="w-full bg-muted/60 rounded-2xl p-1">
+        <TabsList className="w-full bg-muted/60 rounded-2xl p-1 flex-wrap">
           <TabsTrigger value="perfil" className="flex-1 rounded-xl">Perfil Completo</TabsTrigger>
           <TabsTrigger value="prontuario" className="flex-1 rounded-xl"><FileText className="w-4 h-4 mr-2"/>Prontuário</TabsTrigger>
           <TabsTrigger value="sessoes" className="flex-1 rounded-xl"><CalendarDays className="w-4 h-4 mr-2"/>Sessões</TabsTrigger>
@@ -636,6 +738,7 @@ const PatientProfile = () => {
           <TabsTrigger value="financeiro" className="flex-1 rounded-xl"><DollarSign className="w-4 h-4 mr-2"/>Financeiro</TabsTrigger>
           <TabsTrigger value="arquivos" className="flex-1 rounded-xl"><Folder className="w-4 h-4 mr-2"/>Arquivos</TabsTrigger>
           <TabsTrigger value="anamnese" className="flex-1 rounded-xl"><ClipboardList className="w-4 h-4 mr-2"/>Anamnese</TabsTrigger>
+          <TabsTrigger value="acesso" className="flex-1 rounded-xl"><Key className="w-4 h-4 mr-2"/>Acesso</TabsTrigger>
         </TabsList>
 
         <TabsContent value="perfil" className="mt-6">
@@ -1286,6 +1389,140 @@ const PatientProfile = () => {
         </TabsContent>
         <TabsContent value="anamnese" className="mt-6">
           <Card className="card-glass"><CardContent className="p-6 text-muted-foreground">Em breve: anamnese.</CardContent></Card>
+        </TabsContent>
+        <TabsContent value="acesso" className="mt-6">
+          <Card className="card-glass">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Key className="w-5 h-5" />
+                    Acesso ao Portal do Paciente
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Gerencie o acesso do paciente ao portal online
+                  </p>
+                </div>
+                {patientHasAccount !== null && (
+                  <Badge className={patientHasAccount ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}>
+                    {patientHasAccount ? "Conta ativa" : "Sem conta"}
+                  </Badge>
+                )}
+              </div>
+
+              {userAccountLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Verificando conta...</span>
+                </div>
+              ) : patientHasAccount ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+                  <div className="flex items-start gap-4">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-medium text-emerald-800">Paciente já possui acesso ao portal</h4>
+                      <p className="text-sm text-emerald-700 mt-1">
+                        O paciente pode acessar o portal usando o email <strong>{patient.email}</strong>
+                      </p>
+                      <p className="text-xs text-emerald-600 mt-2">
+                        Caso o paciente tenha esquecido a senha, ele pode usar a opção "Esqueci minha senha" na tela de login.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-amber-800">
+                          Este paciente ainda não possui uma conta para acessar o portal. 
+                          Crie uma conta abaixo para que ele possa agendar sessões, enviar mensagens e acompanhar atividades.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-background p-6 space-y-4">
+                    <div className="flex items-center gap-2 text-primary">
+                      <UserPlus className="w-5 h-5" />
+                      <h4 className="font-medium">Criar conta para o paciente</h4>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div>
+                        <Label htmlFor="patient-email">Email</Label>
+                        <Input 
+                          id="patient-email" 
+                          type="email" 
+                          value={patient.email || ''} 
+                          disabled 
+                          className="bg-muted"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          O email cadastrado será usado para login
+                        </p>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="new-password">Senha *</Label>
+                          <Input 
+                            id="new-password" 
+                            type="password" 
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Mínimo 6 caracteres"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="confirm-password">Confirmar senha *</Label>
+                          <Input 
+                            id="confirm-password" 
+                            type="password" 
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Repita a senha"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button 
+                        onClick={createPatientAccount}
+                        disabled={userAccountCreating || !patient.email || !newPassword || !confirmPassword}
+                        className="btn-futuristic"
+                      >
+                        {userAccountCreating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Criando conta...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Criar conta do paciente
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
+                <h4 className="font-medium text-sm mb-2">O que o paciente pode fazer no portal?</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Agendar e gerenciar sessões</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Enviar mensagens seguras</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Acompanhar atividades e exercícios</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Registrar diário emocional</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
