@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      activities: {
+        Row: {
+          assigned_by: string | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          patient_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          patient_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          patient_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_profiles: {
         Row: {
           bio: string | null
@@ -49,6 +96,171 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      appointments: {
+        Row: {
+          created_at: string
+          date_time: string
+          duration_minutes: number
+          id: string
+          meeting_url: string | null
+          mode: string
+          notes: string | null
+          patient_id: string
+          psychologist_id: string | null
+          service: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_time: string
+          duration_minutes?: number
+          id?: string
+          meeting_url?: string | null
+          mode?: string
+          notes?: string | null
+          patient_id: string
+          psychologist_id?: string | null
+          service?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_time?: string
+          duration_minutes?: number
+          id?: string
+          meeting_url?: string | null
+          mode?: string
+          notes?: string | null
+          patient_id?: string
+          psychologist_id?: string | null
+          service?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          id: string
+          mood: string
+          note: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mood: string
+          note: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mood?: string
+          note?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          birth_date: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      secure_messages: {
+        Row: {
+          author: string
+          author_user_id: string | null
+          content: string
+          created_at: string
+          id: string
+          patient_id: string
+          read: boolean
+          urgent: boolean
+        }
+        Insert: {
+          author: string
+          author_user_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          patient_id: string
+          read?: boolean
+          urgent?: boolean
+        }
+        Update: {
+          author?: string
+          author_user_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          patient_id?: string
+          read?: boolean
+          urgent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "secure_messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       session_audit_log: {
         Row: {

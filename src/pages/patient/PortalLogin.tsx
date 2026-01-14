@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePatientAuth } from "@/context/PatientAuth";
 
 const PortalLogin = () => {
-  const { isAuthenticated, login } = usePatientAuth();
+  const { isAuthenticated, isLoading, login, resetPassword } = usePatientAuth();
   const navigate = useNavigate();
   const location = useLocation() as any;
   const { toast } = useToast();
@@ -19,30 +19,67 @@ const PortalLogin = () => {
   const [loading, setLoading] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
+  const [sendingReset, setSendingReset] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) navigate("/portal/app", { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (!isLoading && isAuthenticated) {
+      navigate("/portal/app", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // artificial delay
-    await new Promise((r) => setTimeout(r, 600));
-    const ok = login(email.trim(), password);
+    
+    const result = await login(email.trim(), password);
+    
     setLoading(false);
-    if (ok) {
+    if (result.success) {
       toast({ title: "Bem-vindo(a)", description: "Login realizado com sucesso." });
       const to = location?.state?.from || "/portal/app";
       navigate(to, { replace: true });
     } else {
-      toast({ title: "Credenciais inválidas", description: "Verifique seu e-mail e senha.", variant: "destructive" });
+      toast({ 
+        title: "Erro no login", 
+        description: result.error || "Verifique seu e-mail e senha.", 
+        variant: "destructive" 
+      });
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!forgotEmail) return;
+    
+    setSendingReset(true);
+    const result = await resetPassword(forgotEmail);
+    setSendingReset(false);
+    
+    if (result.success) {
+      toast({ 
+        title: "E-mail enviado", 
+        description: `Verifique ${forgotEmail} para redefinir sua senha.` 
+      });
+      setForgotOpen(false);
+      setForgotEmail("");
+    } else {
+      toast({ 
+        title: "Erro", 
+        description: result.error || "Não foi possível enviar o e-mail.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen section-gradient flex items-center justify-center relative overflow-hidden py-12 px-4">
-      {/* subtle background accents */}
       <div className="absolute -top-10 -left-10 w-48 h-48 bg-secondary/10 rounded-full blur-2xl" />
       <div className="absolute -bottom-10 -right-10 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
 
@@ -64,44 +101,69 @@ const PortalLogin = () => {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium mb-2">Email</label>
-                <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="seu@email.com" 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  required 
+                />
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium mb-2">Senha</label>
-                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="••••••••" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  required 
+                />
                 <div className="mt-2 text-right">
                   <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
                     <DialogTrigger asChild>
-                      <button type="button" className="text-xs text-primary hover:underline">Esqueci minha senha</button>
+                      <button type="button" className="text-xs text-primary hover:underline">
+                        Esqueci minha senha
+                      </button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Recuperar senha</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">Informe seu e-mail cadastrado para enviarmos um link de redefinição.</p>
+                        <p className="text-sm text-muted-foreground">
+                          Informe seu e-mail cadastrado para enviarmos um link de redefinição.
+                        </p>
                         <div>
                           <label htmlFor="reset-email" className="block text-sm mb-2">E-mail</label>
-                          <Input id="reset-email" type="email" placeholder="seu@email.com" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} />
+                          <Input 
+                            id="reset-email" 
+                            type="email" 
+                            placeholder="seu@email.com" 
+                            value={forgotEmail} 
+                            onChange={(e) => setForgotEmail(e.target.value)} 
+                          />
                         </div>
                         <Button
                           type="button"
                           className="btn-futuristic inline-flex items-center gap-2"
-                          onClick={() => {
-                            if (!forgotEmail) return;
-                            toast({ title: "Se existir uma conta, enviaremos um link", description: `Verifique ${forgotEmail} em alguns minutos.` });
-                            setForgotOpen(false);
-                            setForgotEmail("");
-                          }}
+                          onClick={handleResetPassword}
+                          disabled={!forgotEmail || sendingReset}
                         >
-                          <Mail className="w-4 h-4" /> Enviar instruções
+                          <Mail className="w-4 h-4" /> 
+                          {sendingReset ? "Enviando..." : "Enviar instruções"}
                         </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
                 </div>
               </div>
-              <Button type="submit" disabled={loading} className="btn-futuristic w-full inline-flex items-center justify-center gap-2">
+              <Button 
+                type="submit" 
+                disabled={loading} 
+                className="btn-futuristic w-full inline-flex items-center justify-center gap-2"
+              >
                 <LogIn className="w-4 h-4" />
                 {loading ? "Entrando..." : "Entrar no Portal"}
               </Button>
@@ -112,9 +174,8 @@ const PortalLogin = () => {
                 <div className="flex items-start gap-2">
                   <Info className="w-4 h-4 text-primary mt-0.5" />
                   <div>
-                    <div className="font-medium text-foreground mb-1">Credenciais de Demonstração</div>
-                    <div>Email: maria.santos@email.com</div>
-                    <div>Senha: MinhaSenh@123</div>
+                    <div className="font-medium text-foreground mb-1">Primeiro acesso?</div>
+                    <div>Seu psicólogo irá cadastrar você no sistema e enviar suas credenciais de acesso.</div>
                   </div>
                 </div>
               </div>

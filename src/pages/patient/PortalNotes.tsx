@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { usePatientAuth } from "@/context/PatientAuth";
-import { storage, type Activity, type JournalEntry, type Patient, uid } from "@/lib/storage";
+import { usePatientJournal, usePatientActivities, type PatientJournalEntry } from "@/hooks/usePatientData";
 import {
   Shield,
   Calendar,
@@ -19,7 +19,6 @@ import {
   Frown,
   CloudRain,
   NotebookPen,
-  Clock,
   Sparkles,
   LineChart,
 } from "lucide-react";
@@ -34,8 +33,10 @@ const formatDateTimeLong = (iso?: string) => {
 
 const toDayKey = (date: Date) => format(date, "yyyy-MM-dd");
 
+type Mood = "muito_bem" | "bem" | "neutro" | "desafiador" | "dificil";
+
 const moodOptions: Array<{
-  value: JournalEntry["mood"];
+  value: Mood;
   label: string;
   description: string;
   icon: any;
@@ -73,106 +74,64 @@ const moodOptions: Array<{
 ];
 
 const PortalNotes = () => {
-  const { email, logout } = usePatientAuth();
+  const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [journals, setJournals] = useState<JournalEntry[]>([]);
-  const [draftMood, setDraftMood] = useState<JournalEntry["mood"]>("bem");
+  const { entries, loading, createEntry, updateEntry } = usePatientJournal();
+  const { activities } = usePatientActivities();
+  const [draftMood, setDraftMood] = useState<Mood>("bem");
   const [draftNote, setDraftNote] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    setPatients(storage.getPatients());
-    setActivities(storage.getActivities());
-    setJournals(storage.getJournalEntries());
-  }, []);
-
-  const me = useMemo(
-    () =>
-      patients.find(
-        (patient) => (patient.email || "").toLowerCase() === (email || "").toLowerCase()
-      ) || null,
-    [patients, email]
-  );
-
-  const patientId = me?.id || null;
-
   const myEntries = useMemo(() => {
-    if (!patientId) return [] as JournalEntry[];
-    return journals
-      .filter((entry) => entry.patientId === patientId)
-      .slice()
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [journals, patientId]);
-
-  const saveEntries = (next: JournalEntry[]) => {
-    setJournals(next);
-    storage.saveJournalEntries(next);
-  };
-
-  const handleSubmit = async () => {
-    if (!patientId) return;
-    const text = draftNote.trim();
-    if (!text) return;
-    setSaving(true);
-    const now = new Date();
-    const dayKey = toDayKey(now);
-    const updated: JournalEntry = {
-      id: uid(),
-      patientId,
-      createdAt: now.toISOString(),
-      mood: draftMood,
-      note: text,
-    };
-
-    const nextEntries = (() => {
-      const hasSameDay = myEntries.find((entry) => entry.createdAt.startsWith(dayKey));
-      if (!hasSameDay) {
-        return [...journals, updated];
-      }
-      return journals.map((entry) =>
-        entry.patientId === patientId && entry.createdAt.startsWith(dayKey)
-          ? { ...entry, note: text, mood: draftMood, createdAt: updated.createdAt }
-          : entry
-      );
-    })();
-
-    saveEntries(nextEntries);
-    setDraftNote("");
-    setSaving(false);
-  };
+    return [...entries].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [entries]);
 
   const todayEntry = useMemo(() => {
     const dayKey = toDayKey(new Date());
-    return myEntries.find((entry) => entry.createdAt.startsWith(dayKey)) || null;
+    return myEntries.find((entry) => entry.created_at.startsWith(dayKey)) || null;
   }, [myEntries]);
 
   useEffect(() => {
     if (todayEntry) {
-      setDraftMood(todayEntry.mood);
+      setDraftMood(todayEntry.mood as Mood);
       setDraftNote(todayEntry.note);
     }
   }, [todayEntry]);
 
+  const handleSubmit = async () => {
+    const text = draftNote.trim();
+    if (!text) return;
+    
+    setSaving(true);
+    
+    if (todayEntry) {
+      await updateEntry(todayEntry.id, draftMood, text);
+    } else {
+      await createEntry(draftMood, text);
+    }
+    
+    setSaving(false);
+  };
+
   const moodCounts = useMemo(() => {
     return myEntries.reduce(
       (acc, entry) => {
-        acc[entry.mood] = (acc[entry.mood] || 0) + 1;
+        acc[entry.mood as Mood] = (acc[entry.mood as Mood] || 0) + 1;
         return acc;
       },
-      {} as Record<JournalEntry["mood"], number>
+      {} as Record<Mood, number>
     );
   }, [myEntries]);
 
   const recentActivities = useMemo(
     () =>
       activities
-        .filter((activity) => activity.patientId === patientId && activity.status === "completed")
-        .slice()
-        .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+        .filter((activity) => activity.status === "completed")
+        .sort((a, b) => new Date(b.completed_at || 0).getTime() - new Date(a.completed_at || 0).getTime())
         .slice(0, 3),
-    [activities, patientId]
+    [activities]
   );
 
   const TabButton = ({
@@ -199,6 +158,14 @@ const PortalNotes = () => {
     </button>
   );
 
+  if (isLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen section-gradient relative overflow-hidden">
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
@@ -221,7 +188,7 @@ const PortalNotes = () => {
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                   <UserCircle className="w-5 h-5 text-primary" />
                 </div>
-                <span>{me?.name || (email?.split("@")[0] || "Paciente")}</span>
+                <span>{patient?.name || "Paciente"}</span>
               </div>
               <Button
                 variant="outline"
@@ -259,7 +226,7 @@ const PortalNotes = () => {
                 </div>
                 {todayEntry && (
                   <div className="text-xs text-muted-foreground">
-                    Última atualização hoje às {format(new Date(todayEntry.createdAt), "HH:mm", { locale: ptBR })}
+                    Última atualização hoje às {format(new Date(todayEntry.created_at), "HH:mm", { locale: ptBR })}
                   </div>
                 )}
               </div>
@@ -300,13 +267,13 @@ const PortalNotes = () => {
               <div className="flex items-center justify-end gap-3">
                 {todayEntry && (
                   <span className="text-xs text-muted-foreground">
-                    Esta anotação substitui a registrada hoje às {format(new Date(todayEntry.createdAt), "HH:mm", { locale: ptBR })}
+                    Esta anotação substitui a registrada hoje às {format(new Date(todayEntry.created_at), "HH:mm", { locale: ptBR })}
                   </span>
                 )}
                 <Button
                   className="rounded-full"
                   onClick={handleSubmit}
-                  disabled={!draftNote.trim() || saving || !patientId}
+                  disabled={!draftNote.trim() || saving}
                 >
                   {saving ? "Salvando..." : "Salvar anotação"}
                 </Button>
@@ -347,7 +314,7 @@ const PortalNotes = () => {
                   {recentActivities.map((activity) => (
                     <div key={activity.id}>
                       • {activity.title}
-                      {activity.completedAt && ` — concluída em ${formatDateTimeLong(activity.completedAt)}`}
+                      {activity.completed_at && ` — concluída em ${formatDateTimeLong(activity.completed_at)}`}
                     </div>
                   ))}
                 </div>
@@ -387,7 +354,7 @@ const PortalNotes = () => {
                             {option?.label || "Humor"}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {formatDateTimeLong(entry.createdAt)}
+                            {formatDateTimeLong(entry.created_at)}
                           </div>
                         </div>
                         <div className="mt-2 text-sm text-muted-foreground whitespace-pre-line">

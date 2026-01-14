@@ -1,38 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, FileText, MessageSquare, LogOut, Clock, CheckCircle2, XCircle, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck } from "lucide-react";
+import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
-import { storage, type Appointment, type Patient } from "@/lib/storage";
+import { usePatientAppointments, usePatientActivities } from "@/hooks/usePatientData";
 import { useNavigate } from "react-router-dom";
 
 const PortalHome = () => {
-  const { email, logout } = usePatientAuth();
+  const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-
-  useEffect(() => {
-    setPatients(storage.getPatients());
-    setAppointments(storage.getAppointments());
-  }, []);
-
-  const me = useMemo(() => patients.find((p) => (p.email || "").toLowerCase() === (email || "").toLowerCase()) || null, [patients, email]);
+  const { appointments } = usePatientAppointments();
+  const { activities } = usePatientActivities();
 
   const myAppointments = useMemo(() => {
-    if (!me) return [] as Appointment[];
-    return appointments
-      .filter((a) => a.patientId === me.id)
-      .slice()
-      .sort((a, b) => new Date(a.dateTime || 0).getTime() - new Date(b.dateTime || 0).getTime());
-  }, [appointments, me]);
-
-  const modules = [
-    { icon: Calendar, title: "Meus Agendamentos", description: "Veja suas próximas sessões e histórico.", action: "Ver agendamentos" },
-    { icon: MessageSquare, title: "Mensagens", description: "Troque mensagens seguras com seu psicólogo.", action: "Abrir mensagens" },
-    { icon: FileText, title: "Documentos", description: "Acesse recibos e materiais compartilhados.", action: "Ver documentos" },
-  ];
+    return [...appointments].sort((a, b) => 
+      new Date(a.date_time).getTime() - new Date(b.date_time).getTime()
+    );
+  }, [appointments]);
 
   type QuickAction = {
     icon: LucideIcon;
@@ -71,19 +56,24 @@ const PortalHome = () => {
   // KPIs
   const now = new Date();
   const nextAppointment = useMemo(() => myAppointments.find((a) => {
-    const dt = a.dateTime ? new Date(a.dateTime) : null;
-    return a.status !== 'cancelled' && dt && dt.getTime() >= Date.now();
+    const dt = new Date(a.date_time);
+    return a.status !== 'cancelled' && dt.getTime() >= Date.now();
   }) || null, [myAppointments]);
 
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const monthAppts = useMemo(() => myAppointments.filter((a) => (a.dateTime || '').startsWith(monthKey)), [myAppointments, monthKey]);
+  const monthAppts = useMemo(() => myAppointments.filter((a) => a.date_time.startsWith(monthKey)), [myAppointments, monthKey]);
   const progressPct = useMemo(() => {
     const total = monthAppts.length || 1;
     const done = monthAppts.filter((a) => a.status === 'done').length;
     return Math.round((done / total) * 100);
   }, [monthAppts]);
 
-  const objectives = { done: 8, total: 12 }; // placeholder para UI
+  const pendingActivities = useMemo(() => 
+    activities.filter(a => a.status === 'pending').length, 
+  [activities]);
+  const completedActivities = useMemo(() => 
+    activities.filter(a => a.status === 'completed').length, 
+  [activities]);
 
   const formatDateTime = (iso?: string) => {
     if (!iso) return '—';
@@ -91,9 +81,16 @@ const PortalHome = () => {
     return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long' }).format(d) + `, ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen section-gradient relative overflow-hidden">
-      {/* Decorative circles */}
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
@@ -115,7 +112,7 @@ const PortalHome = () => {
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                   <UserCircle className="w-5 h-5 text-primary" />
                 </div>
-                <span>{me?.name || (email?.split('@')[0] || 'Paciente')}</span>
+                <span>{patient?.name || 'Paciente'}</span>
               </div>
               <Button variant="outline" className="btn-outline-futuristic inline-flex items-center gap-2" onClick={() => { logout(); navigate('/portal'); }}>
                 <LogOut className="w-4 h-4" /> Sair
@@ -156,10 +153,10 @@ const PortalHome = () => {
                     <UserCircle className="w-10 h-10 text-muted-foreground" />
                   </div>
                   <div>
-                    <h2 className="text-3xl md:text-4xl font-display font-light">Boa tarde, {me?.name?.split(' ')[0] || 'Paciente'}!</h2>
+                    <h2 className="text-3xl md:text-4xl font-display font-light">Olá, {patient?.name?.split(' ')[0] || 'Paciente'}!</h2>
                     <p className="text-muted-foreground">Bem-vindo(a) ao seu espaço pessoal de bem-estar</p>
                     <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-primary" /> Paciente desde {me ? new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(me.createdAt)) : '—'}
+                      <CheckCircle2 className="w-4 h-4 text-primary" /> Conta ativa
                     </div>
                   </div>
                 </div>
@@ -180,7 +177,7 @@ const PortalHome = () => {
                     <Calendar className="w-4 h-4 text-primary" /> Próxima Sessão
                   </div>
                   <div className="mt-1 font-medium">
-                    {nextAppointment ? formatDateTime(nextAppointment.dateTime) : '—'}
+                    {nextAppointment ? formatDateTime(nextAppointment.date_time) : 'Nenhuma agendada'}
                   </div>
                 </div>
                 <div className="border rounded-xl p-4 bg-white">
@@ -191,9 +188,9 @@ const PortalHome = () => {
                 </div>
                 <div className="border rounded-xl p-4 bg-white">
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Target className="w-4 h-4 text-primary" /> Objetivos
+                    <Target className="w-4 h-4 text-primary" /> Atividades
                   </div>
-                  <div className="mt-1 font-medium">{objectives.done} de {objectives.total} concluídos</div>
+                  <div className="mt-1 font-medium">{completedActivities} concluídas, {pendingActivities} pendentes</div>
                 </div>
               </div>
             </CardContent>
@@ -231,7 +228,7 @@ const PortalHome = () => {
         </div>
 
         {/* Emergency banner */}
-        <div className="mt-10">
+        <div className="mt-10 mb-8">
           <div className="rounded-2xl p-6 md:p-8 bg-gradient-primary text-primary-foreground flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <div className="text-lg font-semibold">Emergência ou Crise?</div>
