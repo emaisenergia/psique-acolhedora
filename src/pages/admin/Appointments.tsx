@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
-import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek } from "date-fns";
+import { useCallback, useMemo, useState, DragEvent } from "react";
+import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek, setHours, setMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Edit, Filter, Plus, Search } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Edit, Filter, GripVertical, Plus, Search } from "lucide-react";
 
 import AdminLayout from "./AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -10,17 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { storage, type Appointment, type Patient, uid } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAppointments, type AppointmentStatus, type AppointmentRow } from "@/hooks/useAppointments";
+import { usePatients } from "@/hooks/usePatients";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const weekOptions = { weekStartsOn: 0 as const };
 
-type CalendarAppointment = Appointment & { date: Date };
+type CalendarAppointment = AppointmentRow & { date: Date };
 
 type RepeatFrequency = "none" | "weekly" | "biweekly" | "monthly";
 
-type AppointmentFormState = Partial<Appointment> & {
+type AppointmentFormState = {
+  patientId?: string;
+  dateTime?: string;
+  mode?: string;
+  status?: string;
+  service?: string;
+  notes?: string;
   repeatFrequency?: RepeatFrequency;
   repeatCount?: number;
 };
@@ -28,12 +36,9 @@ type AppointmentFormState = Partial<Appointment> & {
 const defaultFormState: AppointmentFormState = {
   status: "scheduled",
   mode: "presencial",
-  paymentStatus: "pending",
   repeatFrequency: "none",
   repeatCount: 1,
 };
-
-type AppointmentStatus = "scheduled" | "confirmed" | "done" | "cancelled";
 
 const statusMeta: Record<AppointmentStatus, { label: string; color: string; bgColor: string }> = {
   scheduled: { label: "Pendente", color: "bg-amber-500", bgColor: "bg-amber-50 text-amber-700" },
@@ -47,8 +52,17 @@ const statusOptions: AppointmentStatus[] = ["scheduled", "confirmed", "done", "c
 const getStatusMeta = (status?: string) => statusMeta[(status as AppointmentStatus) ?? "scheduled"] ?? statusMeta.scheduled;
 
 const Appointments = () => {
-  const [appointments, setAppointments] = useState<Appointment[]>(storage.getAppointments());
-  const [patients, setPatients] = useState<Patient[]>(storage.getPatients());
+  const { 
+    appointments, 
+    isLoading: appointmentsLoading, 
+    createAppointment, 
+    updateAppointment, 
+    updateAppointmentDate,
+    updateAppointmentStatus: updateStatus,
+    deleteAppointment 
+  } = useAppointments();
+  const { patients, isLoading: patientsLoading, createPatient } = usePatients();
+  
   const [form, setForm] = useState<AppointmentFormState>({ ...defaultFormState });
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -62,21 +76,11 @@ const Appointments = () => {
   const [newPatientForm, setNewPatientForm] = useState({ name: "", email: "", phone: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusPopoverOpen, setStatusPopoverOpen] = useState<string | null>(null);
+  const [draggedAppointment, setDraggedAppointment] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const updateAppointmentStatus = (id: string, newStatus: AppointmentStatus) => {
-    const existing = appointments.find((appt) => appt.id === id);
-    if (!existing) return;
-
-    const updated: Appointment = {
-      ...existing,
-      status: newStatus as Appointment["status"],
-    };
-
-    const next = appointments.map((appt) => (appt.id === id ? updated : appt));
-    setAppointments(next);
-    storage.saveAppointments(next);
-    setStatusPopoverOpen(null);
-  };
+  const isLoading = appointmentsLoading || patientsLoading;
 
   const resetCreateForm = () => {
     setForm({ ...defaultFormState });
@@ -89,18 +93,25 @@ const Appointments = () => {
     setEditForm({ ...defaultFormState });
   };
 
-  const save = (e: React.FormEvent) => {
+  const handleUpdateAppointmentStatus = async (id: string, newStatus: AppointmentStatus) => {
+    await updateStatus(id, newStatus);
+    setStatusPopoverOpen(null);
+  };
+
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.patientId || !form.dateTime) return;
+    
+    setIsSaving(true);
     const frequency = form.repeatFrequency ?? "none";
     const rawRepeatCount = form.repeatCount ?? 1;
     const repeatCount = frequency === "none" ? 1 : Math.max(1, rawRepeatCount);
 
     const baseDate = parseISO(form.dateTime);
-    if (Number.isNaN(baseDate.getTime())) return;
-
-    const createdAt = new Date().toISOString();
-    const created: Appointment[] = [];
+    if (Number.isNaN(baseDate.getTime())) {
+      setIsSaving(false);
+      return;
+    }
 
     for (let i = 0; i < repeatCount; i++) {
       const occurrenceDate =
@@ -114,29 +125,22 @@ const Appointments = () => {
           ? addMonths(baseDate, i)
           : baseDate;
 
-      const dateTime = format(occurrenceDate, "yyyy-MM-dd'T'HH:mm");
-
-      created.push({
-        id: uid(),
-        patientId: form.patientId,
-        dateTime,
+      await createAppointment({
+        patient_id: form.patientId,
+        date_time: occurrenceDate.toISOString(),
         mode: form.mode ?? "presencial",
         status: "scheduled",
-        paymentStatus: "pending",
-        createdAt,
+        service: form.service,
+        notes: form.notes,
       });
     }
 
-    const next = [...created, ...appointments];
-    setAppointments(next);
-    storage.saveAppointments(next);
+    setIsSaving(false);
     resetCreateForm();
   };
 
-  const remove = (id: string) => {
-    const next = appointments.filter((a) => a.id !== id);
-    setAppointments(next);
-    storage.saveAppointments(next);
+  const remove = async (id: string) => {
+    await deleteAppointment(id);
     if (editingId === id) {
       closeEditDialog();
     }
@@ -147,8 +151,8 @@ const Appointments = () => {
   const parsedAppointments = useMemo(() => {
     const items: CalendarAppointment[] = [];
     for (const appt of appointments) {
-      if (!appt.dateTime) continue;
-      const date = parseISO(appt.dateTime);
+      if (!appt.date_time) continue;
+      const date = parseISO(appt.date_time);
       if (Number.isNaN(date.getTime())) continue;
       items.push({ ...appt, date });
     }
@@ -222,12 +226,12 @@ const Appointments = () => {
       total += dayAppts.length;
       for (const appt of dayAppts) {
         if (appt.status === "scheduled") pending++;
+        else if (appt.status === "confirmed") confirmed++;
         else if (appt.status === "done") done++;
       }
     }
-    confirmed = total - pending - (total - pending - done);
     
-    return { total, confirmed: done, pending, done };
+    return { total, confirmed, pending, done };
   }, [weekDays, appointmentsByDay]);
 
   const startEditing = (id: string) => {
@@ -235,40 +239,40 @@ const Appointments = () => {
     if (!appt) return;
     setEditingId(id);
     setEditForm({
-      patientId: appt.patientId,
-      dateTime: appt.dateTime,
+      patientId: appt.patient_id,
+      dateTime: appt.date_time ? format(parseISO(appt.date_time), "yyyy-MM-dd'T'HH:mm") : "",
       mode: appt.mode ?? "presencial",
       status: appt.status ?? "scheduled",
+      service: appt.service ?? "",
+      notes: appt.notes ?? "",
       repeatFrequency: "none",
       repeatCount: 1,
     });
-    updateSelectedDate(parseISO(appt.dateTime));
+    if (appt.date_time) {
+      updateSelectedDate(parseISO(appt.date_time));
+    }
     setEditDialogOpen(true);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingId || !editForm.patientId || !editForm.dateTime) return;
 
-    const existing = appointments.find((appt) => appt.id === editingId);
-    if (!existing) return;
-
-    const updated: Appointment = {
-      ...existing,
-      patientId: editForm.patientId,
-      dateTime: editForm.dateTime,
-      mode: editForm.mode ?? existing.mode ?? "presencial",
-      status: editForm.status ?? existing.status ?? "scheduled",
-    };
-
-    const next = appointments.map((appt) => (appt.id === editingId ? updated : appt));
-    setAppointments(next);
-    storage.saveAppointments(next);
+    setIsSaving(true);
+    await updateAppointment(editingId, {
+      patient_id: editForm.patientId,
+      date_time: parseISO(editForm.dateTime).toISOString(),
+      mode: editForm.mode ?? "presencial",
+      status: editForm.status ?? "scheduled",
+      service: editForm.service,
+      notes: editForm.notes,
+    });
+    setIsSaving(false);
     closeEditDialog();
   };
 
-  const submitEdit = (e: React.FormEvent) => {
+  const submitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveEdit();
+    await saveEdit();
   };
 
   const openNewPatientDialog = (context: "create" | "edit") => {
@@ -282,33 +286,76 @@ const Appointments = () => {
     setNewPatientForm({ name: "", email: "", phone: "" });
   };
 
-  const submitNewPatient = (e: React.FormEvent) => {
+  const submitNewPatient = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newPatientForm.name.trim();
     if (!name) return;
 
-    const newPatient: Patient = {
-      id: uid(),
+    const newPatient = await createPatient({
       name,
-      email: newPatientForm.email.trim() || undefined,
-      phone: newPatientForm.phone.trim() || undefined,
-      createdAt: new Date().toISOString(),
-    };
+      email: newPatientForm.email.trim() || "",
+      phone: newPatientForm.phone.trim() || null,
+    });
 
-    const nextPatients = [newPatient, ...patients];
-    setPatients(nextPatients);
-    storage.savePatients(nextPatients);
-
-    if (newPatientContext === "create") {
-      setForm((prev) => ({ ...prev, patientId: newPatient.id }));
-      if (!showCreateForm) {
-        setShowCreateForm(true);
+    if (newPatient) {
+      if (newPatientContext === "create") {
+        setForm((prev) => ({ ...prev, patientId: newPatient.id }));
+        if (!showCreateForm) {
+          setShowCreateForm(true);
+        }
+      } else {
+        setEditForm((prev) => ({ ...prev, patientId: newPatient.id }));
       }
-    } else {
-      setEditForm((prev) => ({ ...prev, patientId: newPatient.id }));
     }
 
     closeNewPatientDialog();
+  };
+
+  // Drag and Drop handlers
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, appointmentId: string) => {
+    setDraggedAppointment(appointmentId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appointmentId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAppointment(null);
+    setDragOverDay(null);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLButtonElement>, dayKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDay(dayKey);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDay(null);
+  };
+
+  const handleDrop = async (e: DragEvent<HTMLButtonElement>, targetDay: Date) => {
+    e.preventDefault();
+    const appointmentId = e.dataTransfer.getData("text/plain");
+    
+    if (!appointmentId) return;
+
+    const appointment = appointments.find((a) => a.id === appointmentId);
+    if (!appointment || !appointment.date_time) return;
+
+    // Get the original time from the appointment
+    const originalDate = parseISO(appointment.date_time);
+    const hours = originalDate.getHours();
+    const minutes = originalDate.getMinutes();
+
+    // Set the new date with the original time
+    let newDateTime = startOfDay(targetDay);
+    newDateTime = setHours(newDateTime, hours);
+    newDateTime = setMinutes(newDateTime, minutes);
+
+    await updateAppointmentDate(appointmentId, newDateTime.toISOString());
+    
+    setDraggedAppointment(null);
+    setDragOverDay(null);
   };
 
   // Count appointments for current month display
@@ -325,6 +372,17 @@ const Appointments = () => {
 
   const selectedDateFormatted = format(selectedDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
   const capitalizedDate = selectedDateFormatted.charAt(0).toUpperCase() + selectedDateFormatted.slice(1);
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-[400px] w-full" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -488,7 +546,7 @@ const Appointments = () => {
               <div className="space-y-3">
                 {selectedDayAppointments.map((appt) => {
                   const statusInfo = getStatusMeta(appt.status);
-                  const patientName = patientMap[appt.patientId] || "Paciente";
+                  const patientName = patientMap[appt.patient_id] || "Paciente";
                   
                   return (
                     <div
@@ -535,7 +593,7 @@ const Appointments = () => {
                                     <button
                                       key={status}
                                       type="button"
-                                      onClick={() => updateAppointmentStatus(appt.id, status)}
+                                      onClick={() => handleUpdateAppointmentStatus(appt.id, status)}
                                       className={cn(
                                         "flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm transition-colors",
                                         isSelected 
@@ -570,7 +628,7 @@ const Appointments = () => {
         </Card>
       </div>
 
-      {/* Weekly View */}
+      {/* Weekly View with Drag and Drop */}
       <Card>
         <CardHeader className="flex-row items-center justify-between pb-4">
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -599,32 +657,68 @@ const Appointments = () => {
               const isSelected = isSameDay(day, selectedDate);
               const isToday = isSameDay(day, today);
               const dayLabel = format(day, "EEE", { locale: ptBR }).slice(0, 3) + ".";
+              const isDragOver = dragOverDay === key;
 
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => updateSelectedDate(day)}
+                  onDragOver={(e) => handleDragOver(e, key)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, day)}
                   className={cn(
-                    "flex flex-col items-center justify-center rounded-xl border-2 p-4 min-h-[120px] transition-colors",
+                    "flex flex-col rounded-xl border-2 p-3 min-h-[140px] transition-colors",
                     "hover:border-primary/60 hover:bg-primary/5",
                     isSelected && "border-green-200 bg-green-50",
                     !isSelected && "border-border",
-                    isToday && !isSelected && "border-primary/40"
+                    isToday && !isSelected && "border-primary/40",
+                    isDragOver && "border-primary border-dashed bg-primary/10"
                   )}
                 >
-                  <span className="text-xs text-muted-foreground mb-1">{dayLabel}</span>
-                  <span className={cn(
-                    "text-xl font-semibold",
-                    isToday && "text-primary"
-                  )}>
-                    {format(day, "d")}
-                  </span>
-                  {dayAppointments.length > 0 && (
-                    <span className="text-xs text-muted-foreground mt-2">
-                      {dayAppointments.length} consulta{dayAppointments.length > 1 ? 's' : ''}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{dayLabel}</span>
+                    <span className={cn(
+                      "text-lg font-semibold",
+                      isToday && "text-primary"
+                    )}>
+                      {format(day, "d")}
                     </span>
-                  )}
+                  </div>
+                  
+                  <div className="flex-1 space-y-1 overflow-hidden">
+                    {dayAppointments.slice(0, 3).map((appt) => {
+                      const statusInfo = getStatusMeta(appt.status);
+                      const patientName = patientMap[appt.patient_id] || "Paciente";
+                      const isDragging = draggedAppointment === appt.id;
+                      
+                      return (
+                        <div
+                          key={appt.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, appt.id)}
+                          onDragEnd={handleDragEnd}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditing(appt.id);
+                          }}
+                          className={cn(
+                            "flex items-center gap-1 px-2 py-1 rounded text-xs bg-muted/50 cursor-grab active:cursor-grabbing",
+                            isDragging && "opacity-50"
+                          )}
+                        >
+                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className={cn("h-2 w-2 rounded-full shrink-0", statusInfo.color)} />
+                          <span className="truncate">{patientName.split(" ")[0]}</span>
+                        </div>
+                      );
+                    })}
+                    {dayAppointments.length > 3 && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        +{dayAppointments.length - 3} mais
+                      </p>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -692,7 +786,7 @@ const Appointments = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Modalidade</label>
-                <Select value={form.mode ?? "presencial"} onValueChange={(value) => setForm({ ...form, mode: value as Appointment["mode"] })}>
+                <Select value={form.mode ?? "presencial"} onValueChange={(value) => setForm({ ...form, mode: value })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -740,8 +834,8 @@ const Appointments = () => {
               <Button type="button" variant="outline" onClick={resetCreateForm}>
                 Cancelar
               </Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90">
-                Agendar Sessão
+              <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Agendar Sessão"}
               </Button>
             </DialogFooter>
           </form>
@@ -792,7 +886,7 @@ const Appointments = () => {
                 <label className="text-sm font-medium">Modalidade</label>
                 <Select
                   value={editForm.mode ?? "presencial"}
-                  onValueChange={(value) => setEditForm({ ...editForm, mode: value as Appointment["mode"] })}
+                  onValueChange={(value) => setEditForm({ ...editForm, mode: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -808,7 +902,7 @@ const Appointments = () => {
               <label className="text-sm font-medium">Status</label>
               <Select
                 value={editForm.status ?? "scheduled"}
-                onValueChange={(value) => setEditForm({ ...editForm, status: value as Appointment["status"] })}
+                onValueChange={(value) => setEditForm({ ...editForm, status: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -839,8 +933,8 @@ const Appointments = () => {
               >
                 Excluir
               </Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90">
-                Salvar alterações
+              <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Salvar alterações"}
               </Button>
             </DialogFooter>
           </form>
@@ -869,6 +963,7 @@ const Appointments = () => {
                   type="email"
                   value={newPatientForm.email}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, email: e.target.value })}
+                  required
                 />
               </div>
               <div className="space-y-2">
