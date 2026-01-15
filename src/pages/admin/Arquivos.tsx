@@ -57,13 +57,41 @@ import {
   CheckSquare,
   Square,
   CheckCheck,
+  Tag,
+  FolderInput,
+  Plus,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePatients } from "@/hooks/usePatients";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+interface FileTag {
+  id: string;
+  bucket_id: string;
+  file_path: string;
+  tag: string;
+  color: string;
+}
+
+const TAG_COLORS = [
+  { name: "Azul", value: "blue", class: "bg-blue-500" },
+  { name: "Verde", value: "green", class: "bg-green-500" },
+  { name: "Amarelo", value: "yellow", class: "bg-yellow-500" },
+  { name: "Vermelho", value: "red", class: "bg-red-500" },
+  { name: "Roxo", value: "purple", class: "bg-purple-500" },
+  { name: "Rosa", value: "pink", class: "bg-pink-500" },
+  { name: "Laranja", value: "orange", class: "bg-orange-500" },
+  { name: "Cinza", value: "gray", class: "bg-gray-500" },
+];
+
+const getTagColorClass = (color: string) => {
+  const found = TAG_COLORS.find(c => c.value === color);
+  return found?.class || "bg-blue-500";
+};
 
 interface StorageFile {
   id: string;
@@ -134,6 +162,14 @@ const Arquivos = () => {
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [fileTags, setFileTags] = useState<FileTag[]>([]);
+  const [tagFilter, setTagFilter] = useState<string>("");
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("blue");
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [moveTargetFolder, setMoveTargetFolder] = useState("");
+  const [isMoving, setIsMoving] = useState(false);
+  const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { patients } = usePatients();
@@ -192,10 +228,46 @@ const Arquivos = () => {
     }
   }, [files, currentFolder, selectedBucket]);
 
+  // Load file tags
+  const loadFileTags = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("file_tags")
+        .select("*")
+        .eq("bucket_id", selectedBucket);
+      
+      if (error) throw error;
+      setFileTags(data || []);
+    } catch (error) {
+      console.error("Error loading tags:", error);
+    }
+  }, [selectedBucket]);
+
+  // Load available folders
+  const loadFolders = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(selectedBucket)
+        .list("", { limit: 100 });
+      
+      if (error) throw error;
+      
+      const folders = (data || [])
+        .filter(f => f.id === null || f.metadata === null)
+        .map(f => f.name);
+      
+      setAvailableFolders(folders);
+    } catch (error) {
+      console.error("Error loading folders:", error);
+    }
+  }, [selectedBucket]);
+
   useEffect(() => {
     loadFiles();
+    loadFileTags();
+    loadFolders();
     setSelectedFiles(new Set()); // Clear selection when changing folder/bucket
-  }, [loadFiles]);
+  }, [loadFiles, loadFileTags, loadFolders]);
 
   const handleUpload = async () => {
     if (!uploadFiles || uploadFiles.length === 0) {
@@ -382,6 +454,135 @@ const Arquivos = () => {
       setSelectedFiles(new Set());
     } else {
       setSelectedFiles(new Set(nonFolderFiles.map(f => f.name)));
+    }
+  };
+
+  // Add tag to file
+  const addTagToFile = async (fileName: string, tag: string, color: string) => {
+    const filePath = currentFolder ? `${currentFolder}/${fileName}` : fileName;
+    
+    try {
+      const { error } = await supabase.from("file_tags").insert({
+        bucket_id: selectedBucket,
+        file_path: filePath,
+        tag,
+        color,
+      });
+      
+      if (error) {
+        if (error.code === "23505") {
+          toast({ title: "Tag já existe", description: "Este arquivo já possui esta tag." });
+          return;
+        }
+        throw error;
+      }
+      
+      toast({ title: "Tag adicionada!" });
+      loadFileTags();
+    } catch (error) {
+      console.error("Error adding tag:", error);
+      toast({
+        title: "Erro ao adicionar tag",
+        description: "Não foi possível adicionar a tag.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Remove tag from file
+  const removeTagFromFile = async (tagId: string) => {
+    try {
+      const { error } = await supabase.from("file_tags").delete().eq("id", tagId);
+      if (error) throw error;
+      
+      toast({ title: "Tag removida!" });
+      loadFileTags();
+    } catch (error) {
+      console.error("Error removing tag:", error);
+      toast({
+        title: "Erro ao remover tag",
+        description: "Não foi possível remover a tag.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Get tags for a specific file
+  const getFileTagsList = (fileName: string) => {
+    const filePath = currentFolder ? `${currentFolder}/${fileName}` : fileName;
+    return fileTags.filter(t => t.file_path === filePath);
+  };
+
+  // Get all unique tags
+  const allUniqueTags = Array.from(new Set(fileTags.map(t => t.tag)));
+
+  // Move files to folder
+  const handleMoveFiles = async () => {
+    if (selectedFiles.size === 0) return;
+    
+    setIsMoving(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const fileName of Array.from(selectedFiles)) {
+      const sourcePath = currentFolder ? `${currentFolder}/${fileName}` : fileName;
+      const targetPath = moveTargetFolder ? `${moveTargetFolder}/${fileName}` : fileName;
+      
+      if (sourcePath === targetPath) continue;
+
+      try {
+        // Download the file
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from(selectedBucket)
+          .download(sourcePath);
+        
+        if (downloadError) throw downloadError;
+
+        // Upload to new location
+        const { error: uploadError } = await supabase.storage
+          .from(selectedBucket)
+          .upload(targetPath, fileData, { upsert: false });
+        
+        if (uploadError) throw uploadError;
+
+        // Delete from old location
+        const { error: deleteError } = await supabase.storage
+          .from(selectedBucket)
+          .remove([sourcePath]);
+        
+        if (deleteError) throw deleteError;
+
+        // Update tags for the moved file
+        await supabase
+          .from("file_tags")
+          .update({ file_path: targetPath })
+          .eq("bucket_id", selectedBucket)
+          .eq("file_path", sourcePath);
+
+        successCount++;
+      } catch (error) {
+        console.error("Error moving file:", fileName, error);
+        errorCount++;
+      }
+    }
+
+    setIsMoving(false);
+    setIsMoveDialogOpen(false);
+    setSelectedFiles(new Set());
+
+    if (successCount > 0) {
+      toast({
+        title: "Arquivos movidos",
+        description: `${successCount} arquivo(s) movido(s) com sucesso.${errorCount > 0 ? ` ${errorCount} erro(s).` : ""}`,
+      });
+      loadFiles();
+      loadFileTags();
+    } else {
+      toast({
+        title: "Erro ao mover",
+        description: "Nenhum arquivo foi movido.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -575,9 +776,15 @@ const Arquivos = () => {
     setCurrentFolder(parts.join("/"));
   };
 
-  const filteredFiles = files.filter(f => 
-    f.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter files by search and tag
+  const filteredFiles = files.filter(f => {
+    const matchesSearch = f.name.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!tagFilter || tagFilter === "all") return matchesSearch;
+    
+    const filePath = currentFolder ? `${currentFolder}/${f.name}` : f.name;
+    const hasTag = fileTags.some(t => t.file_path === filePath && t.tag === tagFilter);
+    return matchesSearch && hasTag;
+  });
 
   const totalSize = files.reduce((acc, f) => acc + (f.metadata?.size || 0), 0);
 
@@ -729,6 +936,22 @@ const Arquivos = () => {
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {/* Tag filter */}
+                {allUniqueTags.length > 0 && (
+                  <Select value={tagFilter} onValueChange={setTagFilter}>
+                    <SelectTrigger className="w-32">
+                      <Tag className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Tags" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {allUniqueTags.map(tag => (
+                        <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -764,6 +987,17 @@ const Arquivos = () => {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setMoveTargetFolder("");
+                      setIsMoveDialogOpen(true);
+                    }}
+                  >
+                    <FolderInput className="h-4 w-4 mr-2" />
+                    Mover
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -841,6 +1075,7 @@ const Arquivos = () => {
                     const isFolder = file.id === null || file.metadata === null;
                     const FileIcon = isFolder ? FolderOpen : getFileIcon(file.metadata?.mimetype);
                     const isSelected = selectedFiles.has(file.name);
+                    const fileTagsList = getFileTagsList(file.name);
                     
                     return (
                       <div
@@ -891,39 +1126,129 @@ const Arquivos = () => {
                                   {format(new Date(file.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                 </span>
                               </div>
+                              {/* File Tags */}
+                              {fileTagsList.length > 0 && (
+                                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                  {fileTagsList.map(tag => (
+                                    <span
+                                      key={tag.id}
+                                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs text-white ${getTagColorClass(tag.color)}`}
+                                    >
+                                      {tag.tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
                         
                         {!isFolder && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handlePreview(file)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Visualizar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDownload(file)}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Baixar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleCopyLink(file)}>
-                                <Link className="h-4 w-4 mr-2" />
-                                Copiar Link
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDelete(file)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handlePreview(file)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Visualizar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDownload(file)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Baixar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleCopyLink(file)}>
+                                  <Link className="h-4 w-4 mr-2" />
+                                  Copiar Link
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDelete(file)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            
+                            {/* Tag popover */}
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <Tag className="h-4 w-4" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-64" align="end">
+                                <div className="space-y-3">
+                                  <div className="font-medium text-sm">Tags</div>
+                                  
+                                  {/* Existing tags */}
+                                  {fileTagsList.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                      {fileTagsList.map(tag => (
+                                        <span
+                                          key={tag.id}
+                                          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-white ${getTagColorClass(tag.color)}`}
+                                        >
+                                          {tag.tag}
+                                          <button
+                                            onClick={() => removeTagFromFile(tag.id)}
+                                            className="hover:bg-white/20 rounded-full p-0.5"
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Add new tag */}
+                                  <div className="space-y-2">
+                                    <div className="flex gap-2">
+                                      <Input
+                                        placeholder="Nova tag..."
+                                        value={newTagName}
+                                        onChange={(e) => setNewTagName(e.target.value)}
+                                        className="h-8 text-sm"
+                                      />
+                                      <Select value={newTagColor} onValueChange={setNewTagColor}>
+                                        <SelectTrigger className="w-20 h-8">
+                                          <div className={`w-4 h-4 rounded ${getTagColorClass(newTagColor)}`} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {TAG_COLORS.map(c => (
+                                            <SelectItem key={c.value} value={c.value}>
+                                              <div className="flex items-center gap-2">
+                                                <div className={`w-3 h-3 rounded ${c.class}`} />
+                                                {c.name}
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      className="w-full h-8"
+                                      disabled={!newTagName.trim()}
+                                      onClick={() => {
+                                        if (newTagName.trim()) {
+                                          addTagToFile(file.name, newTagName.trim(), newTagColor);
+                                          setNewTagName("");
+                                        }
+                                      }}
+                                    >
+                                      <Plus className="h-3 w-3 mr-1" />
+                                      Adicionar
+                                    </Button>
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </>
                         )}
                       </div>
                     );
@@ -1182,6 +1507,69 @@ const Arquivos = () => {
               Fechar
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Files Dialog */}
+      <Dialog open={isMoveDialogOpen} onOpenChange={setIsMoveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderInput className="h-5 w-5" />
+              Mover Arquivos
+            </DialogTitle>
+            <DialogDescription>
+              Mover {selectedFiles.size} arquivo(s) selecionado(s) para outra pasta
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Pasta de destino</Label>
+              <Select value={moveTargetFolder || "root"} onValueChange={(v) => setMoveTargetFolder(v === "root" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a pasta..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="root">/ (Raiz)</SelectItem>
+                  {availableFolders.filter(f => f !== currentFolder).map((folder) => (
+                    <SelectItem key={folder} value={folder}>/{folder}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="p-3 bg-muted/50 rounded-lg text-sm">
+              <p className="text-muted-foreground mb-2">Arquivos a mover:</p>
+              <div className="flex flex-wrap gap-1">
+                {Array.from(selectedFiles).slice(0, 5).map(name => (
+                  <Badge key={name} variant="secondary">{name}</Badge>
+                ))}
+                {selectedFiles.size > 5 && (
+                  <Badge variant="outline">+{selectedFiles.size - 5} mais</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMoveDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleMoveFiles} disabled={isMoving}>
+              {isMoving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Movendo...
+                </>
+              ) : (
+                <>
+                  <FolderInput className="h-4 w-4 mr-2" />
+                  Mover
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AdminLayout>

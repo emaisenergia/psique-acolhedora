@@ -275,6 +275,36 @@ export type Database = {
           },
         ]
       }
+      file_tags: {
+        Row: {
+          bucket_id: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          file_path: string
+          id: string
+          tag: string
+        }
+        Insert: {
+          bucket_id: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_path: string
+          id?: string
+          tag: string
+        }
+        Update: {
+          bucket_id?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_path?: string
+          id?: string
+          tag?: string
+        }
+        Relationships: []
+      }
       financial_goals: {
         Row: {
           created_at: string
