@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { usePatientAuth } from "@/context/PatientAuth";
-import { usePatientActivities, type PatientActivity } from "@/hooks/usePatientData";
+import { usePatientActivities, type PatientActivity, type ThreadComment } from "@/hooks/usePatientData";
 import { ActivityResponseDialog } from "@/components/activities/ActivityResponseDialog";
+import { PatientActivityThreadDialog } from "@/components/activities/PatientActivityThreadDialog";
 import { notifyActivityResponse } from "@/lib/notifications";
 import { toast } from "sonner";
 import {
@@ -23,6 +24,7 @@ import {
   Download,
   Paperclip,
   MessageCircle,
+  Reply,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -46,6 +48,8 @@ const PortalActivities = () => {
   const { activities, loading, toggleActivityStatus, updateActivity } = usePatientActivities();
   const [selectedActivity, setSelectedActivity] = useState<PatientActivity | null>(null);
   const [responseDialogOpen, setResponseDialogOpen] = useState(false);
+  const [threadDialogOpen, setThreadDialogOpen] = useState(false);
+  const [threadActivity, setThreadActivity] = useState<PatientActivity | null>(null);
 
   const myActivities = useMemo(() => {
     return [...activities].sort((a, b) => {
@@ -270,7 +274,7 @@ const PortalActivities = () => {
                                   Respostas enviadas
                                 </span>
                               )}
-                              {(activity as any).psychologist_feedback && (
+                              {activity.psychologist_feedback && (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary">
                                   <MessageCircle className="w-3 h-3" />
                                   Feedback disponível
@@ -279,18 +283,36 @@ const PortalActivities = () => {
                             </div>
 
                             {/* Psychologist Feedback Display */}
-                            {(activity as any).psychologist_feedback && (
+                            {activity.psychologist_feedback && (
                               <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <MessageCircle className="w-4 h-4 text-primary" />
-                                  <span className="text-xs font-semibold text-primary">Feedback do seu psicólogo</span>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <MessageCircle className="w-4 h-4 text-primary" />
+                                    <span className="text-xs font-semibold text-primary">Feedback do seu psicólogo</span>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs gap-1"
+                                    onClick={() => {
+                                      setThreadActivity(activity);
+                                      setThreadDialogOpen(true);
+                                    }}
+                                  >
+                                    <Reply className="w-3 h-3" /> Responder
+                                  </Button>
                                 </div>
                                 <div className="text-sm text-foreground whitespace-pre-line">
-                                  {(activity as any).psychologist_feedback}
+                                  {activity.psychologist_feedback}
                                 </div>
-                                {(activity as any).feedback_at && (
+                                {activity.feedback_at && (
                                   <div className="mt-2 text-xs text-muted-foreground">
-                                    {format(new Date((activity as any).feedback_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                                    {format(new Date(activity.feedback_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                                  </div>
+                                )}
+                                {activity.feedback_thread && activity.feedback_thread.length > 0 && (
+                                  <div className="mt-2 text-xs text-primary">
+                                    {activity.feedback_thread.length} comentário(s) na conversa
                                   </div>
                                 )}
                               </div>
@@ -421,6 +443,30 @@ const PortalActivities = () => {
             attachmentName: selectedActivity.attachment_name || undefined,
           }}
           onSubmit={handleSubmitResponses}
+        />
+      )}
+
+      {/* Thread Dialog */}
+      {threadActivity && (
+        <PatientActivityThreadDialog
+          open={threadDialogOpen}
+          onOpenChange={setThreadDialogOpen}
+          activity={threadActivity}
+          onAddComment={async (activityId, comment) => {
+            const currentThread = threadActivity.feedback_thread || [];
+            const newComment: ThreadComment = {
+              id: crypto.randomUUID(),
+              author: "patient",
+              content: comment,
+              created_at: new Date().toISOString(),
+            };
+            await updateActivity(activityId, { feedback_thread: [...currentThread, newComment] } as any);
+            setThreadActivity({
+              ...threadActivity,
+              feedback_thread: [...currentThread, newComment],
+            });
+            toast.success("Comentário enviado!");
+          }}
         />
       )}
     </div>

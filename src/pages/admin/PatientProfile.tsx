@@ -1680,6 +1680,7 @@ const PatientProfile = () => {
             responseHistory: (selectedActivityForView as any).responseHistory,
             psychologistFeedback: (selectedActivityForView as any).psychologistFeedback,
             feedbackAt: (selectedActivityForView as any).feedbackAt,
+            feedbackThread: (selectedActivityForView as any).feedbackThread,
           }}
           patientName={patient?.name}
           onSaveFeedback={async (activityId, feedback) => {
@@ -1697,6 +1698,29 @@ const PatientProfile = () => {
               setActivities(updatedActivities);
               setSelectedActivityForView(updatedActivity);
               toast.success("Feedback salvo com sucesso!");
+            }
+          }}
+          onAddThreadComment={async (activityId, comment) => {
+            const activityToUpdate = activities.find(a => a.id === activityId);
+            if (activityToUpdate) {
+              const currentThread = (activityToUpdate as any).feedbackThread || [];
+              const newComment = {
+                id: uid(),
+                author: "psychologist" as const,
+                content: comment,
+                created_at: new Date().toISOString(),
+              };
+              const updatedActivity = {
+                ...activityToUpdate,
+                feedbackThread: [...currentThread, newComment],
+              } as any;
+              const updatedActivities = activities.map(a => 
+                a.id === activityId ? updatedActivity : a
+              );
+              storage.saveActivities(updatedActivities);
+              setActivities(updatedActivities);
+              setSelectedActivityForView(updatedActivity);
+              toast.success("Comentário adicionado!");
             }
           }}
         />

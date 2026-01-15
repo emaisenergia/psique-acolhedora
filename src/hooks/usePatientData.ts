@@ -29,6 +29,13 @@ export type ResponseHistoryEntry = {
   responses: Record<string, string | boolean>;
 };
 
+export type ThreadComment = {
+  id: string;
+  author: "psychologist" | "patient";
+  content: string;
+  created_at: string;
+};
+
 export type PatientActivity = {
   id: string;
   patient_id: string;
@@ -46,6 +53,7 @@ export type PatientActivity = {
   response_history?: ResponseHistoryEntry[] | null;
   psychologist_feedback?: string | null;
   feedback_at?: string | null;
+  feedback_thread?: ThreadComment[] | null;
 };
 
 export type PatientMessage = {
@@ -154,6 +162,7 @@ export const usePatientActivities = () => {
         response_history: item.response_history as ResponseHistoryEntry[] | null,
         psychologist_feedback: item.psychologist_feedback as string | null,
         feedback_at: item.feedback_at as string | null,
+        feedback_thread: item.feedback_thread as ThreadComment[] | null,
       }));
       setActivities(mappedData);
     }
@@ -195,6 +204,9 @@ export const usePatientActivities = () => {
         custom_fields: data.custom_fields as ActivityField[] | null,
         patient_responses: data.patient_responses as Record<string, string | boolean> | null,
         response_history: data.response_history as ResponseHistoryEntry[] | null,
+        psychologist_feedback: data.psychologist_feedback as string | null,
+        feedback_at: data.feedback_at as string | null,
+        feedback_thread: data.feedback_thread as ThreadComment[] | null,
       };
       setActivities((prev) => prev.map((a) => (a.id === id ? mappedData : a)));
     }

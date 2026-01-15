@@ -25,6 +25,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           feedback_at: string | null
+          feedback_thread: Json | null
           id: string
           patient_id: string
           patient_responses: Json | null
@@ -44,6 +45,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           feedback_at?: string | null
+          feedback_thread?: Json | null
           id?: string
           patient_id: string
           patient_responses?: Json | null
@@ -63,6 +65,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           feedback_at?: string | null
+          feedback_thread?: Json | null
           id?: string
           patient_id?: string
           patient_responses?: Json | null

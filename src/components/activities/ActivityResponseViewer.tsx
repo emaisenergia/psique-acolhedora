@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, Download, CheckCircle2, XCircle, MessageSquare, Printer, History, Clock, Send, Edit2, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ActivityThread, type ThreadComment } from "./ActivityThread";
 
 export interface ActivityField {
   id: string;
@@ -33,9 +34,11 @@ interface ActivityResponseViewerProps {
     responseHistory?: ResponseHistoryEntry[];
     psychologistFeedback?: string | null;
     feedbackAt?: string | null;
+    feedbackThread?: ThreadComment[] | null;
   };
   patientName?: string;
   onSaveFeedback?: (activityId: string, feedback: string) => Promise<void>;
+  onAddThreadComment?: (activityId: string, comment: string) => Promise<void>;
 }
 
 export const ActivityResponseViewer = ({
@@ -44,6 +47,7 @@ export const ActivityResponseViewer = ({
   activity,
   patientName,
   onSaveFeedback,
+  onAddThreadComment,
 }: ActivityResponseViewerProps) => {
   const [feedbackText, setFeedbackText] = useState(activity.psychologistFeedback || "");
   const [isEditingFeedback, setIsEditingFeedback] = useState(false);
@@ -53,6 +57,7 @@ export const ActivityResponseViewer = ({
   const hasHistory = activity.responseHistory && activity.responseHistory.length > 0;
   const hasFeedback = !!activity.psychologistFeedback;
   const canEditFeedback = !!onSaveFeedback && !!activity.id;
+  const canAddComment = !!onAddThreadComment && !!activity.id;
 
   const handleSaveFeedback = async () => {
     if (!onSaveFeedback || !activity.id) return;
@@ -518,7 +523,20 @@ export const ActivityResponseViewer = ({
             </div>
           )}
 
-          {/* Response History */}
+          {/* Comment Thread Section */}
+          {canAddComment && (
+            <div className="pt-4 border-t">
+              <ActivityThread
+                thread={activity.feedbackThread || []}
+                onAddComment={async (content) => {
+                  if (onAddThreadComment && activity.id) {
+                    await onAddThreadComment(activity.id, content);
+                  }
+                }}
+                userRole="psychologist"
+              />
+            </div>
+          )}
           {hasHistory && (
             <div className="pt-4 border-t">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-3">
