@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { SessionsModule } from "@/components/sessions/SessionsModule";
+import { TreatmentPlanTab } from "@/components/treatment/TreatmentPlanTab";
 
 type Activity = ActivityType;
 
@@ -1001,132 +1002,14 @@ const PatientProfile = () => {
         </TabsContent>
 
         <TabsContent value="plano" className="mt-6">
-          <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">
-            <Card className="card-glass">
-              <CardContent className="p-6 space-y-6">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="text-lg font-semibold text-foreground">Plano de Tratamento</div>
-                    <div className="text-sm text-muted-foreground">
-                      Defina objetivos terapêuticos, metas e estratégias para acompanhar a evolução do paciente.
-                    </div>
-                  </div>
-                  <Badge className="bg-primary/10 text-primary border border-primary/20">
-                    Em construção
-                  </Badge>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-                    <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary" />
-                      Objetivos Terapêuticos
-                    </div>
-                    <div className="space-y-3">
-                      {objectives.map((objective, index) => (
-                        <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                          <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center flex-shrink-0">
-                            {index + 1}
-                          </div>
-                          <div className="text-sm text-muted-foreground">{objective}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-4">
-                      <Button variant="outline" size="sm" className="rounded-full" onClick={() => setNotesOpen(true)}>
-                        <Plus className="w-4 h-4 mr-2" /> Editar objetivos
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-                    <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-emerald-600" />
-                      Metas de Curto Prazo
-                    </div>
-                    <div className="rounded-lg border border-dashed border-border/70 bg-white/70 p-4 text-sm text-muted-foreground">
-                      Nenhuma meta de curto prazo definida ainda. Adicione metas específicas e mensuráveis para acompanhar o progresso.
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-                    <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                      <Award className="w-4 h-4 text-amber-600" />
-                      Metas de Longo Prazo
-                    </div>
-                    <div className="rounded-lg border border-dashed border-border/70 bg-white/70 p-4 text-sm text-muted-foreground">
-                      Nenhuma meta de longo prazo definida ainda. Estabeleça resultados esperados para o processo terapêutico.
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-                    <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                      <ClipboardList className="w-4 h-4 text-blue-600" />
-                      Abordagens e Técnicas
-                    </div>
-                    <div className="rounded-lg border border-dashed border-border/70 bg-white/70 p-4 text-sm text-muted-foreground">
-                      Defina as abordagens terapêuticas e técnicas que serão utilizadas no tratamento.
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-4">
-              <Card className="bg-white/90 border border-border/60">
-                <CardContent className="p-6 space-y-4">
-                  <div className="text-sm font-medium text-muted-foreground">Resumo do Plano</div>
-                  <ActivitySummaryRow
-                    label="Objetivos definidos"
-                    value={objectives.length}
-                    helper="Baseados nas observações gerais"
-                  />
-                  <ActivitySummaryRow
-                    label="Sessões realizadas"
-                    value={doneHistory.length}
-                    helper="Total de sessões concluídas"
-                  />
-                  <ActivitySummaryRow
-                    label="Taxa de presença"
-                    value={`${attendanceRate}%`}
-                    helper="Indicador de adesão ao tratamento"
-                  />
-                  <ActivitySummaryRow
-                    label="Tempo de acompanhamento"
-                    value={
-                      firstJournalEntry
-                        ? `${Math.ceil((Date.now() - new Date(firstJournalEntry.createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30))} mês(es)`
-                        : "Início recente"
-                    }
-                    helper="Desde o primeiro registro"
-                  />
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/90 border border-border/60">
-                <CardContent className="p-6 space-y-3">
-                  <div className="font-medium text-foreground flex items-center gap-2">
-                    <Award className="w-4 h-4 text-primary" />
-                    Marco atual
-                  </div>
-                  <div className="text-sm font-semibold text-foreground">{milestone.title}</div>
-                  <div className="text-xs text-muted-foreground">{milestone.description}</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/90 border border-border/60">
-                <CardContent className="p-6 space-y-3 text-sm text-muted-foreground">
-                  <div className="font-medium text-foreground">Dicas para o plano</div>
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li>Revise os objetivos a cada 8-12 sessões.</li>
-                    <li>Alinhe metas com a demanda inicial do paciente.</li>
-                    <li>Use o prontuário para documentar progressos.</li>
-                    <li>Compartilhe conquistas com o paciente para motivação.</li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <TreatmentPlanTab
+            patientId={patient.id}
+            patientName={patient.name}
+            patientAge={age}
+            patientNotes={patient.notes}
+            sessionsCompleted={doneHistory.length}
+            journalNotes={patientJournals.slice(0, 3).map(j => j.note).join("\n")}
+          />
         </TabsContent>
         <TabsContent value="sessoes" className="mt-6">
           <SessionsModule patientId={patient.id} patientName={patient.name} />

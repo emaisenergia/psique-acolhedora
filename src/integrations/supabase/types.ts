@@ -796,6 +796,68 @@ export type Database = {
         }
         Relationships: []
       }
+      treatment_plans: {
+        Row: {
+          approaches: string[] | null
+          created_at: string
+          created_by: string | null
+          current_progress: number | null
+          discharge_objectives: Json | null
+          estimated_sessions: number | null
+          id: string
+          long_term_goals: Json | null
+          notes: string | null
+          objectives: Json | null
+          patient_id: string
+          short_term_goals: Json | null
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approaches?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          current_progress?: number | null
+          discharge_objectives?: Json | null
+          estimated_sessions?: number | null
+          id?: string
+          long_term_goals?: Json | null
+          notes?: string | null
+          objectives?: Json | null
+          patient_id: string
+          short_term_goals?: Json | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approaches?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          current_progress?: number | null
+          discharge_objectives?: Json | null
+          estimated_sessions?: number | null
+          id?: string
+          long_term_goals?: Json | null
+          notes?: string | null
+          objectives?: Json | null
+          patient_id?: string
+          short_term_goals?: Json | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treatment_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
