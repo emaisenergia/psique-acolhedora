@@ -120,7 +120,7 @@ export const TransactionFormDialog = ({
         type: values.type,
         amount: values.amount,
         description: values.description || null,
-        patient_id: values.patient_id || null,
+        patient_id: values.patient_id && values.patient_id !== "none" ? values.patient_id : null,
         clinic: values.clinic || null,
         payment_method: values.payment_method || null,
         category: values.category || null,
@@ -276,7 +276,7 @@ export const TransactionFormDialog = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Nenhum (receita geral)</SelectItem>
+                        <SelectItem value="none">Nenhum (receita geral)</SelectItem>
                         {patients.map((patient) => (
                           <SelectItem key={patient.id} value={patient.id}>
                             {patient.name}
