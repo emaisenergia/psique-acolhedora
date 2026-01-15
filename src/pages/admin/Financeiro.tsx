@@ -15,6 +15,8 @@ import { useSessionPackages } from "@/hooks/useSessionPackages";
 import { usePatients } from "@/hooks/usePatients";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import TransactionFormDialog from "@/components/financeiro/TransactionFormDialog";
+import { RevenueExpenseChart } from "@/components/financeiro/RevenueExpenseChart";
+import { DelinquencyReport } from "@/components/financeiro/DelinquencyReport";
 import { 
   exportTransactionsToExcel, 
   exportSessionsToExcel, 
@@ -49,7 +51,8 @@ import {
   Trash2,
   Download,
   Search,
-  Filter
+  Filter,
+  AlertTriangle
 } from "lucide-react";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -324,9 +327,13 @@ const Financeiro = () => {
 
         {/* Tabs for different reports */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="transactions">Lançamentos</TabsTrigger>
+            <TabsTrigger value="delinquency" className="flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Inadimplência
+            </TabsTrigger>
             <TabsTrigger value="insurance">Por Convênio</TabsTrigger>
             <TabsTrigger value="packages">Pacotes</TabsTrigger>
             <TabsTrigger value="sessions">Sessões</TabsTrigger>
@@ -439,6 +446,12 @@ const Financeiro = () => {
               </Card>
             </div>
 
+            {/* Revenue vs Expenses Chart */}
+            <RevenueExpenseChart 
+              transactions={transactions} 
+              appointments={appointments} 
+            />
+
             {/* Sessions by Month Bar Chart */}
             <Card className="card-glass">
               <CardHeader>
@@ -461,6 +474,14 @@ const Financeiro = () => {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Delinquency Tab */}
+          <TabsContent value="delinquency" className="space-y-4">
+            <DelinquencyReport 
+              appointments={appointments} 
+              patients={patients} 
+            />
           </TabsContent>
 
           {/* Insurance Tab */}
