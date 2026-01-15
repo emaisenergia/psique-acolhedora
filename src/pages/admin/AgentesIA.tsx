@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { AIChat } from "@/components/ai/AIChat";
+import { AudioTranscriber } from "@/components/ai/AudioTranscriber";
 import { usePatients } from "@/hooks/usePatients";
 import { 
   Bot, 
@@ -15,7 +16,8 @@ import {
   Brain, 
   ClipboardList,
   Sparkles,
-  Loader2
+  Loader2,
+  Mic
 } from "lucide-react";
 import { useAIAgent } from "@/hooks/useAIAgent";
 
@@ -97,22 +99,26 @@ const AgentesIA = () => {
 
         {/* Tabs for different agents */}
         <Tabs defaultValue="chat" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Chat
+              <span className="hidden sm:inline">Chat</span>
+            </TabsTrigger>
+            <TabsTrigger value="transcription" className="flex items-center gap-2">
+              <Mic className="h-4 w-4" />
+              <span className="hidden sm:inline">Transcrição</span>
             </TabsTrigger>
             <TabsTrigger value="session" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
-              Sessão
+              <span className="hidden sm:inline">Sessão</span>
             </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center gap-2">
               <Brain className="h-4 w-4" />
-              Análise
+              <span className="hidden sm:inline">Análise</span>
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Relatórios
+              <span className="hidden sm:inline">Relatórios</span>
             </TabsTrigger>
           </TabsList>
 
@@ -147,6 +153,53 @@ const AgentesIA = () => {
                   </CardContent>
                 </Card>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Transcription Tab */}
+          <TabsContent value="transcription">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AudioTranscriber 
+                onTranscriptionComplete={(text) => {
+                  setSessionNotes(prev => prev ? `${prev}\n\n${text}` : text);
+                }}
+              />
+              <Card className="card-glass">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Mic className="h-5 w-5" />
+                    Sobre a Transcrição
+                  </CardTitle>
+                  <CardDescription>
+                    Grave áudios de sessões e obtenha transcrições automáticas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Como funciona:</h4>
+                    <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                      <li>Clique no botão de microfone para iniciar</li>
+                      <li>Grave o áudio da sessão</li>
+                      <li>Clique novamente para parar e transcrever</li>
+                      <li>A transcrição é processada por IA</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2 pt-4 border-t">
+                    <h4 className="font-medium text-sm">Recursos:</h4>
+                    <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                      <li>Identificação de pausas [pausa]</li>
+                      <li>Marcação de emoções [choro], [riso]</li>
+                      <li>Pontuação automática</li>
+                      <li>Exportar como texto</li>
+                    </ul>
+                  </div>
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      💡 A transcrição pode ser automaticamente adicionada às notas da sessão.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 

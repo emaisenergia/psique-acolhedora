@@ -4,9 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2, Trash2 } from "lucide-react";
+import { Send, Bot, User, Loader2, Plus, History } from "lucide-react";
 import { useAIAgent } from "@/hooks/useAIAgent";
 import { cn } from "@/lib/utils";
+import { ConversationHistory } from "./ConversationHistory";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 interface AIChatProps {
   type?: "chat" | "session_summary" | "patient_analysis" | "report_generation";
@@ -16,18 +22,32 @@ interface AIChatProps {
     patientHistory?: string;
     reportType?: string;
   };
+  patientId?: string;
   placeholder?: string;
   title?: string;
+  showHistory?: boolean;
 }
 
 export const AIChat = ({ 
   type = "chat", 
   context,
+  patientId,
   placeholder = "Digite sua mensagem...",
-  title = "Chat Assistente"
+  title = "Chat Assistente",
+  showHistory = true
 }: AIChatProps) => {
   const [input, setInput] = useState("");
-  const { messages, isLoading, sendMessage, clearMessages } = useAIAgent({ type, context });
+  const { 
+    messages, 
+    isLoading, 
+    sendMessage, 
+    clearMessages,
+    conversations,
+    conversationId,
+    loadConversation,
+    startNewConversation,
+    deleteConversation,
+  } = useAIAgent({ type, context, patientId });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -55,12 +75,31 @@ export const AIChat = ({
             <Bot className="h-5 w-5 text-primary" />
             {title}
           </span>
-          {messages.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearMessages}>
-              <Trash2 className="h-4 w-4 mr-1" />
-              Limpar
+          <div className="flex items-center gap-1">
+            {showHistory && conversations.length > 0 && (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <History className="h-4 w-4 mr-1" />
+                    Histórico
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-80">
+                  <ConversationHistory
+                    conversations={conversations}
+                    currentConversationId={conversationId}
+                    onSelectConversation={loadConversation}
+                    onNewConversation={startNewConversation}
+                    onDeleteConversation={deleteConversation}
+                  />
+                </SheetContent>
+              </Sheet>
+            )}
+            <Button variant="ghost" size="sm" onClick={startNewConversation}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nova
             </Button>
-          )}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col overflow-hidden pb-4">
