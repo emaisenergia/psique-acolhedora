@@ -22,7 +22,10 @@ import {
   ClipboardList,
   Download,
   Paperclip,
+  MessageCircle,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const formatDueDate = (iso?: string | null) => {
   if (!iso) return "Sem prazo definido";
@@ -267,7 +270,31 @@ const PortalActivities = () => {
                                   Respostas enviadas
                                 </span>
                               )}
+                              {(activity as any).psychologist_feedback && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary">
+                                  <MessageCircle className="w-3 h-3" />
+                                  Feedback disponível
+                                </span>
+                              )}
                             </div>
+
+                            {/* Psychologist Feedback Display */}
+                            {(activity as any).psychologist_feedback && (
+                              <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <MessageCircle className="w-4 h-4 text-primary" />
+                                  <span className="text-xs font-semibold text-primary">Feedback do seu psicólogo</span>
+                                </div>
+                                <div className="text-sm text-foreground whitespace-pre-line">
+                                  {(activity as any).psychologist_feedback}
+                                </div>
+                                {(activity as any).feedback_at && (
+                                  <div className="mt-2 text-xs text-muted-foreground">
+                                    {format(new Date((activity as any).feedback_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 md:flex-col">
                             {hasCustomContent(activity) && (

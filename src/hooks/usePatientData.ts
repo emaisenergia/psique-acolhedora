@@ -152,6 +152,8 @@ export const usePatientActivities = () => {
         custom_fields: item.custom_fields as ActivityField[] | null,
         patient_responses: item.patient_responses as Record<string, string | boolean> | null,
         response_history: item.response_history as ResponseHistoryEntry[] | null,
+        psychologist_feedback: item.psychologist_feedback as string | null,
+        feedback_at: item.feedback_at as string | null,
       }));
       setActivities(mappedData);
     }
