@@ -7,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { storage, type Patient, uid } from "@/lib/storage";
 import { useMemo, useState } from "react";
-import { UserPlus, Users, Search, Link as LinkIcon, Clock, CheckCircle2, Eye, Pencil, Trash2 } from "lucide-react";
+import { UserPlus, Users, Search, Link as LinkIcon, Clock, CheckCircle2, Eye, Pencil, Trash2, Handshake } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
+import { useInsurances } from "@/hooks/useInsurances";
 
 const Stat = ({ label, value, accent = "primary" as "primary" | "emerald" | "amber" }) => (
   <Card className="card-glass">
@@ -327,6 +328,7 @@ const CreatePatientForm = ({ onSubmit, initial, submitLabel = "Criar Paciente" }
   const [tab, setTab] = useState("pessoal");
   const [loadingCep, setLoadingCep] = useState(false);
   const [form, setForm] = useState<Partial<Patient>>({ status: "active", color: "#3B82F6", ...initial });
+  const { insurances } = useInsurances();
 
   const buscaCEP = async () => {
     if (!form.cep) return;
@@ -361,6 +363,7 @@ const CreatePatientForm = ({ onSubmit, initial, submitLabel = "Criar Paciente" }
           <TabsTrigger value="pessoal" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Dados Pessoais</TabsTrigger>
           <TabsTrigger value="endereco" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Endereço</TabsTrigger>
           <TabsTrigger value="profissional" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Profissional</TabsTrigger>
+          <TabsTrigger value="convenio" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Convênio</TabsTrigger>
         </TabsList>
 
         {/* Dados Pessoais */}
@@ -460,6 +463,42 @@ const CreatePatientForm = ({ onSubmit, initial, submitLabel = "Criar Paciente" }
               <label className="text-sm">Observações Gerais</label>
               <Textarea rows={3} value={form.notes || ''} onChange={(e)=>setForm({ ...form, notes: e.target.value })} placeholder="Observações importantes sobre o paciente" />
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Convênio */}
+        <TabsContent value="convenio" className="mt-4">
+          <div className="grid gap-3">
+            <div>
+              <label className="text-sm flex items-center gap-2">
+                <Handshake className="h-4 w-4" />
+                Convênio
+              </label>
+              <Select value={(form as any).insuranceId || ''} onValueChange={(v) => setForm({ ...form, insuranceId: v || undefined } as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um convênio (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Nenhum (Particular)</SelectItem>
+                  {insurances.map((ins) => (
+                    <SelectItem key={ins.id} value={ins.id}>
+                      {ins.name}
+                      {ins.coverage_percentage > 0 && ` (${ins.coverage_percentage}% cobertura)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Vincule o paciente a um convênio para facilitar o faturamento
+              </p>
+            </div>
+            {insurances.length === 0 && (
+              <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                <Handshake className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <p>Nenhum convênio cadastrado.</p>
+                <p className="text-xs">Cadastre convênios em Configurações → Convênios</p>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>
