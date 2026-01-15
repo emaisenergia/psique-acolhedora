@@ -8,12 +8,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useInsurances } from "@/hooks/useInsurances";
 import { useSessionPackages } from "@/hooks/useSessionPackages";
 import { usePatients } from "@/hooks/usePatients";
 import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import TransactionFormDialog from "@/components/financeiro/TransactionFormDialog";
+import { 
+  exportTransactionsToExcel, 
+  exportSessionsToExcel, 
+  exportFinancialSummaryToExcel 
+} from "@/lib/exportFinanceiro";
 import { 
   BarChart, 
   Bar, 
@@ -40,7 +46,10 @@ import {
   Plus,
   ArrowUpCircle,
   ArrowDownCircle,
-  Trash2
+  Trash2,
+  Download,
+  Search,
+  Filter
 } from "lucide-react";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -49,6 +58,17 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
 });
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', '#8884d8', '#82ca9d', '#ffc658'];
+
+const EXPENSE_CATEGORIES = [
+  "Aluguel",
+  "Materiais",
+  "Supervisão",
+  "Cursos/Formação",
+  "Marketing",
+  "Software/Assinaturas",
+  "Impostos",
+  "Outros",
+];
 
 const Financeiro = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("current");
@@ -59,6 +79,17 @@ const Financeiro = () => {
   const { patients } = usePatients();
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [defaultTransactionType, setDefaultTransactionType] = useState<"revenue" | "expense">("revenue");
+  
+  // Filter states
+  const [filterType, setFilterType] = useState<"all" | "revenue" | "expense">("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterPatient, setFilterPatient] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Patient map for exports
+  const patientMap = useMemo(() => {
+    return Object.fromEntries(patients.map(p => [p.id, p.name]));
+  }, [patients]);
 
   // Calculate date range based on selected period
   const dateRange = useMemo(() => {
@@ -303,6 +334,39 @@ const Financeiro = () => {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const totalExpenses = transactions
+                    .filter(t => {
+                      const tDate = parseISO(t.transaction_date);
+                      return t.type === "expense" && isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                    })
+                    .reduce((sum, t) => sum + t.amount, 0);
+                  
+                  exportFinancialSummaryToExcel({
+                    period: `${format(dateRange.start, "dd/MM/yyyy")} - ${format(dateRange.end, "dd/MM/yyyy")}`,
+                    totalRevenue: kpis.totalRevenue,
+                    totalExpenses,
+                    netProfit: kpis.totalRevenue - totalExpenses,
+                    completedSessions: kpis.completedSessions,
+                    averageSessionValue: kpis.averageSessionValue,
+                    revenueByInsurance,
+                    packageUsage: packageUsageData.map(p => ({
+                      name: p.name,
+                      patientName: p.patientName,
+                      usedSessions: p.usedSessions,
+                      totalSessions: p.totalSessions,
+                      price: p.price,
+                    })),
+                  });
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Resumo Completo
+              </Button>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Revenue Trend */}
               <Card className="card-glass">
@@ -530,9 +594,22 @@ const Financeiro = () => {
           <TabsContent value="sessions" className="space-y-4">
             <Card className="card-glass">
               <CardHeader>
-                <CardTitle className="text-lg font-medium flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Sessões Realizadas no Período
+                <CardTitle className="text-lg font-medium flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Sessões Realizadas no Período
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const completedAppts = filteredAppointments.filter(a => a.status === "done");
+                      exportSessionsToExcel(completedAppts, patientMap, "sessoes");
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Exportar Excel
+                  </Button>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -603,6 +680,27 @@ const Financeiro = () => {
                       size="sm"
                       variant="outline"
                       onClick={() => {
+                        const filteredTrans = transactions.filter(t => {
+                          const tDate = parseISO(t.transaction_date);
+                          const inDateRange = isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                          const matchesType = filterType === "all" || t.type === filterType;
+                          const matchesCategory = filterCategory === "all" || t.category === filterCategory;
+                          const matchesPatient = filterPatient === "all" || t.patient_id === filterPatient;
+                          const matchesSearch = !searchTerm || 
+                            t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            t.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+                          return inDateRange && matchesType && matchesCategory && matchesPatient && matchesSearch;
+                        });
+                        exportTransactionsToExcel(filteredTrans, patientMap, "lancamentos");
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Excel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
                         setDefaultTransactionType("expense");
                         setShowTransactionForm(true);
                       }}
@@ -625,7 +723,75 @@ const Financeiro = () => {
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Filters */}
+                <div className="flex flex-wrap gap-3 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Filtros:</span>
+                  </div>
+                  
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por descrição..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  
+                  <Select value={filterType} onValueChange={(v) => setFilterType(v as "all" | "revenue" | "expense")}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="revenue">Receitas</SelectItem>
+                      <SelectItem value="expense">Despesas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-[160px]">
+                      <SelectValue placeholder="Categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas categorias</SelectItem>
+                      {EXPENSE_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={filterPatient} onValueChange={setFilterPatient}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Paciente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos pacientes</SelectItem>
+                      {patients.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {(filterType !== "all" || filterCategory !== "all" || filterPatient !== "all" || searchTerm) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFilterType("all");
+                        setFilterCategory("all");
+                        setFilterPatient("all");
+                        setSearchTerm("");
+                      }}
+                    >
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -642,7 +808,14 @@ const Financeiro = () => {
                     {transactions
                       .filter(t => {
                         const tDate = parseISO(t.transaction_date);
-                        return isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                        const inDateRange = isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                        const matchesType = filterType === "all" || t.type === filterType;
+                        const matchesCategory = filterCategory === "all" || t.category === filterCategory;
+                        const matchesPatient = filterPatient === "all" || t.patient_id === filterPatient;
+                        const matchesSearch = !searchTerm || 
+                          t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          t.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+                        return inDateRange && matchesType && matchesCategory && matchesPatient && matchesSearch;
                       })
                       .map((t) => {
                         const patient = t.patient_id ? patients.find(p => p.id === t.patient_id) : null;
@@ -694,11 +867,18 @@ const Financeiro = () => {
                       })}
                     {transactions.filter(t => {
                       const tDate = parseISO(t.transaction_date);
-                      return isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                      const inDateRange = isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                      const matchesType = filterType === "all" || t.type === filterType;
+                      const matchesCategory = filterCategory === "all" || t.category === filterCategory;
+                      const matchesPatient = filterPatient === "all" || t.patient_id === filterPatient;
+                      const matchesSearch = !searchTerm || 
+                        t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        t.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+                      return inDateRange && matchesType && matchesCategory && matchesPatient && matchesSearch;
                     }).length === 0 && (
                       <TableRow>
                         <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                          Nenhum lançamento no período selecionado
+                          Nenhum lançamento encontrado
                         </TableCell>
                       </TableRow>
                     )}
