@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from "@/components/ui/dialog";
-import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, FileText } from "lucide-react";
+import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, FileText, Download, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from "recharts";
 
 interface GoalResult {
   goal: string;
@@ -445,6 +446,244 @@ export function TreatmentPlanTab({
 
   const currentStatusOption = STATUS_OPTIONS.find(s => s.value === plan?.current_status) || STATUS_OPTIONS[0];
 
+  // Generate evolution chart data
+  const evolutionData = useMemo(() => {
+    if (!plan) return [];
+    
+    const data: { date: string; melhoras: number; metasConcluidas: number; label: string }[] = [];
+    
+    // Group improvements by month
+    const improvementsByMonth: Record<string, number> = {};
+    plan.improvements.forEach(imp => {
+      const month = new Date(imp.date).toISOString().slice(0, 7);
+      improvementsByMonth[month] = (improvementsByMonth[month] || 0) + 1;
+    });
+
+    // Group completed goals by month
+    const goalsByMonth: Record<string, number> = {};
+    plan.goal_results.filter(r => r.completed && r.completedAt).forEach(r => {
+      const month = new Date(r.completedAt!).toISOString().slice(0, 7);
+      goalsByMonth[month] = (goalsByMonth[month] || 0) + 1;
+    });
+
+    // Get all unique months
+    const allMonths = new Set([...Object.keys(improvementsByMonth), ...Object.keys(goalsByMonth)]);
+    
+    // Add start date month if exists
+    if (plan.start_date) {
+      allMonths.add(plan.start_date.slice(0, 7));
+    }
+
+    // Sort and create cumulative data
+    const sortedMonths = Array.from(allMonths).sort();
+    let cumulativeImprovements = 0;
+    let cumulativeGoals = 0;
+
+    sortedMonths.forEach(month => {
+      cumulativeImprovements += improvementsByMonth[month] || 0;
+      cumulativeGoals += goalsByMonth[month] || 0;
+      
+      const date = new Date(month + "-01");
+      data.push({
+        date: month,
+        label: date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
+        melhoras: cumulativeImprovements,
+        metasConcluidas: cumulativeGoals,
+      });
+    });
+
+    return data;
+  }, [plan]);
+
+  // Export to PDF function
+  const exportToPDF = () => {
+    if (!plan) return;
+    
+    const statusLabel = STATUS_OPTIONS.find(s => s.value === plan.current_status)?.label || "Em Andamento";
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Plano de Tratamento - ${patientName}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #1a1a1a; line-height: 1.6; }
+          .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #3b82f6; }
+          .header h1 { color: #1e40af; font-size: 24px; margin-bottom: 5px; }
+          .header p { color: #64748b; font-size: 14px; }
+          .patient-info { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
+          .patient-info h2 { color: #1e40af; font-size: 18px; margin-bottom: 10px; }
+          .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+          .info-item { }
+          .info-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+          .info-value { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+          .section { margin-bottom: 25px; }
+          .section-title { color: #1e40af; font-size: 16px; font-weight: 600; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
+          .section-title::before { content: ''; width: 4px; height: 16px; background: #3b82f6; border-radius: 2px; }
+          .list { list-style: none; }
+          .list li { padding: 8px 12px; margin-bottom: 6px; background: #f8fafc; border-radius: 6px; font-size: 13px; display: flex; align-items: flex-start; gap: 10px; }
+          .list li::before { content: '•'; color: #3b82f6; font-weight: bold; font-size: 16px; }
+          .goal-item { padding: 10px 12px; margin-bottom: 8px; border-radius: 6px; font-size: 13px; }
+          .goal-pending { background: #fef3c7; border-left: 3px solid #f59e0b; }
+          .goal-completed { background: #d1fae5; border-left: 3px solid #10b981; }
+          .goal-status { font-size: 11px; color: #64748b; margin-top: 4px; }
+          .badges { display: flex; flex-wrap: wrap; gap: 8px; }
+          .badge { background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+          .progress-section { background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 20px; border-radius: 10px; margin-bottom: 25px; }
+          .progress-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+          .progress-item { }
+          .progress-label { font-size: 12px; color: #1e40af; margin-bottom: 5px; }
+          .progress-bar { height: 8px; background: #bfdbfe; border-radius: 4px; overflow: hidden; }
+          .progress-fill { height: 100%; background: #3b82f6; border-radius: 4px; }
+          .progress-fill.green { background: #10b981; }
+          .progress-value { font-size: 20px; font-weight: 700; color: #1e40af; }
+          .improvement-item { padding: 10px 12px; margin-bottom: 8px; background: #ecfdf5; border-left: 3px solid #10b981; border-radius: 6px; }
+          .improvement-category { font-size: 11px; color: #059669; font-weight: 600; text-transform: uppercase; }
+          .improvement-desc { font-size: 13px; color: #1a1a1a; margin-top: 4px; }
+          .improvement-date { font-size: 11px; color: #64748b; margin-top: 4px; }
+          .notes { background: #fffbeb; padding: 15px; border-radius: 8px; border-left: 3px solid #f59e0b; }
+          .notes p { font-size: 13px; color: #78350f; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 11px; }
+          @media print { body { padding: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Plano de Tratamento</h1>
+          <p>Documento gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+        </div>
+
+        <div class="patient-info">
+          <h2>${patientName}</h2>
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-label">Status Atual</div>
+              <div class="info-value">${statusLabel}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Início do Tratamento</div>
+              <div class="info-value">${plan.start_date ? new Date(plan.start_date).toLocaleDateString("pt-BR") : "Não definido"}</div>
+            </div>
+            <div class="info-item">
+              <div class="info-label">Sessões Estimadas</div>
+              <div class="info-value">${plan.estimated_sessions} sessões</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-grid">
+            <div class="progress-item">
+              <div class="progress-label">Progresso das Sessões (${sessionsCompleted}/${plan.estimated_sessions})</div>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${Math.min(100, Math.round((sessionsCompleted / plan.estimated_sessions) * 100))}%"></div></div>
+              <div class="progress-value">${Math.min(100, Math.round((sessionsCompleted / plan.estimated_sessions) * 100))}%</div>
+            </div>
+            <div class="progress-item">
+              <div class="progress-label">Metas Concluídas (${completedGoalsCount}/${totalGoalsCount})</div>
+              <div class="progress-bar"><div class="progress-fill green" style="width: ${goalsProgress}%"></div></div>
+              <div class="progress-value">${goalsProgress}%</div>
+            </div>
+          </div>
+        </div>
+
+        ${plan.objectives.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Objetivos Terapêuticos</div>
+          <ul class="list">
+            ${plan.objectives.map(obj => `<li>${obj}</li>`).join("")}
+          </ul>
+        </div>
+        ` : ""}
+
+        ${plan.discharge_objectives.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Critérios para Alta</div>
+          <ul class="list">
+            ${plan.discharge_objectives.map(obj => `<li>${obj}</li>`).join("")}
+          </ul>
+        </div>
+        ` : ""}
+
+        ${plan.short_term_goals.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Metas de Curto Prazo</div>
+          ${plan.short_term_goals.map(goal => {
+            const result = plan.goal_results.find(r => r.goal === goal);
+            return `<div class="goal-item ${result?.completed ? "goal-completed" : "goal-pending"}">
+              ${goal}
+              ${result?.completed ? `<div class="goal-status">✓ Concluída${result.completedAt ? ` em ${new Date(result.completedAt).toLocaleDateString("pt-BR")}` : ""}</div>` : '<div class="goal-status">⏳ Em andamento</div>'}
+              ${result?.result ? `<div class="goal-status">Obs: ${result.result}</div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
+        ` : ""}
+
+        ${plan.long_term_goals.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Metas de Longo Prazo</div>
+          ${plan.long_term_goals.map(goal => {
+            const result = plan.goal_results.find(r => r.goal === goal);
+            return `<div class="goal-item ${result?.completed ? "goal-completed" : "goal-pending"}">
+              ${goal}
+              ${result?.completed ? `<div class="goal-status">✓ Concluída${result.completedAt ? ` em ${new Date(result.completedAt).toLocaleDateString("pt-BR")}` : ""}</div>` : '<div class="goal-status">⏳ Em andamento</div>'}
+              ${result?.result ? `<div class="goal-status">Obs: ${result.result}</div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
+        ` : ""}
+
+        ${plan.approaches.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Abordagens Terapêuticas</div>
+          <div class="badges">
+            ${plan.approaches.map(app => `<span class="badge">${app}</span>`).join("")}
+          </div>
+        </div>
+        ` : ""}
+
+        ${plan.improvements.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Registro de Melhoras</div>
+          ${plan.improvements.map(imp => `
+            <div class="improvement-item">
+              <div class="improvement-category">${imp.category}</div>
+              <div class="improvement-desc">${imp.description}</div>
+              <div class="improvement-date">${new Date(imp.date).toLocaleDateString("pt-BR")}</div>
+            </div>
+          `).join("")}
+        </div>
+        ` : ""}
+
+        ${plan.notes ? `
+        <div class="section">
+          <div class="section-title">Observações</div>
+          <div class="notes">
+            <p>${plan.notes}</p>
+          </div>
+        </div>
+        ` : ""}
+
+        <div class="footer">
+          <p>Este documento é confidencial e destinado exclusivamente ao uso profissional.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+    
+    toast.success("Preparando PDF para impressão...");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -514,6 +753,15 @@ export function TreatmentPlanTab({
                       >
                         <Archive className="w-4 h-4 mr-2" />
                         Arquivar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full text-primary hover:text-primary/80"
+                        onClick={exportToPDF}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Exportar PDF
                       </Button>
                     </>
                   )}
@@ -932,6 +1180,95 @@ export function TreatmentPlanTab({
               )}
             </CardContent>
           </Card>
+
+          {/* Evolution Chart */}
+          {plan && evolutionData.length > 1 && (
+            <Card className="card-glass">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <BarChart3 className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Gráfico de Evolução</h3>
+                    <p className="text-sm text-muted-foreground">Progresso ao longo do tratamento</p>
+                  </div>
+                </div>
+
+                <div className="h-[280px] mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={evolutionData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorMelhoras" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorMetas" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis 
+                        dataKey="label" 
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 11, fill: '#64748b' }}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                        labelStyle={{ fontWeight: 600, color: '#1a1a1a' }}
+                      />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: '10px' }}
+                        formatter={(value) => <span className="text-sm text-muted-foreground">{value}</span>}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="melhoras" 
+                        name="Melhoras Registradas"
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorMelhoras)" 
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="metasConcluidas" 
+                        name="Metas Concluídas"
+                        stroke="#3b82f6" 
+                        strokeWidth={2}
+                        fillOpacity={1} 
+                        fill="url(#colorMetas)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border/50">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-emerald-600">{plan.improvements.length}</div>
+                    <div className="text-xs text-muted-foreground">Total de Melhoras</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{completedGoalsCount}</div>
+                    <div className="text-xs text-muted-foreground">Metas Concluídas</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}
