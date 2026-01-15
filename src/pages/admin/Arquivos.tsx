@@ -52,7 +52,13 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
+  LayoutGrid,
+  LayoutList,
+  CheckSquare,
+  Square,
+  CheckCheck,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePatients } from "@/hooks/usePatients";
@@ -125,9 +131,15 @@ const Arquivos = () => {
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
   const [imageZoom, setImageZoom] = useState(100);
   const [imageRotation, setImageRotation] = useState(0);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { patients } = usePatients();
+
+  // Thumbnail URLs cache
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({});
 
   const loadFiles = useCallback(async () => {
     setIsLoading(true);
@@ -157,8 +169,32 @@ const Arquivos = () => {
     }
   }, [selectedBucket, currentFolder, toast]);
 
+  // Load thumbnail URLs for images
+  useEffect(() => {
+    const loadThumbnails = async () => {
+      const imageFiles = files.filter(f => 
+        f.metadata?.mimetype?.startsWith("image/") && f.id !== null
+      );
+      
+      const urls: Record<string, string> = {};
+      for (const file of imageFiles) {
+        const filePath = currentFolder ? `${currentFolder}/${file.name}` : file.name;
+        const { data } = await supabase.storage
+          .from(selectedBucket)
+          .getPublicUrl(filePath);
+        urls[file.name] = data.publicUrl;
+      }
+      setThumbnailUrls(urls);
+    };
+
+    if (files.length > 0) {
+      loadThumbnails();
+    }
+  }, [files, currentFolder, selectedBucket]);
+
   useEffect(() => {
     loadFiles();
+    setSelectedFiles(new Set()); // Clear selection when changing folder/bucket
   }, [loadFiles]);
 
   const handleUpload = async () => {
@@ -246,6 +282,11 @@ const Arquivos = () => {
       if (error) throw error;
       
       toast({ title: "Arquivo excluído!" });
+      setSelectedFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(file.name);
+        return newSet;
+      });
       loadFiles();
     } catch (error) {
       console.error("Error deleting file:", error);
@@ -254,6 +295,93 @@ const Arquivos = () => {
         description: "Não foi possível excluir o arquivo.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Batch delete selected files
+  const handleBatchDelete = async () => {
+    if (selectedFiles.size === 0) return;
+    
+    const confirmMsg = `Excluir ${selectedFiles.size} arquivo(s) selecionado(s)? Esta ação não pode ser desfeita.`;
+    if (!confirm(confirmMsg)) return;
+
+    setIsDeleting(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    const filePaths = Array.from(selectedFiles).map(name => 
+      currentFolder ? `${currentFolder}/${name}` : name
+    );
+
+    try {
+      const { error } = await supabase.storage
+        .from(selectedBucket)
+        .remove(filePaths);
+
+      if (error) throw error;
+      successCount = filePaths.length;
+    } catch (error) {
+      console.error("Error batch deleting:", error);
+      errorCount = filePaths.length;
+    }
+
+    setIsDeleting(false);
+    setSelectedFiles(new Set());
+
+    if (successCount > 0) {
+      toast({
+        title: "Arquivos excluídos",
+        description: `${successCount} arquivo(s) excluído(s) com sucesso.`,
+      });
+      loadFiles();
+    } else {
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir os arquivos.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Batch download selected files
+  const handleBatchDownload = async () => {
+    if (selectedFiles.size === 0) return;
+
+    toast({
+      title: "Iniciando downloads",
+      description: `Baixando ${selectedFiles.size} arquivo(s)...`,
+    });
+
+    for (const fileName of Array.from(selectedFiles)) {
+      const file = files.find(f => f.name === fileName);
+      if (file && file.id !== null) {
+        await handleDownload(file);
+        // Small delay between downloads
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    }
+  };
+
+  // Toggle file selection
+  const toggleFileSelection = (fileName: string) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileName)) {
+        newSet.delete(fileName);
+      } else {
+        newSet.add(fileName);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all files
+  const selectAllFiles = () => {
+    const nonFolderFiles = filteredFiles.filter(f => f.id !== null && f.metadata !== null);
+    if (selectedFiles.size === nonFolderFiles.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(nonFolderFiles.map(f => f.name)));
     }
   };
 
@@ -559,21 +687,21 @@ const Arquivos = () => {
                   {currentFolder ? `/${currentFolder}` : "Raiz do bucket"} • Arraste arquivos para fazer upload
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 md:gap-4 flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Buscar arquivos..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 w-64"
+                    className="pl-9 w-48 md:w-64"
                   />
                 </div>
                 <Select value={selectedBucket} onValueChange={(v: "documents" | "session-files") => {
                   setSelectedBucket(v);
                   setCurrentFolder("");
                 }}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-32 md:w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -581,6 +709,26 @@ const Arquivos = () => {
                     <SelectItem value="session-files">Sessões</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                {/* View mode toggle */}
+                <div className="flex border rounded-md">
+                  <Button
+                    variant={viewMode === "list" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-9 w-9 rounded-r-none"
+                    onClick={() => setViewMode("list")}
+                  >
+                    <LayoutList className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === "grid" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-9 w-9 rounded-l-none"
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -606,14 +754,75 @@ const Arquivos = () => {
               </div>
             )}
 
-            {/* Navigation */}
-            {currentFolder && (
-              <Button variant="outline" size="sm" className="mb-4" onClick={navigateUp}>
-                ← Voltar
-              </Button>
+            {/* Selection actions bar */}
+            {selectedFiles.size > 0 && (
+              <div className="flex items-center justify-between p-3 mb-4 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="flex items-center gap-2">
+                  <CheckCheck className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">
+                    {selectedFiles.size} arquivo(s) selecionado(s)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBatchDownload}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBatchDelete}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
+                    Excluir
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedFiles(new Set())}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             )}
 
-            {/* Files List */}
+            {/* Navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                {currentFolder && (
+                  <Button variant="outline" size="sm" onClick={navigateUp}>
+                    ← Voltar
+                  </Button>
+                )}
+              </div>
+              {filteredFiles.some(f => f.id !== null && f.metadata !== null) && (
+                <Button variant="ghost" size="sm" onClick={selectAllFiles}>
+                  {selectedFiles.size === filteredFiles.filter(f => f.id !== null && f.metadata !== null).length ? (
+                    <>
+                      <Square className="h-4 w-4 mr-2" />
+                      Desmarcar todos
+                    </>
+                  ) : (
+                    <>
+                      <CheckSquare className="h-4 w-4 mr-2" />
+                      Selecionar todos
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {/* Files List/Grid */}
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -624,38 +833,64 @@ const Arquivos = () => {
                 <p>Nenhum arquivo encontrado</p>
                 <p className="text-sm mt-1">Faça upload de arquivos para começar</p>
               </div>
-            ) : (
+            ) : viewMode === "list" ? (
+              /* List View */
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2">
                   {filteredFiles.map((file) => {
                     const isFolder = file.id === null || file.metadata === null;
                     const FileIcon = isFolder ? FolderOpen : getFileIcon(file.metadata?.mimetype);
+                    const isSelected = selectedFiles.has(file.name);
                     
                     return (
                       <div
                         key={file.name}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                          isSelected 
+                            ? "bg-primary/10 border-primary/30" 
+                            : "bg-muted/30 hover:bg-muted/50"
+                        }`}
                       >
-                        <div 
-                          className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
-                          onClick={() => isFolder ? navigateToFolder(file.name) : handlePreview(file)}
-                        >
-                          <FileIcon className={`h-8 w-8 flex-shrink-0 ${isFolder ? "text-primary" : "text-muted-foreground"}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{file.name}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              {!isFolder && (
-                                <>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {getFileTypeLabel(file.metadata?.mimetype)}
-                                  </Badge>
-                                  <span>{formatFileSize(file.metadata?.size)}</span>
-                                  <span>•</span>
-                                </>
-                              )}
-                              <span>
-                                {format(new Date(file.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                              </span>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {!isFolder && (
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleFileSelection(file.name)}
+                              className="flex-shrink-0"
+                            />
+                          )}
+                          <div 
+                            className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+                            onClick={() => isFolder ? navigateToFolder(file.name) : handlePreview(file)}
+                          >
+                            {/* Thumbnail for images in list view */}
+                            {!isFolder && file.metadata?.mimetype?.startsWith("image/") && thumbnailUrls[file.name] ? (
+                              <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0 bg-muted">
+                                <img 
+                                  src={thumbnailUrls[file.name]} 
+                                  alt={file.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <FileIcon className={`h-8 w-8 flex-shrink-0 ${isFolder ? "text-primary" : "text-muted-foreground"}`} />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{file.name}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {!isFolder && (
+                                  <>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {getFileTypeLabel(file.metadata?.mimetype)}
+                                    </Badge>
+                                    <span>{formatFileSize(file.metadata?.size)}</span>
+                                    <span>•</span>
+                                  </>
+                                )}
+                                <span>
+                                  {format(new Date(file.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -690,6 +925,100 @@ const Arquivos = () => {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            ) : (
+              /* Grid View */
+              <ScrollArea className="h-[400px]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {filteredFiles.map((file) => {
+                    const isFolder = file.id === null || file.metadata === null;
+                    const FileIcon = isFolder ? FolderOpen : getFileIcon(file.metadata?.mimetype);
+                    const isImage = file.metadata?.mimetype?.startsWith("image/");
+                    const isSelected = selectedFiles.has(file.name);
+                    
+                    return (
+                      <div
+                        key={file.name}
+                        className={`relative group rounded-lg border overflow-hidden transition-all ${
+                          isSelected 
+                            ? "ring-2 ring-primary border-primary/30" 
+                            : "hover:border-primary/50"
+                        }`}
+                      >
+                        {/* Selection checkbox */}
+                        {!isFolder && (
+                          <div className={`absolute top-2 left-2 z-10 transition-opacity ${
+                            isSelected || "opacity-0 group-hover:opacity-100"
+                          }`}>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleFileSelection(file.name)}
+                              className="bg-background/80 backdrop-blur-sm"
+                            />
+                          </div>
+                        )}
+
+                        {/* Thumbnail / Icon */}
+                        <div 
+                          className="aspect-square bg-muted/50 flex items-center justify-center cursor-pointer overflow-hidden"
+                          onClick={() => isFolder ? navigateToFolder(file.name) : handlePreview(file)}
+                        >
+                          {isImage && thumbnailUrls[file.name] ? (
+                            <img 
+                              src={thumbnailUrls[file.name]} 
+                              alt={file.name}
+                              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                            />
+                          ) : (
+                            <FileIcon className={`h-12 w-12 ${isFolder ? "text-primary" : "text-muted-foreground"}`} />
+                          )}
+                        </div>
+
+                        {/* File info */}
+                        <div className="p-2 bg-background">
+                          <p className="text-xs font-medium truncate" title={file.name}>
+                            {file.name}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs text-muted-foreground">
+                              {isFolder ? "Pasta" : formatFileSize(file.metadata?.size)}
+                            </span>
+                            {!isFolder && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handlePreview(file)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    Visualizar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDownload(file)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Baixar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleCopyLink(file)}>
+                                    <Link className="h-4 w-4 mr-2" />
+                                    Copiar Link
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDelete(file)}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
