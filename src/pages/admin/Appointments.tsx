@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, DragEvent } from "react";
-import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek, setHours, setMinutes } from "date-fns";
+import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek, setHours, setMinutes, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, GripVertical, Plus, Repeat, Search } from "lucide-react";
+import { AlertCircle, Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, GripVertical, Plus, Repeat, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 
@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { useAppointments, type AppointmentStatus, type AppointmentRow } from "@/hooks/useAppointments";
 import { usePatients } from "@/hooks/usePatients";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useScheduleValidation, WORKING_HOURS } from "@/hooks/useScheduleValidation";
+import { useToast } from "@/hooks/use-toast";
 
 const weekOptions = { weekStartsOn: 0 as const };
 
@@ -64,6 +66,7 @@ const statusOptions: AppointmentStatus[] = ["scheduled", "confirmed", "done", "c
 const getStatusMeta = (status?: string) => statusMeta[(status as AppointmentStatus) ?? "scheduled"] ?? statusMeta.scheduled;
 
 const Appointments = () => {
+  const { toast } = useToast();
   const { 
     appointments, 
     isLoading: appointmentsLoading, 
@@ -74,12 +77,19 @@ const Appointments = () => {
     deleteAppointment 
   } = useAppointments();
   const { patients, isLoading: patientsLoading, createPatient } = usePatients();
+  const { 
+    validateDateTime, 
+    getTimeSlotsForDate, 
+    hasAvailableSlots,
+  } = useScheduleValidation(appointments);
   
   const [form, setForm] = useState<AppointmentFormState>({ ...defaultFormState });
+  const [formError, setFormError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<AppointmentFormState>({ ...defaultFormState });
+  const [editFormError, setEditFormError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -94,8 +104,25 @@ const Appointments = () => {
 
   const isLoading = appointmentsLoading || patientsLoading;
 
+  // Get time slots for the create form date
+  const createFormTimeSlots = useMemo(() => {
+    if (!form.date) return [];
+    const date = parseISO(form.date);
+    if (isNaN(date.getTime())) return [];
+    return getTimeSlotsForDate(date);
+  }, [form.date, getTimeSlotsForDate]);
+
+  // Get time slots for the edit form date
+  const editFormTimeSlots = useMemo(() => {
+    if (!editForm.date) return [];
+    const date = parseISO(editForm.date);
+    if (isNaN(date.getTime())) return [];
+    return getTimeSlotsForDate(date, editingId ?? undefined);
+  }, [editForm.date, editingId, getTimeSlotsForDate]);
+
   const resetCreateForm = () => {
     setForm({ ...defaultFormState });
+    setFormError(null);
     setShowCreateForm(false);
   };
 
@@ -103,6 +130,7 @@ const Appointments = () => {
     setEditDialogOpen(false);
     setEditingId(null);
     setEditForm({ ...defaultFormState });
+    setEditFormError(null);
   };
 
   const handleUpdateAppointmentStatus = async (id: string, newStatus: AppointmentStatus) => {
@@ -114,6 +142,7 @@ const Appointments = () => {
     e.preventDefault();
     if (!form.patientId || !form.date || !form.time) return;
     
+    setFormError(null);
     setIsSaving(true);
     
     // Combine date and time into datetime
@@ -125,10 +154,25 @@ const Appointments = () => {
       return;
     }
 
+    // Validate the first occurrence
+    const validation = validateDateTime(baseDate);
+    if (!validation.isValid) {
+      setFormError(validation.error || "Horário inválido");
+      setIsSaving(false);
+      toast({
+        title: "Horário indisponível",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const frequency = form.isRecurring ? (form.repeatFrequency ?? "weekly") : "none";
     const rawRepeatCount = form.repeatCount ?? 1;
     const repeatCount = frequency === "none" ? 1 : Math.max(1, rawRepeatCount);
 
+    // Validate all recurring occurrences
+    const occurrences: Date[] = [];
     for (let i = 0; i < repeatCount; i++) {
       const occurrenceDate =
         i === 0
@@ -140,7 +184,26 @@ const Appointments = () => {
           : frequency === "monthly"
           ? addMonths(baseDate, i)
           : baseDate;
+      
+      // Skip validation for first occurrence (already validated)
+      if (i > 0) {
+        const occValidation = validateDateTime(occurrenceDate);
+        if (!occValidation.isValid) {
+          setFormError(`Conflito na ${i + 1}ª ocorrência: ${occValidation.error}`);
+          setIsSaving(false);
+          toast({
+            title: "Conflito de horário",
+            description: `A ${i + 1}ª sessão recorrente tem conflito: ${occValidation.error}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      occurrences.push(occurrenceDate);
+    }
 
+    // Create all appointments
+    for (const occurrenceDate of occurrences) {
       await createAppointment({
         patient_id: form.patientId,
         date_time: occurrenceDate.toISOString(),
@@ -278,11 +341,27 @@ const Appointments = () => {
   const saveEdit = async () => {
     if (!editingId || !editForm.patientId || !editForm.date || !editForm.time) return;
 
+    setEditFormError(null);
     setIsSaving(true);
     const dateTimeString = `${editForm.date}T${editForm.time}`;
+    const parsedDate = parseISO(dateTimeString);
+
+    // Validate the new date/time
+    const validation = validateDateTime(parsedDate, editingId);
+    if (!validation.isValid) {
+      setEditFormError(validation.error || "Horário inválido");
+      setIsSaving(false);
+      toast({
+        title: "Horário indisponível",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
     await updateAppointment(editingId, {
       patient_id: editForm.patientId,
-      date_time: parseISO(dateTimeString).toISOString(),
+      date_time: parsedDate.toISOString(),
       mode: editForm.mode ?? "presencial",
       status: editForm.status ?? "scheduled",
       service: editForm.service,
@@ -364,6 +443,19 @@ const Appointments = () => {
     const appointment = appointments.find((a) => a.id === appointmentId);
     if (!appointment || !appointment.date_time) return;
 
+    // Check if the target day is a work day
+    const dayOfWeek = getDay(targetDay);
+    if (!WORKING_HOURS.workDays.includes(dayOfWeek)) {
+      toast({
+        title: "Dia não disponível",
+        description: "Atendimentos apenas de segunda a sexta-feira",
+        variant: "destructive",
+      });
+      setDraggedAppointment(null);
+      setDragOverDay(null);
+      return;
+    }
+
     // Get the original time from the appointment
     const originalDate = parseISO(appointment.date_time);
     const hours = originalDate.getHours();
@@ -373,6 +465,19 @@ const Appointments = () => {
     let newDateTime = startOfDay(targetDay);
     newDateTime = setHours(newDateTime, hours);
     newDateTime = setMinutes(newDateTime, minutes);
+
+    // Validate the new date/time
+    const validation = validateDateTime(newDateTime, appointmentId);
+    if (!validation.isValid) {
+      toast({
+        title: "Horário indisponível",
+        description: validation.error,
+        variant: "destructive",
+      });
+      setDraggedAppointment(null);
+      setDragOverDay(null);
+      return;
+    }
 
     await updateAppointmentDate(appointmentId, newDateTime.toISOString());
     
@@ -489,6 +594,8 @@ const Appointments = () => {
                 const isSelected = isSameDay(day, selectedDate);
                 const inMonth = isSameMonth(day, currentMonth);
                 const isToday = isSameDay(day, today);
+                const dayOfWeek = getDay(day);
+                const isWeekend = !WORKING_HOURS.workDays.includes(dayOfWeek);
 
                 return (
                   <button
@@ -498,7 +605,8 @@ const Appointments = () => {
                     className={cn(
                       "relative flex items-center justify-center h-10 w-full rounded-lg text-sm transition-colors",
                       !inMonth && "text-muted-foreground/40",
-                      inMonth && !isSelected && !isToday && "hover:bg-muted",
+                      isWeekend && inMonth && "text-muted-foreground/50 bg-muted/30",
+                      inMonth && !isSelected && !isToday && !isWeekend && "hover:bg-muted",
                       isToday && !isSelected && "bg-primary text-primary-foreground",
                       isSelected && "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"
                     )}
@@ -532,6 +640,12 @@ const Appointments = () => {
                   <span className="h-2 w-2 rounded-full bg-red-500" />
                   <span>Cancelado</span>
                 </div>
+              </div>
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs text-muted-foreground">
+                  <Clock className="inline h-3 w-3 mr-1" />
+                  Horário de atendimento: Seg-Sex, 07:00-12:00 e 13:00-18:30
+                </p>
               </div>
             </div>
           </CardContent>
@@ -679,6 +793,8 @@ const Appointments = () => {
               const isSelected = isSameDay(day, selectedDate);
               const isToday = isSameDay(day, today);
               const dayLabel = format(day, "EEE", { locale: ptBR }).slice(0, 3) + ".";
+              const dayOfWeek = getDay(day);
+              const isWeekend = !WORKING_HOURS.workDays.includes(dayOfWeek);
               const isDragOver = dragOverDay === key;
 
               return (
@@ -686,61 +802,72 @@ const Appointments = () => {
                   key={key}
                   type="button"
                   onClick={() => updateSelectedDate(day)}
-                  onDragOver={(e) => handleDragOver(e, key)}
+                  onDragOver={(e) => !isWeekend && handleDragOver(e, key)}
                   onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, day)}
+                  onDrop={(e) => !isWeekend && handleDrop(e, day)}
                   className={cn(
                     "flex flex-col rounded-xl border-2 p-3 min-h-[140px] transition-colors",
-                    "hover:border-primary/60 hover:bg-primary/5",
-                    isSelected && "border-green-200 bg-green-50",
-                    !isSelected && "border-border",
-                    isToday && !isSelected && "border-primary/40",
-                    isDragOver && "border-primary border-dashed bg-primary/10"
+                    isWeekend && "bg-muted/30 border-muted cursor-not-allowed",
+                    !isWeekend && "hover:border-primary/60 hover:bg-primary/5",
+                    isSelected && !isWeekend && "border-green-200 bg-green-50",
+                    !isSelected && !isWeekend && "border-border",
+                    isToday && !isSelected && !isWeekend && "border-primary/40",
+                    isDragOver && !isWeekend && "border-primary border-dashed bg-primary/10"
                   )}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-muted-foreground">{dayLabel}</span>
+                    <span className={cn(
+                      "text-xs",
+                      isWeekend ? "text-muted-foreground/50" : "text-muted-foreground"
+                    )}>{dayLabel}</span>
                     <span className={cn(
                       "text-lg font-semibold",
-                      isToday && "text-primary"
+                      isWeekend && "text-muted-foreground/50",
+                      isToday && !isWeekend && "text-primary"
                     )}>
                       {format(day, "d")}
                     </span>
                   </div>
                   
-                  <div className="flex-1 space-y-1 overflow-hidden">
-                    {dayAppointments.slice(0, 3).map((appt) => {
-                      const statusInfo = getStatusMeta(appt.status);
-                      const patientName = patientMap[appt.patient_id] || "Paciente";
-                      const isDragging = draggedAppointment === appt.id;
-                      
-                      return (
-                        <div
-                          key={appt.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, appt.id)}
-                          onDragEnd={handleDragEnd}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditing(appt.id);
-                          }}
-                          className={cn(
-                            "flex items-center gap-1 px-2 py-1 rounded text-xs bg-muted/50 cursor-grab active:cursor-grabbing",
-                            isDragging && "opacity-50"
-                          )}
-                        >
-                          <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className={cn("h-2 w-2 rounded-full shrink-0", statusInfo.color)} />
-                          <span className="truncate">{patientName.split(" ")[0]}</span>
-                        </div>
-                      );
-                    })}
-                    {dayAppointments.length > 3 && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        +{dayAppointments.length - 3} mais
-                      </p>
-                    )}
-                  </div>
+                  {isWeekend ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <span className="text-xs text-muted-foreground/50">Sem atendimento</span>
+                    </div>
+                  ) : (
+                    <div className="flex-1 space-y-1 overflow-hidden">
+                      {dayAppointments.slice(0, 3).map((appt) => {
+                        const statusInfo = getStatusMeta(appt.status);
+                        const patientName = patientMap[appt.patient_id] || "Paciente";
+                        const isDragging = draggedAppointment === appt.id;
+                        
+                        return (
+                          <div
+                            key={appt.id}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, appt.id)}
+                            onDragEnd={handleDragEnd}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditing(appt.id);
+                            }}
+                            className={cn(
+                              "flex items-center gap-1 px-2 py-1 rounded text-xs bg-muted/50 cursor-grab active:cursor-grabbing",
+                              isDragging && "opacity-50"
+                            )}
+                          >
+                            <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className={cn("h-2 w-2 rounded-full shrink-0", statusInfo.color)} />
+                            <span className="truncate">{patientName.split(" ")[0]}</span>
+                          </div>
+                        );
+                      })}
+                      {dayAppointments.length > 3 && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          +{dayAppointments.length - 3} mais
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -808,21 +935,56 @@ const Appointments = () => {
                   type="date" 
                   className="h-11"
                   value={form.date || ""} 
-                  onChange={(e) => setForm({ ...form, date: e.target.value })} 
+                  onChange={(e) => {
+                    setForm({ ...form, date: e.target.value, time: "" });
+                    setFormError(null);
+                  }} 
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Horário <span className="text-destructive">*</span></label>
-                <div className="relative">
-                  <Input 
-                    type="time" 
-                    className="h-11"
-                    value={form.time || ""} 
-                    onChange={(e) => setForm({ ...form, time: e.target.value })} 
-                  />
-                </div>
+                <Select 
+                  value={form.time || ""} 
+                  onValueChange={(v) => {
+                    setForm({ ...form, time: v });
+                    setFormError(null);
+                  }}
+                  disabled={!form.date}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder={form.date ? "Selecione o horário" : "Selecione a data primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {createFormTimeSlots.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        {form.date ? "Sem horários neste dia" : "Selecione a data"}
+                      </SelectItem>
+                    ) : (
+                      createFormTimeSlots.map((slot) => (
+                        <SelectItem 
+                          key={slot.time} 
+                          value={slot.time}
+                          disabled={!slot.isAvailable}
+                          className={cn(
+                            !slot.isAvailable && "text-muted-foreground line-through"
+                          )}
+                        >
+                          {slot.time} {!slot.isAvailable && "(ocupado)"}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+
+            {/* Error message */}
+            {formError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {formError}
+              </div>
+            )}
 
             {/* Modalidade e Tipo de Atendimento */}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1052,19 +1214,57 @@ const Appointments = () => {
                   type="date"
                   className="h-11"
                   value={editForm.date || ""}
-                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, date: e.target.value, time: "" });
+                    setEditFormError(null);
+                  }}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Horário</label>
-                <Input
-                  type="time"
-                  className="h-11"
-                  value={editForm.time || ""}
-                  onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
-                />
+                <Select 
+                  value={editForm.time || ""} 
+                  onValueChange={(v) => {
+                    setEditForm({ ...editForm, time: v });
+                    setEditFormError(null);
+                  }}
+                  disabled={!editForm.date}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder={editForm.date ? "Selecione o horário" : "Selecione a data primeiro"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editFormTimeSlots.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        {editForm.date ? "Sem horários neste dia" : "Selecione a data"}
+                      </SelectItem>
+                    ) : (
+                      editFormTimeSlots.map((slot) => (
+                        <SelectItem 
+                          key={slot.time} 
+                          value={slot.time}
+                          disabled={!slot.isAvailable}
+                          className={cn(
+                            !slot.isAvailable && "text-muted-foreground line-through"
+                          )}
+                        >
+                          {slot.time} {!slot.isAvailable && "(ocupado)"}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+
+            {/* Error message */}
+            {editFormError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {editFormError}
+              </div>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Modalidade</label>
