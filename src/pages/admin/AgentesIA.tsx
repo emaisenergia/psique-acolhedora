@@ -10,6 +10,7 @@ import { AIChat } from "@/components/ai/AIChat";
 import { AudioTranscriber } from "@/components/ai/AudioTranscriber";
 import { RealtimeTranscriber } from "@/components/ai/RealtimeTranscriber";
 import { ConversationSearch } from "@/components/ai/ConversationSearch";
+import { AIUsageDashboard } from "@/components/ai/AIUsageDashboard";
 import { usePatients } from "@/hooks/usePatients";
 import { 
   Bot, 
@@ -22,6 +23,7 @@ import {
   Mic,
   Radio,
   Search,
+  BarChart3,
 } from "lucide-react";
 
 const AgentesIA = () => {
@@ -101,8 +103,12 @@ const AgentesIA = () => {
         </div>
 
         {/* Tabs for different agents */}
-        <Tabs defaultValue="chat" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+        <Tabs defaultValue="dashboard" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-8">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               <span className="hidden sm:inline">Chat</span>
@@ -132,6 +138,11 @@ const AgentesIA = () => {
               <span className="hidden sm:inline">Relatórios</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard">
+            <AIUsageDashboard />
+          </TabsContent>
 
           {/* Chat Tab */}
           <TabsContent value="chat">
