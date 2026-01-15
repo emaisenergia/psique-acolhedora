@@ -360,10 +360,10 @@ const CreatePatientForm = ({ onSubmit, initial, submitLabel = "Criar Paciente" }
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full bg-muted/60 rounded-2xl p-1">
-          <TabsTrigger value="pessoal" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Dados Pessoais</TabsTrigger>
-          <TabsTrigger value="endereco" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Endereço</TabsTrigger>
-          <TabsTrigger value="profissional" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Profissional</TabsTrigger>
-          <TabsTrigger value="convenio" className="flex-1 rounded-xl data-[state=active]:border data-[state=active]:border-secondary">Convênio</TabsTrigger>
+          <TabsTrigger value="pessoal" className="flex-1 rounded-xl">Dados Pessoais</TabsTrigger>
+          <TabsTrigger value="endereco" className="flex-1 rounded-xl">Endereço</TabsTrigger>
+          <TabsTrigger value="profissional" className="flex-1 rounded-xl">Profissional</TabsTrigger>
+          <TabsTrigger value="convenio" className="flex-1 rounded-xl">Convênio</TabsTrigger>
         </TabsList>
 
         {/* Dados Pessoais */}
