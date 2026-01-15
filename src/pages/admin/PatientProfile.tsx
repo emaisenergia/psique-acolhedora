@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield, UserPlus, Key, Loader2 } from "lucide-react";
+import { notifyNewActivity } from "@/lib/notifications";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMemo, useState, useEffect, type FormEvent } from "react";
@@ -518,7 +519,7 @@ const PatientProfile = () => {
     storage.saveActivities(next);
   };
 
-  const handleCreateActivity = (data: {
+  const handleCreateActivity = async (data: {
     title: string;
     description?: string;
     dueDate?: string;
@@ -543,6 +544,19 @@ const PatientProfile = () => {
     };
     persistActivities([...activities, activity]);
     setActivityDialogOpen(false);
+    
+    // Send notification to patient
+    if (supabasePatientId) {
+      try {
+        await notifyNewActivity(supabasePatientId, data.title);
+        toast.success("Atividade criada e notificação enviada ao paciente");
+      } catch (error) {
+        console.error("Error sending activity notification:", error);
+        toast.success("Atividade criada (notificação não enviada)");
+      }
+    } else {
+      toast.success("Atividade criada com sucesso");
+    }
   };
 
   const toggleActivityStatus = (activityId: string) => {
