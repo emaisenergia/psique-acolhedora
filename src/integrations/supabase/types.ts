@@ -166,6 +166,36 @@ export type Database = {
           },
         ]
       }
+      financial_goals: {
+        Row: {
+          created_at: string
+          id: string
+          month: string
+          notes: string | null
+          revenue_goal: number
+          sessions_goal: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month: string
+          notes?: string | null
+          revenue_goal?: number
+          sessions_goal?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month?: string
+          notes?: string | null
+          revenue_goal?: number
+          sessions_goal?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       financial_transactions: {
         Row: {
           amount: number
@@ -174,6 +204,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_confirmed: boolean
           notes: string | null
           patient_id: string | null
           payment_method: string | null
@@ -188,6 +219,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_confirmed?: boolean
           notes?: string | null
           patient_id?: string | null
           payment_method?: string | null
@@ -202,6 +234,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_confirmed?: boolean
           notes?: string | null
           patient_id?: string | null
           payment_method?: string | null
@@ -336,6 +369,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recurring_transactions: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          day_of_month: number
+          description: string | null
+          id: string
+          is_active: boolean
+          last_generated_month: string | null
+          notes: string | null
+          payment_method: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          day_of_month?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_generated_month?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          day_of_month?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_generated_month?: string | null
+          notes?: string | null
+          payment_method?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       secure_messages: {
         Row: {
