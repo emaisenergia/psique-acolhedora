@@ -17,36 +17,48 @@ export type Database = {
       activities: {
         Row: {
           assigned_by: string | null
+          attachment_name: string | null
+          attachment_url: string | null
           completed_at: string | null
           created_at: string
+          custom_fields: Json | null
           description: string | null
           due_date: string | null
           id: string
           patient_id: string
+          patient_responses: Json | null
           status: string
           title: string
           updated_at: string
         }
         Insert: {
           assigned_by?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
           completed_at?: string | null
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           due_date?: string | null
           id?: string
           patient_id: string
+          patient_responses?: Json | null
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
           assigned_by?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
           completed_at?: string | null
           created_at?: string
+          custom_fields?: Json | null
           description?: string | null
           due_date?: string | null
           id?: string
           patient_id?: string
+          patient_responses?: Json | null
           status?: string
           title?: string
           updated_at?: string
