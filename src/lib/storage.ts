@@ -31,6 +31,14 @@ export type Appointment = {
   createdAt: string;
 };
 
+export type ActivityField = {
+  id: string;
+  type: "text" | "checkbox";
+  label: string;
+  required?: boolean;
+  response?: string | boolean; // patient's response
+};
+
 export type Activity = {
   id: string;
   patientId: string;
@@ -41,6 +49,10 @@ export type Activity = {
   assignedBy?: string;
   createdAt: string;
   completedAt?: string;
+  // Extended fields for customizable tasks
+  fields?: ActivityField[];
+  attachmentUrl?: string;
+  attachmentName?: string;
 };
 
 export type JournalEntry = {
