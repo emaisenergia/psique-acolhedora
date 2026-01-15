@@ -1046,12 +1046,12 @@ const Arquivos = () => {
             {selectedBucket === "documents" && (
               <div className="space-y-2">
                 <Label>Vincular a Paciente (opcional)</Label>
-                <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+                <Select value={selectedPatient || "none"} onValueChange={(v) => setSelectedPatient(v === "none" ? "" : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um paciente..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum (pasta raiz)</SelectItem>
+                    <SelectItem value="none">Nenhum (pasta raiz)</SelectItem>
                     {patients.map((p) => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
