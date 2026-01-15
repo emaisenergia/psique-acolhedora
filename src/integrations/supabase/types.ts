@@ -27,6 +27,7 @@ export type Database = {
           id: string
           patient_id: string
           patient_responses: Json | null
+          response_history: Json | null
           status: string
           title: string
           updated_at: string
@@ -43,6 +44,7 @@ export type Database = {
           id?: string
           patient_id: string
           patient_responses?: Json | null
+          response_history?: Json | null
           status?: string
           title: string
           updated_at?: string
@@ -59,6 +61,7 @@ export type Database = {
           id?: string
           patient_id?: string
           patient_responses?: Json | null
+          response_history?: Json | null
           status?: string
           title?: string
           updated_at?: string
