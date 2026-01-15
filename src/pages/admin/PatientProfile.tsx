@@ -1009,6 +1009,7 @@ const PatientProfile = () => {
             patientNotes={patient.notes}
             sessionsCompleted={doneHistory.length}
             journalNotes={patientJournals.slice(0, 3).map(j => j.note).join("\n")}
+            onAddSession={() => setTab("sessoes")}
           />
         </TabsContent>
         <TabsContent value="sessoes" className="mt-6">
