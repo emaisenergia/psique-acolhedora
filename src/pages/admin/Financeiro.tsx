@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useInsurances } from "@/hooks/useInsurances";
 import { useSessionPackages } from "@/hooks/useSessionPackages";
@@ -17,6 +18,15 @@ import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
 import TransactionFormDialog from "@/components/financeiro/TransactionFormDialog";
 import { RevenueExpenseChart } from "@/components/financeiro/RevenueExpenseChart";
 import { DelinquencyReport } from "@/components/financeiro/DelinquencyReport";
+import { FinancialGoalsCard } from "@/components/financeiro/FinancialGoalsCard";
+import { RecurringTransactionsManager } from "@/components/financeiro/RecurringTransactionsManager";
+import { DateRangePicker } from "@/components/financeiro/DateRangePicker";
+import { 
+  RevenueProjectionChart, 
+  WeekdayAnalysisChart, 
+  OccupancyRateCard,
+  YearOverYearComparison 
+} from "@/components/financeiro/AdvancedAnalytics";
 import { 
   exportTransactionsToExcel, 
   exportSessionsToExcel, 
@@ -52,7 +62,9 @@ import {
   Download,
   Search,
   Filter,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCcw,
+  CheckCircle2
 } from "lucide-react";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -75,10 +87,11 @@ const EXPENSE_CATEGORIES = [
 
 const Financeiro = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("current");
+  const [customDateRange, setCustomDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const { appointments } = useAppointments();
   const { insurances } = useInsurances();
   const { packages } = useSessionPackages();
-  const { transactions, deleteTransaction } = useFinancialTransactions();
+  const { transactions, deleteTransaction, updateTransaction } = useFinancialTransactions();
   const { patients } = usePatients();
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [defaultTransactionType, setDefaultTransactionType] = useState<"revenue" | "expense">("revenue");
@@ -94,8 +107,10 @@ const Financeiro = () => {
     return Object.fromEntries(patients.map(p => [p.id, p.name]));
   }, [patients]);
 
-  // Calculate date range based on selected period
+  // Calculate date range based on selected period or custom range
   const dateRange = useMemo(() => {
+    if (customDateRange) return customDateRange;
+    
     const now = new Date();
     switch (selectedPeriod) {
       case "current":
@@ -111,7 +126,12 @@ const Financeiro = () => {
       default:
         return { start: startOfMonth(now), end: endOfMonth(now) };
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod, customDateRange]);
+
+  const handleCustomDateRange = (range: { start: Date; end: Date }) => {
+    setCustomDateRange(range);
+    setSelectedPeriod("custom");
+  };
 
   // Filter appointments within date range
   const filteredAppointments = useMemo(() => {
@@ -255,7 +275,7 @@ const Financeiro = () => {
               <ArrowUpCircle className="h-4 w-4 mr-2" />
               Receita
             </Button>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <Select value={selectedPeriod} onValueChange={(v) => { setSelectedPeriod(v); setCustomDateRange(null); }}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Selecione o período" />
               </SelectTrigger>
@@ -265,8 +285,10 @@ const Financeiro = () => {
                 <SelectItem value="last3">Últimos 3 meses</SelectItem>
                 <SelectItem value="last6">Últimos 6 meses</SelectItem>
                 <SelectItem value="year">Este ano</SelectItem>
+                {customDateRange && <SelectItem value="custom">Personalizado</SelectItem>}
               </SelectContent>
             </Select>
+            <DateRangePicker dateRange={dateRange} onDateRangeChange={handleCustomDateRange} />
           </div>
         </div>
 
@@ -327,21 +349,25 @@ const Financeiro = () => {
 
         {/* Tabs for different reports */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="analytics">Análises</TabsTrigger>
             <TabsTrigger value="transactions">Lançamentos</TabsTrigger>
+            <TabsTrigger value="recurring">
+              <RefreshCcw className="h-3 w-3 mr-1" />
+              Recorrentes
+            </TabsTrigger>
             <TabsTrigger value="delinquency" className="flex items-center gap-1">
               <AlertTriangle className="h-3 w-3" />
               Inadimplência
             </TabsTrigger>
-            <TabsTrigger value="insurance">Por Convênio</TabsTrigger>
             <TabsTrigger value="packages">Pacotes</TabsTrigger>
             <TabsTrigger value="sessions">Sessões</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -374,6 +400,14 @@ const Financeiro = () => {
                 Exportar Resumo Completo
               </Button>
             </div>
+            
+            {/* Financial Goals */}
+            <FinancialGoalsCard 
+              currentRevenue={kpis.totalRevenue} 
+              currentSessions={kpis.completedSessions}
+              selectedDate={dateRange.start}
+            />
+            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Revenue Trend */}
               <Card className="card-glass">
@@ -474,6 +508,23 @@ const Financeiro = () => {
                 </ResponsiveContainer>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Advanced Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <OccupancyRateCard appointments={appointments} />
+              <div className="lg:col-span-2">
+                <WeekdayAnalysisChart appointments={appointments} />
+              </div>
+            </div>
+            <RevenueProjectionChart appointments={appointments} />
+            <YearOverYearComparison appointments={appointments} />
+          </TabsContent>
+
+          {/* Recurring Transactions Tab */}
+          <TabsContent value="recurring" className="space-y-4">
+            <RecurringTransactionsManager />
           </TabsContent>
 
           {/* Delinquency Tab */}

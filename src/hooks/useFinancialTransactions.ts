@@ -13,6 +13,7 @@ export interface FinancialTransaction {
   category: string | null;
   transaction_date: string;
   notes: string | null;
+  is_confirmed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +28,7 @@ export interface FinancialTransactionInsert {
   category?: string | null;
   transaction_date?: string;
   notes?: string | null;
+  is_confirmed?: boolean;
 }
 
 export const useFinancialTransactions = () => {
