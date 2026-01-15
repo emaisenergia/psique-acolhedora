@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { usePatientAuth } from "@/context/PatientAuth";
-import { usePatientActivities } from "@/hooks/usePatientData";
+import { usePatientActivities, type PatientActivity } from "@/hooks/usePatientData";
+import { ActivityResponseDialog } from "@/components/activities/ActivityResponseDialog";
 import {
   Shield,
   Calendar,
@@ -16,6 +17,9 @@ import {
   Clock,
   Target,
   UserCircle,
+  ClipboardList,
+  Download,
+  Paperclip,
 } from "lucide-react";
 
 const formatDueDate = (iso?: string | null) => {
@@ -34,7 +38,9 @@ const formatDateTimeLong = (iso?: string | null) => {
 const PortalActivities = () => {
   const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const { activities, loading, toggleActivityStatus } = usePatientActivities();
+  const { activities, loading, toggleActivityStatus, updateActivity } = usePatientActivities();
+  const [selectedActivity, setSelectedActivity] = useState<PatientActivity | null>(null);
+  const [responseDialogOpen, setResponseDialogOpen] = useState(false);
 
   const myActivities = useMemo(() => {
     return [...activities].sort((a, b) => {
@@ -100,6 +106,19 @@ const PortalActivities = () => {
       {label}
     </button>
   );
+
+  const handleOpenResponse = (activity: PatientActivity) => {
+    setSelectedActivity(activity);
+    setResponseDialogOpen(true);
+  };
+
+  const handleSubmitResponses = async (activityId: string, responses: Record<string, string | boolean>) => {
+    await updateActivity(activityId, { patient_responses: responses } as any);
+  };
+
+  const hasCustomContent = (activity: PatientActivity) => {
+    return (activity.custom_fields && activity.custom_fields.length > 0) || activity.attachment_url;
+  };
 
   const contentReady = myActivities.length > 0;
 
@@ -192,7 +211,7 @@ const PortalActivities = () => {
                     pendingActivities.map((activity) => (
                       <div key={activity.id} className="rounded-xl border border-border/60 bg-white p-4">
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div>
+                          <div className="flex-1">
                             <div className="text-sm font-semibold text-foreground">{activity.title}</div>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span className="inline-flex items-center gap-1">
@@ -209,8 +228,47 @@ const PortalActivities = () => {
                                 {activity.description}
                               </div>
                             )}
+                            
+                            {/* Indicators for custom content */}
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              {activity.attachment_url && (
+                                <a
+                                  href={activity.attachment_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                >
+                                  <Paperclip className="w-3 h-3" />
+                                  {activity.attachment_name || "Arquivo anexo"}
+                                  <Download className="w-3 h-3" />
+                                </a>
+                              )}
+                              {activity.custom_fields && activity.custom_fields.length > 0 && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-purple-50 text-purple-700">
+                                  <ClipboardList className="w-3 h-3" />
+                                  {activity.custom_fields.length} campo(s) para preencher
+                                </span>
+                              )}
+                              {activity.patient_responses && Object.keys(activity.patient_responses).length > 0 && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-emerald-50 text-emerald-700">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  Respostas enviadas
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 md:flex-col">
+                            {hasCustomContent(activity) && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="rounded-full inline-flex items-center gap-2" 
+                                onClick={() => handleOpenResponse(activity)}
+                              >
+                                <ClipboardList className="w-3 h-3" /> 
+                                {activity.patient_responses ? "Ver / Editar" : "Responder"}
+                              </Button>
+                            )}
                             <Button 
                               size="sm" 
                               className="rounded-full inline-flex items-center gap-2" 
@@ -309,6 +367,23 @@ const PortalActivities = () => {
 
         <div className="h-16" />
       </div>
+
+      {/* Activity Response Dialog */}
+      {selectedActivity && (
+        <ActivityResponseDialog
+          open={responseDialogOpen}
+          onOpenChange={setResponseDialogOpen}
+          activity={{
+            id: selectedActivity.id,
+            title: selectedActivity.title,
+            description: selectedActivity.description,
+            fields: selectedActivity.custom_fields || undefined,
+            attachmentUrl: selectedActivity.attachment_url || undefined,
+            attachmentName: selectedActivity.attachment_name || undefined,
+          }}
+          onSubmit={handleSubmitResponses}
+        />
+      )}
     </div>
   );
 };

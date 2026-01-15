@@ -16,6 +16,14 @@ export type PatientAppointment = {
   created_at: string;
 };
 
+export type ActivityField = {
+  id: string;
+  type: "text" | "checkbox";
+  label: string;
+  required?: boolean;
+  value?: string | boolean;
+};
+
 export type PatientActivity = {
   id: string;
   patient_id: string;
@@ -26,6 +34,10 @@ export type PatientActivity = {
   status: string;
   completed_at: string | null;
   created_at: string;
+  custom_fields?: ActivityField[] | null;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  patient_responses?: Record<string, string | boolean> | null;
 };
 
 export type PatientMessage = {
@@ -126,7 +138,13 @@ export const usePatientActivities = () => {
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setActivities(data);
+      // Map the data to properly type JSONB fields
+      const mappedData: PatientActivity[] = data.map((item) => ({
+        ...item,
+        custom_fields: item.custom_fields as ActivityField[] | null,
+        patient_responses: item.patient_responses as Record<string, string | boolean> | null,
+      }));
+      setActivities(mappedData);
     }
     setLoading(false);
   };
@@ -144,7 +162,12 @@ export const usePatientActivities = () => {
       .single();
 
     if (!error && data) {
-      setActivities((prev) => prev.map((a) => (a.id === id ? data : a)));
+      const mappedData: PatientActivity = {
+        ...data,
+        custom_fields: data.custom_fields as ActivityField[] | null,
+        patient_responses: data.patient_responses as Record<string, string | boolean> | null,
+      };
+      setActivities((prev) => prev.map((a) => (a.id === id ? mappedData : a)));
     }
 
     return { data, error };
