@@ -11,6 +11,7 @@ import { AudioTranscriber } from "@/components/ai/AudioTranscriber";
 import { RealtimeTranscriber } from "@/components/ai/RealtimeTranscriber";
 import { ConversationSearch } from "@/components/ai/ConversationSearch";
 import { AIUsageDashboard } from "@/components/ai/AIUsageDashboard";
+import { KnowledgeManager } from "@/components/ai/KnowledgeManager";
 import { usePatients } from "@/hooks/usePatients";
 import { 
   Bot, 
@@ -24,6 +25,8 @@ import {
   Radio,
   Search,
   BarChart3,
+  BookOpen,
+  Heart,
 } from "lucide-react";
 
 const AgentesIA = () => {
@@ -46,21 +49,33 @@ const AgentesIA = () => {
               Agentes IA
             </h1>
             <p className="text-muted-foreground">
-              Assistentes inteligentes para otimizar seu trabalho clínico
+              Especialista em TCC e Terapia Sexual
             </p>
           </div>
         </div>
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="card-glass">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="card-glass border-primary/20">
             <CardHeader className="pb-2">
-              <MessageSquare className="h-8 w-8 text-primary mb-2" />
-              <CardTitle className="text-base">Chat Assistente</CardTitle>
+              <Brain className="h-8 w-8 text-primary mb-2" />
+              <CardTitle className="text-base">TCC Especializada</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Tire dúvidas e receba ajuda com tarefas administrativas
+                Formulação cognitiva, reestruturação e intervenções baseadas em evidências
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="card-glass border-pink-500/20">
+            <CardHeader className="pb-2">
+              <Heart className="h-8 w-8 text-pink-500 mb-2" />
+              <CardTitle className="text-base">Terapia Sexual</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Disfunções sexuais, foco sensorial e questões de sexualidade
               </p>
             </CardContent>
           </Card>
@@ -72,19 +87,7 @@ const AgentesIA = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Gere resumos e insights a partir das notas da sessão
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="card-glass">
-            <CardHeader className="pb-2">
-              <Brain className="h-8 w-8 text-purple-500 mb-2" />
-              <CardTitle className="text-base">Análise de Prontuário</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Identifique padrões e evolução no histórico do paciente
+                Gere resumos com formulação cognitiva automatizada
               </p>
             </CardContent>
           </Card>
@@ -92,11 +95,23 @@ const AgentesIA = () => {
           <Card className="card-glass">
             <CardHeader className="pb-2">
               <FileText className="h-8 w-8 text-green-500 mb-2" />
-              <CardTitle className="text-base">Gerador de Relatórios</CardTitle>
+              <CardTitle className="text-base">Relatórios Clínicos</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Crie relatórios clínicos profissionais automaticamente
+                Relatórios profissionais com linguagem técnica
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="card-glass border-purple-500/20">
+            <CardHeader className="pb-2">
+              <BookOpen className="h-8 w-8 text-purple-500 mb-2" />
+              <CardTitle className="text-base">Base de Conhecimento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Alimente a IA com seus próprios materiais
               </p>
             </CardContent>
           </Card>
@@ -104,7 +119,7 @@ const AgentesIA = () => {
 
         {/* Tabs for different agents */}
         <Tabs defaultValue="dashboard" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -112,6 +127,10 @@ const AgentesIA = () => {
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               <span className="hidden sm:inline">Chat</span>
+            </TabsTrigger>
+            <TabsTrigger value="knowledge" className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Conhecimento</span>
             </TabsTrigger>
             <TabsTrigger value="transcription" className="flex items-center gap-2">
               <Mic className="h-4 w-4" />
@@ -150,32 +169,59 @@ const AgentesIA = () => {
               <div className="lg:col-span-2">
                 <AIChat 
                   type="chat"
-                  title="Chat Assistente"
-                  placeholder="Pergunte sobre práticas clínicas, gestão do consultório..."
+                  title="Chat Especialista TCC / Terapia Sexual"
+                  placeholder="Pergunte sobre TCC, terapia sexual, técnicas, intervenções..."
                 />
               </div>
               <div className="space-y-4">
                 <Card className="card-glass">
                   <CardHeader>
-                    <CardTitle className="text-base">Sugestões de Uso</CardTitle>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-primary" />
+                      Especialidades
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Terapia Cognitivo-Comportamental</p>
+                      <p className="text-xs text-muted-foreground">
+                        Reestruturação cognitiva, experimentos comportamentais, RPD, ativação comportamental
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Terapia Sexual</p>
+                      <p className="text-xs text-muted-foreground">
+                        Disfunções sexuais, foco sensorial, educação sexual, questões de gênero
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="card-glass">
+                  <CardHeader>
+                    <CardTitle className="text-base">Sugestões</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Como organizar melhor minha agenda?"
+                      "Como estruturar um RPD para ansiedade?"
                     </Button>
                     <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Técnicas para pacientes com ansiedade"
+                      "Técnicas de foco sensorial para disfunção erétil"
                     </Button>
                     <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Como lidar com faltas recorrentes?"
+                      "Reestruturação de crenças sobre sexualidade"
                     </Button>
                     <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Sugestões de intervenções para adolescentes"
+                      "Experimento comportamental para fobia social"
                     </Button>
                   </CardContent>
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Knowledge Tab */}
+          <TabsContent value="knowledge">
+            <KnowledgeManager />
           </TabsContent>
 
           {/* Transcription Tab */}
