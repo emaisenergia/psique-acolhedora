@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { usePatientActivities, type PatientActivity } from "@/hooks/usePatientData";
 import { ActivityResponseDialog } from "@/components/activities/ActivityResponseDialog";
+import { notifyActivityResponse } from "@/lib/notifications";
+import { toast } from "sonner";
 import {
   Shield,
   Calendar,
@@ -113,7 +115,16 @@ const PortalActivities = () => {
   };
 
   const handleSubmitResponses = async (activityId: string, responses: Record<string, string | boolean>) => {
-    await updateActivity(activityId, { patient_responses: responses } as any);
+    const result = await updateActivity(activityId, { patient_responses: responses } as any);
+    
+    // Send notification to psychologist
+    if (!result.error && patient?.id && selectedActivity) {
+      try {
+        await notifyActivityResponse(patient.id, selectedActivity.title, patient.name || "Paciente");
+      } catch (error) {
+        console.error("Error sending notification to psychologist:", error);
+      }
+    }
   };
 
   const hasCustomContent = (activity: PatientActivity) => {

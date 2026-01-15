@@ -12,6 +12,7 @@ const corsHeaders = {
 type NotificationType = 
   | "new_message" 
   | "new_activity" 
+  | "activity_response"
   | "appointment_reminder" 
   | "appointment_confirmation"
   | "appointment_created"
@@ -21,9 +22,11 @@ type NotificationType =
 interface NotificationRequest {
   type: NotificationType;
   patientId: string;
+  notifyAdmin?: boolean;
   data?: {
     content?: string;
     activityTitle?: string;
+    patientName?: string;
     appointmentDate?: string;
     appointmentTime?: string;
     appointmentMode?: string;
@@ -203,6 +206,30 @@ const getEmailContent = (type: NotificationType, patientName: string, data?: Not
         `,
       };
 
+    case "activity_response":
+      return {
+        subject: `📝 ${data?.patientName || "Paciente"} respondeu uma atividade`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb; margin-bottom: 20px;">Nova resposta de atividade!</h1>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              O paciente <strong>${data?.patientName || "Paciente"}</strong> enviou uma resposta para a atividade terapêutica.
+            </p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="font-size: 14px; color: #6b7280; margin: 0;">Atividade:</p>
+              <p style="font-size: 18px; color: #1f2937; font-weight: 600; margin-top: 8px;">${data?.activityTitle}</p>
+            </div>
+            <a href="${siteUrl}/admin/pacientes" 
+               style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Ver respostas do paciente
+            </a>
+            <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
+              Esta é uma notificação automática. Por favor, não responda este email.
+            </p>
+          </div>
+        `,
+      };
+
     default:
       return {
         subject: "Notificação",
@@ -218,7 +245,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { type, patientId, data }: NotificationRequest = await req.json();
+    const { type, patientId, data, notifyAdmin }: NotificationRequest = await req.json();
 
     if (!type || !patientId) {
       return new Response(
@@ -247,6 +274,75 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // For admin notifications (like activity_response), send to admin instead of patient
+    if (notifyAdmin && type === "activity_response") {
+      // Get admin profiles to send notification
+      const { data: admins, error: adminsError } = await supabase
+        .from("admin_profiles")
+        .select("name, user_id")
+        .limit(5);
+
+      if (adminsError || !admins || admins.length === 0) {
+        console.log("No admin profiles found, skipping admin notification");
+        return new Response(
+          JSON.stringify({ message: "No admin profiles found, notification skipped" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Get admin emails from auth.users
+      const adminEmails: string[] = [];
+      for (const admin of admins) {
+        const { data: userData, error: userError } = await supabase.auth.admin.getUserById(admin.user_id);
+        if (!userError && userData?.user?.email) {
+          adminEmails.push(userData.user.email);
+        }
+      }
+
+      if (adminEmails.length === 0) {
+        console.log("No admin emails found, skipping notification");
+        return new Response(
+          JSON.stringify({ message: "No admin emails found, notification skipped" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const emailContent = getEmailContent(type, patient.name, data);
+
+      // Send email to all admins
+      const emailResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: "Consultório <onboarding@resend.dev>",
+          to: adminEmails,
+          subject: emailContent.subject,
+          html: emailContent.html,
+        }),
+      });
+
+      const emailResult = await emailResponse.json();
+
+      if (!emailResponse.ok) {
+        console.error("Resend API error:", emailResult);
+        return new Response(
+          JSON.stringify({ error: emailResult.message || "Failed to send email" }),
+          { status: emailResponse.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      console.log("Admin notification email sent successfully:", emailResult);
+
+      return new Response(JSON.stringify({ success: true, emailResult }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
+    // Regular patient notification
     if (!patient.email) {
       console.log("Patient has no email, skipping notification");
       return new Response(

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { SessionsModule } from "@/components/sessions/SessionsModule";
 import { TreatmentPlanTab } from "@/components/treatment/TreatmentPlanTab";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
+import { ActivityResponseViewer } from "@/components/activities/ActivityResponseViewer";
 
 type Activity = ActivityType;
 
@@ -84,6 +85,8 @@ const PatientProfile = () => {
     tags: "",
   });
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [responseViewerOpen, setResponseViewerOpen] = useState(false);
+  const [selectedActivityForView, setSelectedActivityForView] = useState<Activity | null>(null);
   const [replyText, setReplyText] = useState("");
   
   // Patient user account state
@@ -1119,7 +1122,7 @@ const PatientProfile = () => {
                       {pendingActivities.map((activity) => (
                         <div key={activity.id} className="rounded-xl border border-border/60 bg-white p-4">
                           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                            <div>
+                            <div className="flex-1">
                               <div className="text-sm font-semibold text-foreground">{activity.title}</div>
                               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span className="inline-flex items-center gap-1">
@@ -1140,8 +1143,47 @@ const PatientProfile = () => {
                                   {activity.description}
                                 </div>
                               )}
+                              {/* Indicators for custom content and responses */}
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                {activity.fields && activity.fields.length > 0 && (
+                                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                    <ClipboardList className="w-3 h-3 mr-1" />
+                                    {activity.fields.length} campo(s)
+                                  </Badge>
+                                )}
+                                {activity.attachmentUrl && (
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                    <FileText className="w-3 h-3 mr-1" />
+                                    Anexo
+                                  </Badge>
+                                )}
+                                {(activity as any).patientResponses && Object.keys((activity as any).patientResponses).length > 0 ? (
+                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    Respondido
+                                  </Badge>
+                                ) : activity.fields && activity.fields.length > 0 ? (
+                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    Aguardando
+                                  </Badge>
+                                ) : null}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 md:flex-col">
+                              {(activity.fields && activity.fields.length > 0) && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="rounded-full inline-flex items-center gap-2" 
+                                  onClick={() => {
+                                    setSelectedActivityForView(activity);
+                                    setResponseViewerOpen(true);
+                                  }}
+                                >
+                                  <MessageSquare className="w-3 h-3" /> Ver respostas
+                                </Button>
+                              )}
                               <Button size="sm" className="rounded-full inline-flex items-center gap-2" onClick={() => toggleActivityStatus(activity.id)}>
                                 <CheckCircle2 className="w-3 h-3" /> Concluir
                               </Button>
@@ -1622,6 +1664,21 @@ const PatientProfile = () => {
         onSubmit={handleCreateActivity}
         patientId={patientId || ""}
       />
+
+      {selectedActivityForView && (
+        <ActivityResponseViewer
+          open={responseViewerOpen}
+          onOpenChange={setResponseViewerOpen}
+          activity={{
+            title: selectedActivityForView.title,
+            description: selectedActivityForView.description,
+            fields: selectedActivityForView.fields,
+            attachmentUrl: selectedActivityForView.attachmentUrl,
+            attachmentName: selectedActivityForView.attachmentName,
+            patientResponses: (selectedActivityForView as any).patientResponses,
+          }}
+        />
+      )}
 
       {/* Editar Paciente */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
