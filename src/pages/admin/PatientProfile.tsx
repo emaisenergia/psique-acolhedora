@@ -1070,35 +1070,15 @@ const PatientProfile = () => {
         </TabsContent>
 
         <TabsContent value="plano" className="mt-6">
-          {supabasePatientLoading ? (
-            <Card className="card-glass">
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground py-8">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  <p>Sincronizando paciente...</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : supabasePatientId ? (
-            <TreatmentPlanTab
-              patientId={supabasePatientId}
-              patientName={patient.name}
-              patientAge={age}
-              patientNotes={patient.notes}
-              sessionsCompleted={doneHistory.length}
-              journalNotes={patientJournals.slice(0, 3).map(j => j.note).join("\n")}
-              onAddSession={() => setTab("sessoes")}
-            />
-          ) : (
-            <Card className="card-glass">
-              <CardContent className="p-6">
-                <div className="text-center text-muted-foreground py-8">
-                  <p>Não foi possível sincronizar o paciente com o banco de dados.</p>
-                  <p className="text-sm mt-2">Verifique se o email do paciente está preenchido.</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <TreatmentPlanTab
+            patientId={patient.id}
+            patientName={patient.name}
+            patientAge={age}
+            patientNotes={patient.notes}
+            sessionsCompleted={doneHistory.length}
+            journalNotes={patientJournals.slice(0, 3).map(j => j.note).join("\n")}
+            onAddSession={() => setTab("sessoes")}
+          />
         </TabsContent>
         <TabsContent value="sessoes" className="mt-6">
           <SessionsModule patientId={supabasePatientId || patient.id} patientName={patient.name} />
