@@ -535,69 +535,6 @@ const Financeiro = () => {
             />
           </TabsContent>
 
-          {/* Insurance Tab */}
-          <TabsContent value="insurance" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Card className="card-glass">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Faturamento por Convênio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={revenueByInsurance} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `R$${v}`} />
-                      <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} />
-                      <Tooltip 
-                        formatter={(value: number) => currencyFormatter.format(value)}
-                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                      />
-                      <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Faturamento" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="card-glass">
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Detalhamento por Convênio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Convênio</TableHead>
-                        <TableHead className="text-right">Sessões</TableHead>
-                        <TableHead className="text-right">Faturamento</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {revenueByInsurance.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell className="text-right">{item.sessions}</TableCell>
-                          <TableCell className="text-right">{currencyFormatter.format(item.revenue)}</TableCell>
-                        </TableRow>
-                      ))}
-                      {revenueByInsurance.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-center text-muted-foreground">
-                            Nenhuma sessão realizada no período
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
 
           {/* Packages Tab */}
           <TabsContent value="packages" className="space-y-4">
@@ -867,6 +804,9 @@ const Financeiro = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Descrição</TableHead>
@@ -892,7 +832,16 @@ const Financeiro = () => {
                       .map((t) => {
                         const patient = t.patient_id ? patients.find(p => p.id === t.patient_id) : null;
                         return (
-                          <TableRow key={t.id}>
+                          <TableRow key={t.id} className={t.is_confirmed ? "bg-green-500/5" : ""}>
+                            <TableCell>
+                              <Checkbox
+                                checked={t.is_confirmed}
+                                onCheckedChange={(checked) => {
+                                  updateTransaction(t.id, { is_confirmed: !!checked });
+                                }}
+                                title="Marcar como confirmado no extrato bancário"
+                              />
+                            </TableCell>
                             <TableCell>
                               {format(parseISO(t.transaction_date), "dd/MM/yyyy", { locale: ptBR })}
                             </TableCell>
@@ -949,7 +898,7 @@ const Financeiro = () => {
                       return inDateRange && matchesType && matchesCategory && matchesPatient && matchesSearch;
                     }).length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           Nenhum lançamento encontrado
                         </TableCell>
                       </TableRow>
