@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { AIChat } from "@/components/ai/AIChat";
 import { AudioTranscriber } from "@/components/ai/AudioTranscriber";
+import { RealtimeTranscriber } from "@/components/ai/RealtimeTranscriber";
+import { ConversationSearch } from "@/components/ai/ConversationSearch";
 import { usePatients } from "@/hooks/usePatients";
 import { 
   Bot, 
@@ -17,9 +19,10 @@ import {
   ClipboardList,
   Sparkles,
   Loader2,
-  Mic
+  Mic,
+  Radio,
+  Search,
 } from "lucide-react";
-import { useAIAgent } from "@/hooks/useAIAgent";
 
 const AgentesIA = () => {
   const { patients } = usePatients();
@@ -99,7 +102,7 @@ const AgentesIA = () => {
 
         {/* Tabs for different agents */}
         <Tabs defaultValue="chat" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               <span className="hidden sm:inline">Chat</span>
@@ -107,6 +110,14 @@ const AgentesIA = () => {
             <TabsTrigger value="transcription" className="flex items-center gap-2">
               <Mic className="h-4 w-4" />
               <span className="hidden sm:inline">Transcrição</span>
+            </TabsTrigger>
+            <TabsTrigger value="realtime" className="flex items-center gap-2">
+              <Radio className="h-4 w-4" />
+              <span className="hidden sm:inline">Tempo Real</span>
+            </TabsTrigger>
+            <TabsTrigger value="search" className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Buscar</span>
             </TabsTrigger>
             <TabsTrigger value="session" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
@@ -201,6 +212,60 @@ const AgentesIA = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Realtime Transcription Tab */}
+          <TabsContent value="realtime">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <RealtimeTranscriber 
+                onTranscriptionComplete={(text) => {
+                  setSessionNotes(prev => prev ? `${prev}\n\n${text}` : text);
+                }}
+              />
+              <Card className="card-glass h-[600px]">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Radio className="h-5 w-5 text-primary" />
+                    Transcrição em Tempo Real
+                  </CardTitle>
+                  <CardDescription>
+                    Use o reconhecimento de voz do navegador para transcrição instantânea
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Vantagens:</h4>
+                    <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                      <li>Transcrição instantânea enquanto fala</li>
+                      <li>Sem necessidade de esperar o áudio processar</li>
+                      <li>Funciona offline após carregar</li>
+                      <li>Ideal para anotações durante a sessão</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2 pt-4 border-t">
+                    <h4 className="font-medium text-sm">Vincular à Sessão:</h4>
+                    <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                      <li>Clique no ícone de link na transcrição</li>
+                      <li>Selecione o paciente e a sessão</li>
+                      <li>A transcrição será anexada automaticamente</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2 pt-4 border-t">
+                    <h4 className="font-medium text-sm">Navegadores Suportados:</h4>
+                    <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                      <li>Google Chrome (recomendado)</li>
+                      <li>Microsoft Edge</li>
+                      <li>Safari (macOS/iOS)</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Search Tab */}
+          <TabsContent value="search">
+            <ConversationSearch />
           </TabsContent>
 
           {/* Session Summary Tab */}
