@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import AdminLayout from "./AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { RealtimeTranscriber } from "@/components/ai/RealtimeTranscriber";
 import { ConversationSearch } from "@/components/ai/ConversationSearch";
 import { AIUsageDashboard } from "@/components/ai/AIUsageDashboard";
 import { KnowledgeManager } from "@/components/ai/KnowledgeManager";
+import { FavoritePrompts } from "@/components/ai/FavoritePrompts";
 import { usePatients } from "@/hooks/usePatients";
 import { 
   Bot, 
@@ -27,17 +28,32 @@ import {
   BarChart3,
   BookOpen,
   Heart,
+  Star,
 } from "lucide-react";
+
+const CHAT_SUGGESTIONS = [
+  "Como estruturar um RPD para ansiedade?",
+  "Técnicas de foco sensorial para disfunção erétil",
+  "Reestruturação de crenças sobre sexualidade",
+  "Experimento comportamental para fobia social",
+];
 
 const AgentesIA = () => {
   const { patients } = usePatients();
   const [selectedPatient, setSelectedPatient] = useState<string>("");
   const [sessionNotes, setSessionNotes] = useState("");
   const [reportType, setReportType] = useState("evolucao");
+  const chatRef = useRef<{ sendMessage: (msg: string) => void } | null>(null);
 
   // Get patient name for context
   const selectedPatientName = patients.find(p => p.id === selectedPatient)?.name || "";
 
+  const handlePromptSelect = (prompt: string) => {
+    // This will be used to send prompt to chat
+    if (chatRef.current) {
+      chatRef.current.sendMessage(prompt);
+    }
+  };
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -171,9 +187,11 @@ const AgentesIA = () => {
                   type="chat"
                   title="Chat Especialista TCC / Terapia Sexual"
                   placeholder="Pergunte sobre TCC, terapia sexual, técnicas, intervenções..."
+                  suggestions={CHAT_SUGGESTIONS}
                 />
               </div>
               <div className="space-y-4">
+                <FavoritePrompts onSelectPrompt={handlePromptSelect} />
                 <Card className="card-glass">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
@@ -194,25 +212,6 @@ const AgentesIA = () => {
                         Disfunções sexuais, foco sensorial, educação sexual, questões de gênero
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
-                <Card className="card-glass">
-                  <CardHeader>
-                    <CardTitle className="text-base">Sugestões</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Como estruturar um RPD para ansiedade?"
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Técnicas de foco sensorial para disfunção erétil"
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Reestruturação de crenças sobre sexualidade"
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-left h-auto py-2">
-                      "Experimento comportamental para fobia social"
-                    </Button>
                   </CardContent>
                 </Card>
               </div>

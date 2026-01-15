@@ -4,15 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2, Plus, History } from "lucide-react";
+import { Send, Bot, User, Loader2, Plus, History, Download, Copy, Check, Star } from "lucide-react";
 import { useAIAgent } from "@/hooks/useAIAgent";
 import { cn } from "@/lib/utils";
 import { ConversationHistory } from "./ConversationHistory";
+import { useToast } from "@/hooks/use-toast";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AIChatProps {
   type?: "chat" | "session_summary" | "patient_analysis" | "report_generation";
@@ -26,6 +35,7 @@ interface AIChatProps {
   placeholder?: string;
   title?: string;
   showHistory?: boolean;
+  suggestions?: string[];
 }
 
 export const AIChat = ({ 
@@ -34,9 +44,12 @@ export const AIChat = ({
   patientId,
   placeholder = "Digite sua mensagem...",
   title = "Chat Assistente",
-  showHistory = true
+  showHistory = true,
+  suggestions = []
 }: AIChatProps) => {
   const [input, setInput] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { toast } = useToast();
   const { 
     messages, 
     isLoading, 
@@ -67,6 +80,55 @@ export const AIChat = ({
     inputRef.current?.focus();
   };
 
+  const handleSuggestionClick = (suggestion: string) => {
+    if (isLoading) return;
+    setInput("");
+    sendMessage(suggestion);
+  };
+
+  const handleCopyMessage = async (content: string, id: string) => {
+    await navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    toast({ title: "Copiado!", description: "Mensagem copiada para a área de transferência." });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleExportConversation = (format: "txt" | "md") => {
+    if (messages.length === 0) {
+      toast({ title: "Nenhuma mensagem", description: "Não há mensagens para exportar.", variant: "destructive" });
+      return;
+    }
+
+    let content = "";
+    const timestamp = new Date().toLocaleString("pt-BR");
+    
+    if (format === "md") {
+      content = `# Conversa com IA\n\n**Data:** ${timestamp}\n**Tipo:** ${title}\n\n---\n\n`;
+      messages.forEach((msg) => {
+        const role = msg.role === "user" ? "👤 **Você**" : "🤖 **Assistente**";
+        content += `${role}\n\n${msg.content}\n\n---\n\n`;
+      });
+    } else {
+      content = `Conversa com IA\nData: ${timestamp}\nTipo: ${title}\n\n${"=".repeat(50)}\n\n`;
+      messages.forEach((msg) => {
+        const role = msg.role === "user" ? "VOCÊ" : "ASSISTENTE";
+        content += `[${role}]\n${msg.content}\n\n${"-".repeat(30)}\n\n`;
+      });
+    }
+
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `conversa-ia-${new Date().toISOString().split("T")[0]}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({ title: "Exportado!", description: `Conversa exportada como .${format}` });
+  };
+
   return (
     <Card className="card-glass h-[600px] flex flex-col">
       <CardHeader className="pb-3 flex-shrink-0">
@@ -76,6 +138,24 @@ export const AIChat = ({
             {title}
           </span>
           <div className="flex items-center gap-1">
+            {messages.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <Download className="h-4 w-4 mr-1" />
+                    Exportar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExportConversation("txt")}>
+                    Exportar como .txt
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExportConversation("md")}>
+                    Exportar como .md (Markdown)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {showHistory && conversations.length > 0 && (
               <Sheet>
                 <SheetTrigger asChild>
@@ -115,6 +195,25 @@ export const AIChat = ({
                   {type === "patient_analysis" && "Compartilhe o histórico do paciente para análise."}
                   {type === "report_generation" && "Descreva o que precisa e eu gero o relatório."}
                 </p>
+                
+                {/* Clickable suggestions */}
+                {suggestions.length > 0 && (
+                  <div className="mt-6 space-y-2">
+                    <p className="text-xs text-muted-foreground mb-2">Sugestões:</p>
+                    {suggestions.map((suggestion, idx) => (
+                      <Button
+                        key={idx}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left h-auto py-2 text-xs"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        disabled={isLoading}
+                      >
+                        {suggestion}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -123,7 +222,7 @@ export const AIChat = ({
                 <div
                   key={message.id}
                   className={cn(
-                    "flex gap-3",
+                    "flex gap-3 group",
                     message.role === "user" ? "justify-end" : "justify-start"
                   )}
                 >
@@ -136,13 +235,38 @@ export const AIChat = ({
                   )}
                   <div
                     className={cn(
-                      "rounded-2xl px-4 py-2 max-w-[80%]",
+                      "rounded-2xl px-4 py-2 max-w-[80%] relative",
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
                     )}
                   >
-                    <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                    {message.role === "assistant" ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                    )}
+                    
+                    {/* Copy button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "absolute -right-10 top-0 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity",
+                        message.role === "user" && "-left-10 -right-auto"
+                      )}
+                      onClick={() => handleCopyMessage(message.content, message.id)}
+                    >
+                      {copiedId === message.id ? (
+                        <Check className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </Button>
                   </div>
                   {message.role === "user" && (
                     <Avatar className="h-8 w-8 flex-shrink-0">
