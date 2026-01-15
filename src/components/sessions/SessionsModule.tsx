@@ -44,6 +44,8 @@ import {
 import { sessionsService, SESSION_STATUS_CONFIG, type Session, type SessionFile, type SessionStatus } from "@/lib/sessions";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { storage, type Appointment } from "@/lib/storage";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 interface AnamnesisData {
   queixaPrincipal: string;
@@ -487,7 +489,7 @@ ${anamnesis.observacoes || "Nenhuma"}
     setIsPaymentDialogOpen(true);
   };
 
-  const handleSavePayment = () => {
+  const handleSavePayment = async () => {
     if (!selectedAppointmentForPayment || !paymentData.amount) {
       toast({
         title: "Informe o valor do pagamento",
@@ -496,28 +498,35 @@ ${anamnesis.observacoes || "Nenhuma"}
       return;
     }
 
-    // Save payment to localStorage (financial transactions)
-    const transactionsKey = "financial_transactions_local";
-    const existingTransactions = JSON.parse(localStorage.getItem(transactionsKey) || "[]");
-    const newTransaction = {
-      id: crypto.randomUUID(),
-      patient_id: patientId,
-      patient_name: patientName,
-      appointment_id: selectedAppointmentForPayment.id,
-      amount: parseFloat(paymentData.amount),
-      payment_method: paymentData.paymentMethod,
-      notes: paymentData.notes,
-      transaction_date: new Date().toISOString(),
-      type: "receita",
-      category: "Sessão",
-      is_confirmed: true,
-    };
-    existingTransactions.push(newTransaction);
-    localStorage.setItem(transactionsKey, JSON.stringify(existingTransactions));
+    try {
+      // Save payment to Supabase financial_transactions table
+      const { error } = await supabase
+        .from("financial_transactions")
+        .insert({
+          type: "revenue",
+          amount: parseFloat(paymentData.amount),
+          description: `Sessão - ${patientName}`,
+          patient_id: patientId,
+          payment_method: paymentData.paymentMethod,
+          category: "Sessão",
+          transaction_date: format(new Date(selectedAppointmentForPayment.dateTime), "yyyy-MM-dd"),
+          notes: paymentData.notes || `Pagamento referente à sessão de ${new Date(selectedAppointmentForPayment.dateTime).toLocaleDateString("pt-BR")}`,
+          is_confirmed: true,
+        });
 
-    toast({ title: "Pagamento registrado com sucesso!" });
-    setIsPaymentDialogOpen(false);
-    setSelectedAppointmentForPayment(null);
+      if (error) throw error;
+
+      toast({ title: "Pagamento registrado com sucesso!", description: "A receita foi adicionada ao módulo financeiro." });
+      setIsPaymentDialogOpen(false);
+      setSelectedAppointmentForPayment(null);
+    } catch (error) {
+      console.error("Error saving payment:", error);
+      toast({
+        title: "Erro ao registrar pagamento",
+        description: "Não foi possível salvar no sistema financeiro.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleStartRecording = async () => {
