@@ -24,9 +24,11 @@ export type Database = {
           custom_fields: Json | null
           description: string | null
           due_date: string | null
+          feedback_at: string | null
           id: string
           patient_id: string
           patient_responses: Json | null
+          psychologist_feedback: string | null
           response_history: Json | null
           status: string
           title: string
@@ -41,9 +43,11 @@ export type Database = {
           custom_fields?: Json | null
           description?: string | null
           due_date?: string | null
+          feedback_at?: string | null
           id?: string
           patient_id: string
           patient_responses?: Json | null
+          psychologist_feedback?: string | null
           response_history?: Json | null
           status?: string
           title: string
@@ -58,9 +62,11 @@ export type Database = {
           custom_fields?: Json | null
           description?: string | null
           due_date?: string | null
+          feedback_at?: string | null
           id?: string
           patient_id?: string
           patient_responses?: Json | null
+          psychologist_feedback?: string | null
           response_history?: Json | null
           status?: string
           title?: string

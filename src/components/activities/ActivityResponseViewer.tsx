@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, CheckCircle2, XCircle, MessageSquare, Printer, History, Clock } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { FileText, Download, CheckCircle2, XCircle, MessageSquare, Printer, History, Clock, Send, Edit2, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -21,6 +23,7 @@ interface ActivityResponseViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activity: {
+    id?: string;
     title: string;
     description?: string;
     fields?: ActivityField[];
@@ -28,8 +31,11 @@ interface ActivityResponseViewerProps {
     attachmentName?: string;
     patientResponses?: Record<string, string | boolean>;
     responseHistory?: ResponseHistoryEntry[];
+    psychologistFeedback?: string | null;
+    feedbackAt?: string | null;
   };
   patientName?: string;
+  onSaveFeedback?: (activityId: string, feedback: string) => Promise<void>;
 }
 
 export const ActivityResponseViewer = ({
@@ -37,9 +43,27 @@ export const ActivityResponseViewer = ({
   onOpenChange,
   activity,
   patientName,
+  onSaveFeedback,
 }: ActivityResponseViewerProps) => {
+  const [feedbackText, setFeedbackText] = useState(activity.psychologistFeedback || "");
+  const [isEditingFeedback, setIsEditingFeedback] = useState(false);
+  const [savingFeedback, setSavingFeedback] = useState(false);
+  
   const hasResponses = activity.patientResponses && Object.keys(activity.patientResponses).length > 0;
   const hasHistory = activity.responseHistory && activity.responseHistory.length > 0;
+  const hasFeedback = !!activity.psychologistFeedback;
+  const canEditFeedback = !!onSaveFeedback && !!activity.id;
+
+  const handleSaveFeedback = async () => {
+    if (!onSaveFeedback || !activity.id) return;
+    setSavingFeedback(true);
+    try {
+      await onSaveFeedback(activity.id, feedbackText);
+      setIsEditingFeedback(false);
+    } finally {
+      setSavingFeedback(false);
+    }
+  };
 
   const exportToPDF = () => {
     const printWindow = window.open("", "_blank");
@@ -90,6 +114,16 @@ export const ActivityResponseViewer = ({
             </div>
           </div>
         `).join("")}
+      </div>
+    ` : "";
+
+    const feedbackHtml = hasFeedback ? `
+      <div class="feedback-section">
+        <h2>Feedback do Psicólogo</h2>
+        <div class="feedback-content">
+          ${activity.psychologistFeedback}
+        </div>
+        ${activity.feedbackAt ? `<div class="feedback-date">Enviado em ${format(new Date(activity.feedbackAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</div>` : ''}
       </div>
     ` : "";
 
@@ -235,6 +269,29 @@ export const ActivityResponseViewer = ({
           .history-field {
             margin-bottom: 4px;
           }
+          .feedback-section {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 2px solid #7c3aed;
+          }
+          .feedback-section h2 {
+            font-size: 16px;
+            color: #7c3aed;
+            margin-bottom: 16px;
+          }
+          .feedback-content {
+            background: #f5f3ff;
+            border: 1px solid #ddd6fe;
+            border-radius: 8px;
+            padding: 16px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+          }
+          .feedback-date {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #6b7280;
+          }
           .footer {
             margin-top: 32px;
             padding-top: 16px;
@@ -268,6 +325,8 @@ export const ActivityResponseViewer = ({
         </div>
 
         ${fieldsHtml || '<p style="color: #6b7280; text-align: center; padding: 24px;">Esta atividade não possui campos para preencher.</p>'}
+
+        ${feedbackHtml}
 
         ${historyHtml}
 
@@ -376,6 +435,86 @@ export const ActivityResponseViewer = ({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Psychologist Feedback Section */}
+          {(canEditFeedback || hasFeedback) && (
+            <div className="pt-4 border-t border-primary/30">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <MessageCircle className="w-4 h-4" />
+                  Feedback do Psicólogo
+                </div>
+                {canEditFeedback && hasFeedback && !isEditingFeedback && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsEditingFeedback(true)}
+                    className="h-7 text-xs"
+                  >
+                    <Edit2 className="w-3 h-3 mr-1" /> Editar
+                  </Button>
+                )}
+              </div>
+
+              {/* View mode - show feedback */}
+              {hasFeedback && !isEditingFeedback && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="text-sm text-foreground whitespace-pre-line">
+                    {activity.psychologistFeedback}
+                  </div>
+                  {activity.feedbackAt && (
+                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {format(new Date(activity.feedbackAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Edit mode - psychologist can add/edit feedback */}
+              {canEditFeedback && (isEditingFeedback || !hasFeedback) && (
+                <div className="space-y-3">
+                  <Textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder="Adicione seu feedback ou comentários sobre as respostas do paciente..."
+                    rows={4}
+                    className="resize-none"
+                  />
+                  <div className="flex items-center gap-2 justify-end">
+                    {isEditingFeedback && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setFeedbackText(activity.psychologistFeedback || "");
+                          setIsEditingFeedback(false);
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                    <Button 
+                      size="sm" 
+                      onClick={handleSaveFeedback}
+                      disabled={savingFeedback || !feedbackText.trim()}
+                      className="gap-2"
+                    >
+                      <Send className="w-3 h-3" />
+                      {savingFeedback ? "Salvando..." : "Salvar feedback"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Read-only mode for patients viewing feedback */}
+              {!canEditFeedback && !hasFeedback && (
+                <div className="text-center py-4 text-sm text-muted-foreground border border-dashed rounded-lg">
+                  Nenhum feedback adicionado ainda.
+                </div>
+              )}
             </div>
           )}
 
