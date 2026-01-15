@@ -798,17 +798,17 @@ const PatientProfile = () => {
       {/* Tabs */}
       <Tabs value={tab} onValueChange={setTab} className="mb-6">
         <TabsList className="w-full bg-muted/60 rounded-2xl p-1 flex-wrap">
-          <TabsTrigger value="perfil" className="flex-1 rounded-xl">Perfil Completo</TabsTrigger>
-          <TabsTrigger value="prontuario" className="flex-1 rounded-xl"><FileText className="w-4 h-4 mr-2"/>Prontuário</TabsTrigger>
-          <TabsTrigger value="plano" className="flex-1 rounded-xl"><Target className="w-4 h-4 mr-2"/>Plano de Tratamento</TabsTrigger>
-          <TabsTrigger value="sessoes" className="flex-1 rounded-xl"><CalendarDays className="w-4 h-4 mr-2"/>Sessões</TabsTrigger>
-          <TabsTrigger value="atividades" className="flex-1 rounded-xl"><BookOpen className="w-4 h-4 mr-2"/>Atividades</TabsTrigger>
-          <TabsTrigger value="mensagens" className="flex-1 rounded-xl"><MessageSquare className="w-4 h-4 mr-2"/>Mensagens</TabsTrigger>
-          <TabsTrigger value="progresso" className="flex-1 rounded-xl"><TrendingUp className="w-4 h-4 mr-2"/>Progresso</TabsTrigger>
-          <TabsTrigger value="financeiro" className="flex-1 rounded-xl"><DollarSign className="w-4 h-4 mr-2"/>Financeiro</TabsTrigger>
-          <TabsTrigger value="arquivos" className="flex-1 rounded-xl"><Folder className="w-4 h-4 mr-2"/>Arquivos</TabsTrigger>
-          <TabsTrigger value="anamnese" className="flex-1 rounded-xl"><ClipboardList className="w-4 h-4 mr-2"/>Anamnese</TabsTrigger>
-          <TabsTrigger value="acesso" className="flex-1 rounded-xl"><Key className="w-4 h-4 mr-2"/>Acesso</TabsTrigger>
+          <TabsTrigger value="perfil" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white">Perfil Completo</TabsTrigger>
+          <TabsTrigger value="prontuario" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><FileText className="w-4 h-4 mr-2"/>Prontuário</TabsTrigger>
+          <TabsTrigger value="plano" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><Target className="w-4 h-4 mr-2"/>Plano de Tratamento</TabsTrigger>
+          <TabsTrigger value="sessoes" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><CalendarDays className="w-4 h-4 mr-2"/>Sessões</TabsTrigger>
+          <TabsTrigger value="atividades" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><BookOpen className="w-4 h-4 mr-2"/>Atividades</TabsTrigger>
+          <TabsTrigger value="mensagens" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><MessageSquare className="w-4 h-4 mr-2"/>Mensagens</TabsTrigger>
+          <TabsTrigger value="progresso" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><TrendingUp className="w-4 h-4 mr-2"/>Progresso</TabsTrigger>
+          <TabsTrigger value="financeiro" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><DollarSign className="w-4 h-4 mr-2"/>Financeiro</TabsTrigger>
+          <TabsTrigger value="arquivos" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><Folder className="w-4 h-4 mr-2"/>Arquivos</TabsTrigger>
+          <TabsTrigger value="anamnese" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><ClipboardList className="w-4 h-4 mr-2"/>Anamnese</TabsTrigger>
+          <TabsTrigger value="acesso" className="flex-1 rounded-xl data-[state=active]:bg-emerald-800 data-[state=active]:text-white"><Key className="w-4 h-4 mr-2"/>Acesso</TabsTrigger>
         </TabsList>
 
         <TabsContent value="perfil" className="mt-6">
