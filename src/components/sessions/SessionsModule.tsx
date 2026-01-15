@@ -3,12 +3,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   CalendarDays,
   Clock,
@@ -34,10 +35,27 @@ import {
   Link as LinkIcon,
   TrendingUp,
   FileDown,
+  ClipboardList,
+  CreditCard,
+  User,
+  Heart,
+  Activity,
 } from "lucide-react";
 import { sessionsService, SESSION_STATUS_CONFIG, type Session, type SessionFile, type SessionStatus } from "@/lib/sessions";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { storage, type Appointment } from "@/lib/storage";
+
+interface AnamnesisData {
+  queixaPrincipal: string;
+  historiaAtual: string;
+  historiaPregressa: string;
+  historicoFamiliar: string;
+  saudeGeral: string;
+  medicamentos: string;
+  habitos: string;
+  expectativas: string;
+  observacoes: string;
+}
 
 interface SessionsModuleProps {
   patientId: string;
@@ -71,6 +89,9 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [sessionFiles, setSessionFiles] = useState<SessionFile[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isAnamnesisOpen, setIsAnamnesisOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedAppointmentForPayment, setSelectedAppointmentForPayment] = useState<Appointment | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -83,6 +104,26 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const audioRecorder = useAudioRecorder();
+
+  // Anamnesis data
+  const [anamnesis, setAnamnesis] = useState<AnamnesisData>({
+    queixaPrincipal: "",
+    historiaAtual: "",
+    historiaPregressa: "",
+    historicoFamiliar: "",
+    saudeGeral: "",
+    medicamentos: "",
+    habitos: "",
+    expectativas: "",
+    observacoes: "",
+  });
+
+  // Payment form
+  const [paymentData, setPaymentData] = useState({
+    amount: "",
+    paymentMethod: "pix",
+    notes: "",
+  });
 
   const [newSession, setNewSession] = useState({
     session_date: new Date().toISOString().slice(0, 16),
@@ -368,6 +409,117 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
     setIsCreateOpen(true);
   };
 
+  // Save anamnesis as first session
+  const handleSaveAnamnesis = async () => {
+    try {
+      const anamnesisText = `
+## ANAMNESE - PRIMEIRA SESSÃO
+
+### Queixa Principal
+${anamnesis.queixaPrincipal || "Não informado"}
+
+### História do Problema Atual
+${anamnesis.historiaAtual || "Não informado"}
+
+### História Pregressa
+${anamnesis.historiaPregressa || "Não informado"}
+
+### Histórico Familiar
+${anamnesis.historicoFamiliar || "Não informado"}
+
+### Saúde Geral
+${anamnesis.saudeGeral || "Não informado"}
+
+### Medicamentos em Uso
+${anamnesis.medicamentos || "Nenhum"}
+
+### Hábitos e Estilo de Vida
+${anamnesis.habitos || "Não informado"}
+
+### Expectativas em Relação ao Tratamento
+${anamnesis.expectativas || "Não informado"}
+
+### Observações Adicionais
+${anamnesis.observacoes || "Nenhuma"}
+      `.trim();
+
+      await sessionsService.createSession({
+        patient_id: patientId,
+        session_date: new Date().toISOString(),
+        duration_minutes: 50,
+        status: "completed",
+        detailed_notes: anamnesisText,
+        summary: `Sessão de anamnese inicial. Queixa principal: ${anamnesis.queixaPrincipal || "Não informada"}`,
+        clinical_observations: anamnesis.observacoes || undefined,
+      });
+
+      toast({ title: "Anamnese registrada com sucesso!" });
+      setIsAnamnesisOpen(false);
+      setAnamnesis({
+        queixaPrincipal: "",
+        historiaAtual: "",
+        historiaPregressa: "",
+        historicoFamiliar: "",
+        saudeGeral: "",
+        medicamentos: "",
+        habitos: "",
+        expectativas: "",
+        observacoes: "",
+      });
+      loadSessions();
+    } catch (error) {
+      console.error("Error saving anamnesis:", error);
+      toast({
+        title: "Erro ao salvar anamnese",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Register payment for appointment
+  const handleRegisterPayment = (appointment: Appointment) => {
+    setSelectedAppointmentForPayment(appointment);
+    setPaymentData({
+      amount: "",
+      paymentMethod: "pix",
+      notes: "",
+    });
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handleSavePayment = () => {
+    if (!selectedAppointmentForPayment || !paymentData.amount) {
+      toast({
+        title: "Informe o valor do pagamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Save payment to localStorage (financial transactions)
+    const transactionsKey = "financial_transactions_local";
+    const existingTransactions = JSON.parse(localStorage.getItem(transactionsKey) || "[]");
+    const newTransaction = {
+      id: crypto.randomUUID(),
+      patient_id: patientId,
+      patient_name: patientName,
+      appointment_id: selectedAppointmentForPayment.id,
+      amount: parseFloat(paymentData.amount),
+      payment_method: paymentData.paymentMethod,
+      notes: paymentData.notes,
+      transaction_date: new Date().toISOString(),
+      type: "receita",
+      category: "Sessão",
+      is_confirmed: true,
+    };
+    existingTransactions.push(newTransaction);
+    localStorage.setItem(transactionsKey, JSON.stringify(existingTransactions));
+
+    toast({ title: "Pagamento registrado com sucesso!" });
+    setIsPaymentDialogOpen(false);
+    setSelectedAppointmentForPayment(null);
+  };
+
   const handleStartRecording = async () => {
     try {
       await audioRecorder.startRecording();
@@ -537,24 +689,136 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
                   Registre, acompanhe e analise cada encontro terapêutico.
                 </div>
               </div>
-              <Button onClick={() => setIsCreateOpen(true)} className="rounded-full">
-                <Plus className="w-4 h-4 mr-2" /> Nova Sessão
-              </Button>
+              <div className="flex gap-2">
+                {sessions.length === 0 && (
+                  <Button onClick={() => setIsAnamnesisOpen(true)} variant="outline" className="rounded-full">
+                    <ClipboardList className="w-4 h-4 mr-2" /> Anamnese Inicial
+                  </Button>
+                )}
+                <Button onClick={() => setIsCreateOpen(true)} className="rounded-full">
+                  <Plus className="w-4 h-4 mr-2" /> Nova Sessão
+                </Button>
+              </div>
             </div>
+
+            {/* Appointments List with Session/Payment Actions */}
+            {appointments.length > 0 && (
+              <div className="rounded-xl border border-border/60 bg-gradient-to-br from-blue-50/50 to-primary/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CalendarDays className="w-5 h-5 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Agendamentos do Paciente</h3>
+                  <Badge variant="secondary" className="ml-auto">{appointments.length}</Badge>
+                </div>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {appointments
+                    .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+                    .map((appt) => {
+                      const linkedSession = sessions.find(s => s.appointment_id === appt.id);
+                      const isPast = new Date(appt.dateTime) < new Date();
+                      const statusColors: Record<string, string> = {
+                        scheduled: "bg-blue-100 text-blue-700",
+                        confirmed: "bg-emerald-100 text-emerald-700",
+                        done: "bg-green-100 text-green-700",
+                        cancelled: "bg-red-100 text-red-700",
+                      };
+                      const statusLabels: Record<string, string> = {
+                        scheduled: "Agendado",
+                        confirmed: "Confirmado",
+                        done: "Realizado",
+                        cancelled: "Cancelado",
+                      };
+
+                      return (
+                        <div
+                          key={appt.id}
+                          className="flex items-center justify-between gap-3 p-3 bg-white rounded-lg border border-border/50"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${appt.status === "done" ? "bg-green-500" : appt.status === "cancelled" ? "bg-red-500" : isPast ? "bg-amber-500" : "bg-blue-500"}`} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">
+                                  {new Date(appt.dateTime).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(appt.dateTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                                <Badge className={`text-xs ${statusColors[appt.status] || "bg-gray-100 text-gray-700"}`}>
+                                  {statusLabels[appt.status] || appt.status}
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                                <span>{appt.mode === "online" ? "Online" : "Presencial"}</span>
+                                {linkedSession && (
+                                  <span className="flex items-center gap-1 text-emerald-600">
+                                    <CheckCircle2 className="w-3 h-3" /> Sessão registrada
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {!linkedSession && appt.status !== "cancelled" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleImportFromAppointment(appt);
+                                }}
+                              >
+                                <FileText className="w-3 h-3 mr-1" />
+                                Registrar Sessão
+                              </Button>
+                            )}
+                            {(appt.status === "done" || linkedSession?.status === "completed") && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs text-emerald-600 hover:text-emerald-700 hover:border-emerald-300"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRegisterPayment(appt);
+                                }}
+                              >
+                                <CreditCard className="w-3 h-3 mr-1" />
+                                Registrar Pagamento
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             {sessions.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-8 text-center">
-                <CalendarDays className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
-                <div className="text-sm text-muted-foreground">
+                <ClipboardList className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
+                <div className="text-sm text-muted-foreground mb-1">
                   Nenhuma sessão registrada ainda.
                 </div>
-                <Button
-                  onClick={() => setIsCreateOpen(true)}
-                  variant="outline"
-                  className="mt-4"
-                >
-                  Registrar primeira sessão
-                </Button>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Comece registrando uma anamnese inicial para documentar o histórico do paciente.
+                </p>
+                <div className="flex justify-center gap-2">
+                  <Button
+                    onClick={() => setIsAnamnesisOpen(true)}
+                    className="rounded-full"
+                  >
+                    <ClipboardList className="w-4 h-4 mr-2" />
+                    Registrar Anamnese Inicial
+                  </Button>
+                  <Button
+                    onClick={() => setIsCreateOpen(true)}
+                    variant="outline"
+                    className="rounded-full"
+                  >
+                    Sessão Simples
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -1270,6 +1534,217 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Anamnesis Dialog */}
+      <Dialog open={isAnamnesisOpen} onOpenChange={setIsAnamnesisOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Anamnese Inicial - {patientName}
+            </DialogTitle>
+            <DialogDescription>
+              Preencha as informações da primeira sessão para documentar o histórico do paciente.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[60vh] pr-4">
+            <div className="space-y-6">
+              {/* Queixa Principal */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-rose-500" />
+                  Queixa Principal *
+                </Label>
+                <Textarea
+                  value={anamnesis.queixaPrincipal}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, queixaPrincipal: e.target.value })}
+                  placeholder="Qual o motivo principal que trouxe o paciente à terapia?"
+                  rows={3}
+                />
+              </div>
+
+              {/* História do Problema Atual */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-blue-500" />
+                  História do Problema Atual
+                </Label>
+                <Textarea
+                  value={anamnesis.historiaAtual}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, historiaAtual: e.target.value })}
+                  placeholder="Quando começou? Como evoluiu? Fatores desencadeantes? Tentativas anteriores de tratamento?"
+                  rows={4}
+                />
+              </div>
+
+              {/* História Pregressa */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-amber-500" />
+                  História Pregressa
+                </Label>
+                <Textarea
+                  value={anamnesis.historiaPregressa}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, historiaPregressa: e.target.value })}
+                  placeholder="Histórico de saúde mental, tratamentos anteriores, internações, episódios relevantes..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Histórico Familiar */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <User className="w-4 h-4 text-purple-500" />
+                  Histórico Familiar
+                </Label>
+                <Textarea
+                  value={anamnesis.historicoFamiliar}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, historicoFamiliar: e.target.value })}
+                  placeholder="Composição familiar, relacionamentos, histórico de saúde mental na família..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Saúde Geral */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Saúde Geral</Label>
+                <Textarea
+                  value={anamnesis.saudeGeral}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, saudeGeral: e.target.value })}
+                  placeholder="Condições médicas atuais, doenças crônicas, cirurgias..."
+                  rows={2}
+                />
+              </div>
+
+              {/* Medicamentos */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Medicamentos em Uso</Label>
+                <Textarea
+                  value={anamnesis.medicamentos}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, medicamentos: e.target.value })}
+                  placeholder="Liste os medicamentos atuais (psiquiátricos e outros)..."
+                  rows={2}
+                />
+              </div>
+
+              {/* Hábitos */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Hábitos e Estilo de Vida</Label>
+                <Textarea
+                  value={anamnesis.habitos}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, habitos: e.target.value })}
+                  placeholder="Sono, alimentação, exercícios, uso de substâncias, rotina..."
+                  rows={2}
+                />
+              </div>
+
+              {/* Expectativas */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Expectativas em Relação ao Tratamento</Label>
+                <Textarea
+                  value={anamnesis.expectativas}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, expectativas: e.target.value })}
+                  placeholder="O que o paciente espera alcançar com a terapia?"
+                  rows={2}
+                />
+              </div>
+
+              {/* Observações */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Observações Adicionais</Label>
+                <Textarea
+                  value={anamnesis.observacoes}
+                  onChange={(e) => setAnamnesis({ ...anamnesis, observacoes: e.target.value })}
+                  placeholder="Outras informações relevantes, impressões iniciais..."
+                  rows={3}
+                />
+              </div>
+            </div>
+          </ScrollArea>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button onClick={handleSaveAnamnesis} disabled={!anamnesis.queixaPrincipal.trim()}>
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Salvar Anamnese
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-600" />
+              Registrar Pagamento
+            </DialogTitle>
+            <DialogDescription>
+              {selectedAppointmentForPayment && (
+                <>
+                  Sessão de {new Date(selectedAppointmentForPayment.dateTime).toLocaleDateString("pt-BR")}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Valor (R$) *</Label>
+              <Input
+                type="number"
+                placeholder="0,00"
+                value={paymentData.amount}
+                onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <Label>Forma de Pagamento</Label>
+              <Select
+                value={paymentData.paymentMethod}
+                onValueChange={(value) => setPaymentData({ ...paymentData, paymentMethod: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                  <SelectItem value="transferencia">Transferência</SelectItem>
+                  <SelectItem value="convenio">Convênio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Observações</Label>
+              <Textarea
+                placeholder="Observações sobre o pagamento..."
+                value={paymentData.notes}
+                onChange={(e) => setPaymentData({ ...paymentData, notes: e.target.value })}
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button onClick={handleSavePayment} disabled={!paymentData.amount}>
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Confirmar Pagamento
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </>
