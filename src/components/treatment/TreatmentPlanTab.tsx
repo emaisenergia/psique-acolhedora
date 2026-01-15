@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, CalendarPlus } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from "@/components/ui/dialog";
+import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, CalendarPlus, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -103,6 +103,9 @@ export function TreatmentPlanTab({
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [showArchivedPlans, setShowArchivedPlans] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [addSessionDialogOpen, setAddSessionDialogOpen] = useState(false);
+  const [newSessionSummary, setNewSessionSummary] = useState("");
+  const [savingSession, setSavingSession] = useState(false);
   
   const [editForm, setEditForm] = useState({
     start_date: "",
@@ -236,11 +239,10 @@ export function TreatmentPlanTab({
     try {
       const { data, error } = await supabase.functions.invoke("generate-treatment-plan", {
         body: {
+          patientId,
           patientName,
           age: patientAge,
           mainComplaint: patientNotes,
-          sessionHistory: sessionsCompleted > 0 ? `${sessionsCompleted} sessões realizadas` : null,
-          journalNotes,
         },
       });
 
@@ -493,6 +495,36 @@ export function TreatmentPlanTab({
     }
   };
 
+  const saveSessionRecord = async () => {
+    if (!newSessionSummary.trim()) {
+      toast.error("Por favor, insira o resumo da sessão");
+      return;
+    }
+    
+    setSavingSession(true);
+    try {
+      const { error } = await supabase
+        .from("sessions")
+        .insert({
+          patient_id: patientId,
+          session_date: new Date().toISOString(),
+          status: "completed",
+          summary: newSessionSummary.trim(),
+        });
+      
+      if (error) throw error;
+      
+      setNewSessionSummary("");
+      setAddSessionDialogOpen(false);
+      toast.success("Registro de sessão adicionado!");
+    } catch (error) {
+      console.error("Error saving session:", error);
+      toast.error("Erro ao salvar registro de sessão");
+    } finally {
+      setSavingSession(false);
+    }
+  };
+
   const getGoalResult = (goal: string) => plan?.goal_results.find(r => r.goal === goal);
   const isGoalCompleted = (goal: string) => getGoalResult(goal)?.completed || false;
   
@@ -525,12 +557,10 @@ export function TreatmentPlanTab({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {onAddSession && (
-                    <Button variant="outline" size="sm" className="rounded-full" onClick={onAddSession}>
-                      <CalendarPlus className="w-4 h-4 mr-2" />
-                      Adicionar Sessão
-                    </Button>
-                  )}
+                  <Button variant="outline" size="sm" className="rounded-full" onClick={() => setAddSessionDialogOpen(true)}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Adicionar Registro de Sessão
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1105,6 +1135,42 @@ export function TreatmentPlanTab({
             <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
             <Button variant="destructive" onClick={archiveCurrentPlan}>
               <Archive className="w-4 h-4 mr-2" /> Arquivar Plano
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Session Record Dialog */}
+      <Dialog open={addSessionDialogOpen} onOpenChange={setAddSessionDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              Adicionar Registro de Sessão
+            </DialogTitle>
+            <DialogDescription>
+              Registre o resumo e observações da sessão realizada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Resumo da Sessão</Label>
+              <Textarea
+                placeholder="Descreva os principais pontos abordados, técnicas utilizadas, insights do paciente..."
+                value={newSessionSummary}
+                onChange={(e) => setNewSessionSummary(e.target.value)}
+                rows={8}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button onClick={saveSessionRecord} disabled={savingSession || !newSessionSummary.trim()}>
+              {savingSession ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Salvar Registro
             </Button>
           </div>
         </DialogContent>

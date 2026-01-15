@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,32 +12,113 @@ serve(async (req) => {
   }
 
   try {
-    const { patientName, age, mainComplaint, sessionHistory, journalNotes } = await req.json();
+    const { patientId, patientName, age, mainComplaint } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `Você é um psicólogo clínico experiente especializado em criar planos de tratamento terapêuticos. 
-Sua tarefa é gerar um plano de tratamento estruturado baseado nas informações do paciente.
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Fetch all patient sessions with notes and summaries
+    let sessionsContext = "";
+    let journalContext = "";
+    
+    if (patientId) {
+      // Fetch sessions
+      const { data: sessions, error: sessionsError } = await supabase
+        .from("sessions")
+        .select("session_date, detailed_notes, summary, ai_generated_summary, clinical_observations, ai_insights, status")
+        .eq("patient_id", patientId)
+        .eq("status", "completed")
+        .order("session_date", { ascending: false })
+        .limit(20);
+
+      if (!sessionsError && sessions && sessions.length > 0) {
+        sessionsContext = sessions.map((s, i) => {
+          const parts = [`Sessão ${i + 1} (${new Date(s.session_date).toLocaleDateString("pt-BR")})`];
+          if (s.detailed_notes) parts.push(`Notas: ${s.detailed_notes}`);
+          if (s.summary) parts.push(`Resumo: ${s.summary}`);
+          if (s.ai_generated_summary) parts.push(`Sumário IA: ${s.ai_generated_summary}`);
+          if (s.clinical_observations) parts.push(`Observações clínicas: ${s.clinical_observations}`);
+          if (s.ai_insights) {
+            const insights = s.ai_insights as any;
+            if (insights.keyPoints?.length) parts.push(`Pontos-chave: ${insights.keyPoints.join("; ")}`);
+            if (insights.emotionalThemes?.length) parts.push(`Temas emocionais: ${insights.emotionalThemes.join("; ")}`);
+            if (insights.riskFactors?.length) parts.push(`Fatores de risco: ${insights.riskFactors.join("; ")}`);
+          }
+          return parts.join("\n");
+        }).join("\n\n");
+      }
+
+      // Fetch journal entries
+      const { data: journals, error: journalError } = await supabase
+        .from("journal_entries")
+        .select("created_at, mood, note")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(15);
+
+      if (!journalError && journals && journals.length > 0) {
+        journalContext = journals.map((j) => 
+          `[${new Date(j.created_at).toLocaleDateString("pt-BR")}] Humor: ${j.mood} - ${j.note}`
+        ).join("\n");
+      }
+    }
+
+    const systemPrompt = `Você é um psicólogo clínico experiente especializado em TERAPIA COGNITIVO-COMPORTAMENTAL (TCC).
+
+Sua tarefa é criar um plano de tratamento estruturado baseado EXCLUSIVAMENTE na abordagem TCC, utilizando todas as informações disponíveis do paciente.
+
+PRINCÍPIOS DA TCC A APLICAR:
+1. Identificação de pensamentos automáticos disfuncionais
+2. Reestruturação cognitiva
+3. Técnicas comportamentais (exposição gradual, ativação comportamental)
+4. Registro de pensamentos e crenças
+5. Experimentos comportamentais
+6. Psicoeducação sobre o modelo cognitivo
+7. Prevenção de recaída
 
 O plano deve incluir:
-1. Objetivos terapêuticos específicos e mensuráveis (3-5 objetivos)
-2. Objetivos para alta terapêutica (critérios claros para encerramento)
-3. Metas de curto prazo (próximas 4-8 sessões)
-4. Metas de longo prazo (processo completo)
-5. Número estimado de sessões baseado na complexidade do caso
-6. Abordagens terapêuticas recomendadas
+1. Objetivos terapêuticos específicos e mensuráveis baseados em TCC (3-5 objetivos)
+2. Objetivos para alta terapêutica (critérios claros baseados em mudança cognitiva e comportamental)
+3. Metas de curto prazo (próximas 4-8 sessões) - técnicas TCC específicas
+4. Metas de longo prazo (processo completo) - mudanças cognitivas e comportamentais duradouras
+5. Número estimado de sessões baseado na complexidade do caso (TCC geralmente 12-20 sessões)
+6. Técnicas e abordagens TCC específicas recomendadas
+
+IMPORTANTE: Analise CUIDADOSAMENTE todas as notas de sessão, evoluções e diário do paciente para identificar:
+- Padrões de pensamento disfuncional
+- Crenças centrais
+- Comportamentos de evitação ou segurança
+- Gatilhos emocionais
+- Progressos já alcançados
 
 Responda APENAS em português brasileiro, de forma profissional e técnica.`;
 
-    const userPrompt = `Crie um plano de tratamento para:
-Paciente: ${patientName || "Não informado"}
-Idade: ${age ? `${age} anos` : "Não informada"}
-Queixa principal/Notas: ${mainComplaint || "Não informada"}
-${sessionHistory ? `Histórico de sessões: ${sessionHistory}` : ""}
-${journalNotes ? `Evoluções recentes: ${journalNotes}` : ""}`;
+    const userPrompt = `Crie um plano de tratamento TCC para:
+
+DADOS DO PACIENTE:
+- Nome: ${patientName || "Não informado"}
+- Idade: ${age ? `${age} anos` : "Não informada"}
+- Queixa principal/Observações: ${mainComplaint || "Não informada"}
+
+${sessionsContext ? `
+HISTÓRICO DE SESSÕES (análise detalhada das últimas sessões):
+${sessionsContext}
+` : "Sem histórico de sessões registrado."}
+
+${journalContext ? `
+DIÁRIO DO PACIENTE (registros recentes):
+${journalContext}
+` : ""}
+
+Com base em TODAS as informações acima, elabore um plano de tratamento TCC completo e personalizado.`;
+
+    console.log("Generating treatment plan with full context for patient:", patientId);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -55,42 +137,42 @@ ${journalNotes ? `Evoluções recentes: ${journalNotes}` : ""}`;
             type: "function",
             function: {
               name: "create_treatment_plan",
-              description: "Cria um plano de tratamento estruturado",
+              description: "Cria um plano de tratamento TCC estruturado",
               parameters: {
                 type: "object",
                 properties: {
                   objectives: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Objetivos terapêuticos principais (3-5)"
+                    description: "Objetivos terapêuticos principais baseados em TCC (3-5)"
                   },
                   discharge_objectives: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Critérios/objetivos para alta terapêutica (2-4)"
+                    description: "Critérios/objetivos para alta terapêutica baseados em mudança cognitiva e comportamental (2-4)"
                   },
                   short_term_goals: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Metas de curto prazo (3-5)"
+                    description: "Metas de curto prazo com técnicas TCC específicas (3-5)"
                   },
                   long_term_goals: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Metas de longo prazo (2-4)"
+                    description: "Metas de longo prazo focadas em mudanças cognitivas duradouras (2-4)"
                   },
                   estimated_sessions: {
                     type: "number",
-                    description: "Número estimado de sessões (8-52)"
+                    description: "Número estimado de sessões (TCC geralmente 12-20)"
                   },
                   approaches: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Abordagens terapêuticas recomendadas"
+                    description: "Técnicas TCC específicas recomendadas (ex: Reestruturação Cognitiva, Exposição Gradual, Ativação Comportamental)"
                   },
                   notes: {
                     type: "string",
-                    description: "Observações gerais sobre o plano"
+                    description: "Observações clínicas sobre o plano, incluindo padrões identificados e recomendações"
                   }
                 },
                 required: ["objectives", "discharge_objectives", "short_term_goals", "long_term_goals", "estimated_sessions", "approaches"],
