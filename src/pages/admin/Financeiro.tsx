@@ -7,10 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useInsurances } from "@/hooks/useInsurances";
 import { useSessionPackages } from "@/hooks/useSessionPackages";
 import { usePatients } from "@/hooks/usePatients";
+import { useFinancialTransactions } from "@/hooks/useFinancialTransactions";
+import TransactionFormDialog from "@/components/financeiro/TransactionFormDialog";
 import { 
   BarChart, 
   Bar, 
@@ -33,7 +36,11 @@ import {
   Package, 
   Building2,
   Calendar,
-  FileText
+  FileText,
+  Plus,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Trash2
 } from "lucide-react";
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -48,7 +55,10 @@ const Financeiro = () => {
   const { appointments } = useAppointments();
   const { insurances } = useInsurances();
   const { packages } = useSessionPackages();
+  const { transactions, deleteTransaction } = useFinancialTransactions();
   const { patients } = usePatients();
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [defaultTransactionType, setDefaultTransactionType] = useState<"revenue" | "expense">("revenue");
 
   // Calculate date range based on selected period
   const dateRange = useMemo(() => {
@@ -189,18 +199,41 @@ const Financeiro = () => {
             <p className="text-muted-foreground">Relatórios e controle financeiro</p>
           </div>
           
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Selecione o período" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">Mês atual</SelectItem>
-              <SelectItem value="last">Mês anterior</SelectItem>
-              <SelectItem value="last3">Últimos 3 meses</SelectItem>
-              <SelectItem value="last6">Últimos 6 meses</SelectItem>
-              <SelectItem value="year">Este ano</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDefaultTransactionType("expense");
+                setShowTransactionForm(true);
+              }}
+              className="border-red-500/50 text-red-500 hover:bg-red-500/10"
+            >
+              <ArrowDownCircle className="h-4 w-4 mr-2" />
+              Despesa
+            </Button>
+            <Button
+              onClick={() => {
+                setDefaultTransactionType("revenue");
+                setShowTransactionForm(true);
+              }}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <ArrowUpCircle className="h-4 w-4 mr-2" />
+              Receita
+            </Button>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Selecione o período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">Mês atual</SelectItem>
+                <SelectItem value="last">Mês anterior</SelectItem>
+                <SelectItem value="last3">Últimos 3 meses</SelectItem>
+                <SelectItem value="last6">Últimos 6 meses</SelectItem>
+                <SelectItem value="year">Este ano</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -260,8 +293,9 @@ const Financeiro = () => {
 
         {/* Tabs for different reports */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="transactions">Lançamentos</TabsTrigger>
             <TabsTrigger value="insurance">Por Convênio</TabsTrigger>
             <TabsTrigger value="packages">Pacotes</TabsTrigger>
             <TabsTrigger value="sessions">Sessões</TabsTrigger>
@@ -554,7 +588,133 @@ const Financeiro = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Transactions Tab */}
+          <TabsContent value="transactions" className="space-y-4">
+            <Card className="card-glass">
+              <CardHeader>
+                <CardTitle className="text-lg font-medium flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Lançamentos Financeiros
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setDefaultTransactionType("expense");
+                        setShowTransactionForm(true);
+                      }}
+                      className="border-red-500/50 text-red-500 hover:bg-red-500/10"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Despesa
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setDefaultTransactionType("revenue");
+                        setShowTransactionForm(true);
+                      }}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Receita
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Paciente/Categoria</TableHead>
+                      <TableHead>Pagamento</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="text-center">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions
+                      .filter(t => {
+                        const tDate = parseISO(t.transaction_date);
+                        return isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                      })
+                      .map((t) => {
+                        const patient = t.patient_id ? patients.find(p => p.id === t.patient_id) : null;
+                        return (
+                          <TableRow key={t.id}>
+                            <TableCell>
+                              {format(parseISO(t.transaction_date), "dd/MM/yyyy", { locale: ptBR })}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={t.type === "revenue" ? "default" : "destructive"}
+                                className={t.type === "revenue" ? "bg-green-600" : ""}
+                              >
+                                {t.type === "revenue" ? (
+                                  <><ArrowUpCircle className="h-3 w-3 mr-1" /> Receita</>
+                                ) : (
+                                  <><ArrowDownCircle className="h-3 w-3 mr-1" /> Despesa</>
+                                )}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {t.description || "-"}
+                            </TableCell>
+                            <TableCell>
+                              {t.type === "revenue" ? (
+                                patient?.name || t.clinic || "-"
+                              ) : (
+                                t.category || "-"
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{t.payment_method || "-"}</Badge>
+                            </TableCell>
+                            <TableCell className={`text-right font-semibold ${t.type === "revenue" ? "text-green-600" : "text-red-500"}`}>
+                              {t.type === "expense" ? "-" : "+"}{currencyFormatter.format(t.amount)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteTransaction(t.id)}
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    {transactions.filter(t => {
+                      const tDate = parseISO(t.transaction_date);
+                      return isWithinInterval(tDate, { start: dateRange.start, end: dateRange.end });
+                    }).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          Nenhum lançamento no período selecionado
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
+
+        {/* Transaction Form Dialog */}
+        <TransactionFormDialog
+          open={showTransactionForm}
+          onOpenChange={setShowTransactionForm}
+          defaultType={defaultTransactionType}
+        />
       </div>
     </AdminLayout>
   );
