@@ -16,6 +16,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { useAdminAuth } from "@/context/AdminAuth";
+import PackageAlerts from "@/components/alerts/PackageAlerts";
 
 const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) => (
   <Card className="card-glass">
@@ -130,6 +131,11 @@ const Dashboard = () => {
         <Stat icon={Users} label="Pacientes Ativos" value={pacientesAtivos} />
         <Stat icon={Wallet} label="Receita Mensal" value={brl.format(receitaMensal)} />
         <Stat icon={CheckCircle2} label="Sessões Concluídas" value={sessoesConcluidas} />
+      </div>
+
+      {/* Alertas de Pacotes */}
+      <div className="mb-8">
+        <PackageAlerts maxAlerts={5} />
       </div>
 
       {/* Agenda de Hoje + Pacientes Recentes */}
