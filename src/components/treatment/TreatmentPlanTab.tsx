@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from "@/components/ui/dialog";
-import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, CalendarPlus, FileText } from "lucide-react";
+import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -83,6 +83,24 @@ const IMPROVEMENT_CATEGORIES = [
   "Outro",
 ];
 
+// Local storage helper functions
+const STORAGE_KEY = "treatment_plans";
+
+const getStoredPlans = (): TreatmentPlan[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveStoredPlans = (plans: TreatmentPlan[]) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+};
+
+const generateId = () => crypto.randomUUID();
+
 export function TreatmentPlanTab({
   patientId,
   patientName,
@@ -123,100 +141,45 @@ export function TreatmentPlanTab({
   const [newImprovement, setNewImprovement] = useState({ description: "", category: "Sintomas" });
   const [statusForm, setStatusForm] = useState({ status: "em_andamento", notes: "" });
 
-  useEffect(() => {
-    fetchPlan();
-    fetchArchivedPlans();
+  // Load plans from localStorage
+  const loadPlans = useCallback(() => {
+    const allPlans = getStoredPlans();
+    const activePlan = allPlans.find(p => p.patient_id === patientId && p.status === "active");
+    const archived = allPlans.filter(p => p.patient_id === patientId && p.status === "archived");
+    
+    setPlan(activePlan || null);
+    setArchivedPlans(archived);
+    setLoading(false);
   }, [patientId]);
 
-  const parseJsonArray = <T,>(val: unknown, defaultVal: T[] = []): T[] => {
-    if (Array.isArray(val)) return val as T[];
-    return defaultVal;
-  };
+  useEffect(() => {
+    loadPlans();
+  }, [loadPlans]);
 
-  const fetchPlan = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("treatment_plans")
-        .select("*")
-        .eq("patient_id", patientId)
-        .eq("status", "active")
-        .maybeSingle();
-
-      if (error) throw error;
-      
-      if (data) {
-        setPlan({
-          ...data,
-          objectives: parseJsonArray<string>(data.objectives).map(String),
-          discharge_objectives: parseJsonArray<string>(data.discharge_objectives).map(String),
-          short_term_goals: parseJsonArray<string>(data.short_term_goals).map(String),
-          long_term_goals: parseJsonArray<string>(data.long_term_goals).map(String),
-          approaches: data.approaches || [],
-          goal_results: parseJsonArray<GoalResult>(data.goal_results),
-          improvements: parseJsonArray<Improvement>(data.improvements),
-          current_status: data.current_status || "em_andamento",
-          current_status_notes: data.current_status_notes,
-          last_review_date: data.last_review_date,
-          next_review_date: data.next_review_date,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching treatment plan:", error);
-    } finally {
-      setLoading(false);
+  // Save plan to localStorage
+  const savePlanToStorage = (updatedPlan: TreatmentPlan) => {
+    const allPlans = getStoredPlans();
+    const index = allPlans.findIndex(p => p.id === updatedPlan.id);
+    
+    if (index >= 0) {
+      allPlans[index] = { ...updatedPlan, updated_at: new Date().toISOString() };
+    } else {
+      allPlans.push({ ...updatedPlan, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     }
+    
+    saveStoredPlans(allPlans);
+    loadPlans();
   };
 
-  const fetchArchivedPlans = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("treatment_plans")
-        .select("*")
-        .eq("patient_id", patientId)
-        .eq("status", "archived")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      
-      if (data) {
-        setArchivedPlans(data.map(d => ({
-          ...d,
-          objectives: parseJsonArray<string>(d.objectives).map(String),
-          discharge_objectives: parseJsonArray<string>(d.discharge_objectives).map(String),
-          short_term_goals: parseJsonArray<string>(d.short_term_goals).map(String),
-          long_term_goals: parseJsonArray<string>(d.long_term_goals).map(String),
-          approaches: d.approaches || [],
-          goal_results: parseJsonArray<GoalResult>(d.goal_results),
-          improvements: parseJsonArray<Improvement>(d.improvements),
-          current_status: d.current_status || "em_andamento",
-          current_status_notes: d.current_status_notes,
-          last_review_date: d.last_review_date,
-          next_review_date: d.next_review_date,
-        })));
-      }
-    } catch (error) {
-      console.error("Error fetching archived plans:", error);
-    }
-  };
-
-  const archiveCurrentPlan = async () => {
+  const archiveCurrentPlan = () => {
     if (!plan) return;
     
-    try {
-      const { error } = await supabase
-        .from("treatment_plans")
-        .update({ status: "archived" })
-        .eq("id", plan.id);
-      if (error) throw error;
-      
-      setPlan(null);
-      setArchiveConfirmOpen(false);
-      await fetchArchivedPlans();
-      toast.success("Plano arquivado! Você pode criar um novo plano.");
-    } catch (error) {
-      console.error("Error archiving plan:", error);
-      toast.error("Erro ao arquivar plano");
-    }
+    const updatedPlan = { ...plan, status: "archived" };
+    savePlanToStorage(updatedPlan);
+    setPlan(null);
+    setArchiveConfirmOpen(false);
+    loadPlans();
+    toast.success("Plano arquivado! Você pode criar um novo plano.");
   };
 
   const createNewPlan = () => {
@@ -254,7 +217,8 @@ export function TreatmentPlanTab({
 
       const aiPlan = data.plan;
       
-      const planData = {
+      const newPlan: TreatmentPlan = {
+        id: plan?.id || generateId(),
         patient_id: patientId,
         start_date: new Date().toISOString().split("T")[0],
         estimated_sessions: aiPlan.estimated_sessions || 12,
@@ -267,22 +231,14 @@ export function TreatmentPlanTab({
         current_progress: 0,
         status: "active",
         current_status: "em_andamento",
+        current_status_notes: null,
+        goal_results: plan?.goal_results || [],
+        improvements: plan?.improvements || [],
+        last_review_date: null,
+        next_review_date: null,
       };
 
-      if (plan) {
-        const { error: updateError } = await supabase
-          .from("treatment_plans")
-          .update(planData)
-          .eq("id", plan.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from("treatment_plans")
-          .insert(planData);
-        if (insertError) throw insertError;
-      }
-
-      await fetchPlan();
+      savePlanToStorage(newPlan);
       toast.success("Plano de tratamento gerado com sucesso!");
     } catch (error) {
       console.error("Error generating treatment plan:", error);
@@ -321,10 +277,11 @@ export function TreatmentPlanTab({
     setEditDialogOpen(true);
   };
 
-  const savePlan = async () => {
+  const savePlan = () => {
     setSaving(true);
     try {
-      const planData = {
+      const newPlan: TreatmentPlan = {
+        id: plan?.id || generateId(),
         patient_id: patientId,
         start_date: editForm.start_date || null,
         estimated_sessions: editForm.estimated_sessions,
@@ -336,22 +293,15 @@ export function TreatmentPlanTab({
         notes: editForm.notes || null,
         next_review_date: editForm.next_review_date || null,
         status: "active",
+        current_progress: plan?.current_progress || 0,
+        current_status: plan?.current_status || "em_andamento",
+        current_status_notes: plan?.current_status_notes || null,
+        goal_results: plan?.goal_results || [],
+        improvements: plan?.improvements || [],
+        last_review_date: plan?.last_review_date || null,
       };
 
-      if (plan) {
-        const { error } = await supabase
-          .from("treatment_plans")
-          .update(planData)
-          .eq("id", plan.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("treatment_plans")
-          .insert(planData);
-        if (error) throw error;
-      }
-
-      await fetchPlan();
+      savePlanToStorage(newPlan);
       setEditDialogOpen(false);
       toast.success("Plano de tratamento salvo!");
     } catch (error) {
@@ -362,7 +312,7 @@ export function TreatmentPlanTab({
     }
   };
 
-  const toggleGoalCompletion = async (goalType: "short_term" | "long_term", index: number) => {
+  const toggleGoalCompletion = (goalType: "short_term" | "long_term", index: number) => {
     if (!plan) return;
     
     const goals = goalType === "short_term" ? plan.short_term_goals : plan.long_term_goals;
@@ -378,19 +328,12 @@ export function TreatmentPlanTab({
       newResults = [...plan.goal_results, { goal, completed: true, completedAt: new Date().toISOString() }];
     }
 
-    try {
-      const { error } = await supabase
-        .from("treatment_plans")
-        .update({ goal_results: JSON.parse(JSON.stringify(newResults)) })
-        .eq("id", plan.id);
-      if (error) throw error;
-      setPlan({ ...plan, goal_results: newResults });
-    } catch (error) {
-      console.error("Error updating goal:", error);
-    }
+    const updatedPlan = { ...plan, goal_results: newResults };
+    savePlanToStorage(updatedPlan);
+    setPlan(updatedPlan);
   };
 
-  const updateGoalResult = async (goal: string, result: string) => {
+  const updateGoalResult = (goal: string, result: string) => {
     if (!plan) return;
     
     const existingResult = plan.goal_results.find(r => r.goal === goal);
@@ -401,44 +344,28 @@ export function TreatmentPlanTab({
       newResults = [...plan.goal_results, { goal, completed: false, result }];
     }
 
-    try {
-      const { error } = await supabase
-        .from("treatment_plans")
-        .update({ goal_results: JSON.parse(JSON.stringify(newResults)) })
-        .eq("id", plan.id);
-      if (error) throw error;
-      setPlan({ ...plan, goal_results: newResults });
-      toast.success("Resultado atualizado!");
-    } catch (error) {
-      console.error("Error updating result:", error);
-    }
+    const updatedPlan = { ...plan, goal_results: newResults };
+    savePlanToStorage(updatedPlan);
+    setPlan(updatedPlan);
+    toast.success("Resultado atualizado!");
   };
 
-  const addGoal = async () => {
+  const addGoal = () => {
     if (!plan || !newGoal.text.trim()) return;
     
     const field = newGoal.type === "short_term" ? "short_term_goals" : "long_term_goals";
     const currentGoals = newGoal.type === "short_term" ? plan.short_term_goals : plan.long_term_goals;
     const updatedGoals = [...currentGoals, newGoal.text.trim()];
 
-    try {
-      const { error } = await supabase
-        .from("treatment_plans")
-        .update({ [field]: updatedGoals })
-        .eq("id", plan.id);
-      if (error) throw error;
-      
-      setPlan({ ...plan, [field]: updatedGoals });
-      setNewGoal({ type: "short_term", text: "" });
-      setAddGoalDialogOpen(false);
-      toast.success("Meta adicionada!");
-    } catch (error) {
-      console.error("Error adding goal:", error);
-      toast.error("Erro ao adicionar meta");
-    }
+    const updatedPlan = { ...plan, [field]: updatedGoals };
+    savePlanToStorage(updatedPlan);
+    setPlan(updatedPlan);
+    setNewGoal({ type: "short_term", text: "" });
+    setAddGoalDialogOpen(false);
+    toast.success("Meta adicionada!");
   };
 
-  const addImprovement = async () => {
+  const addImprovement = () => {
     if (!plan || !newImprovement.description.trim()) return;
     
     const improvement: Improvement = {
@@ -449,80 +376,53 @@ export function TreatmentPlanTab({
     };
 
     const updatedImprovements = [...plan.improvements, improvement];
-
-    try {
-      const { error } = await supabase
-        .from("treatment_plans")
-        .update({ improvements: JSON.parse(JSON.stringify(updatedImprovements)) })
-        .eq("id", plan.id);
-      if (error) throw error;
-      
-      setPlan({ ...plan, improvements: updatedImprovements });
-      setNewImprovement({ description: "", category: "Sintomas" });
-      setAddImprovementDialogOpen(false);
-      toast.success("Melhora registrada!");
-    } catch (error) {
-      console.error("Error adding improvement:", error);
-      toast.error("Erro ao registrar melhora");
-    }
+    const updatedPlan = { ...plan, improvements: updatedImprovements };
+    savePlanToStorage(updatedPlan);
+    setPlan(updatedPlan);
+    setNewImprovement({ description: "", category: "Sintomas" });
+    setAddImprovementDialogOpen(false);
+    toast.success("Melhora registrada!");
   };
 
-  const updateStatus = async () => {
+  const updateStatus = () => {
     if (!plan) return;
     
-    try {
-      const { error } = await supabase
-        .from("treatment_plans")
-        .update({
-          current_status: statusForm.status,
-          current_status_notes: statusForm.notes || null,
-          last_review_date: new Date().toISOString().split("T")[0],
-        })
-        .eq("id", plan.id);
-      if (error) throw error;
-      
-      setPlan({
-        ...plan,
-        current_status: statusForm.status,
-        current_status_notes: statusForm.notes || null,
-        last_review_date: new Date().toISOString().split("T")[0],
-      });
-      setStatusDialogOpen(false);
-      toast.success("Status atualizado!");
-    } catch (error) {
-      console.error("Error updating status:", error);
-      toast.error("Erro ao atualizar status");
-    }
+    const updatedPlan = {
+      ...plan,
+      current_status: statusForm.status,
+      current_status_notes: statusForm.notes || null,
+      last_review_date: new Date().toISOString().split("T")[0],
+    };
+    
+    savePlanToStorage(updatedPlan);
+    setPlan(updatedPlan);
+    setStatusDialogOpen(false);
+    toast.success("Status atualizado!");
   };
 
-  const saveSessionRecord = async () => {
+  const saveSessionRecord = () => {
     if (!newSessionSummary.trim()) {
       toast.error("Por favor, insira o resumo da sessão");
       return;
     }
     
-    setSavingSession(true);
-    try {
-      const { error } = await supabase
-        .from("sessions")
-        .insert({
-          patient_id: patientId,
-          session_date: new Date().toISOString(),
-          status: "completed",
-          summary: newSessionSummary.trim(),
-        });
-      
-      if (error) throw error;
-      
-      setNewSessionSummary("");
-      setAddSessionDialogOpen(false);
-      toast.success("Registro de sessão adicionado!");
-    } catch (error) {
-      console.error("Error saving session:", error);
-      toast.error("Erro ao salvar registro de sessão");
-    } finally {
-      setSavingSession(false);
-    }
+    // Save session record to localStorage
+    const sessionsKey = `sessions_${patientId}`;
+    const existingSessions = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
+    const newSession = {
+      id: generateId(),
+      patient_id: patientId,
+      session_date: new Date().toISOString(),
+      status: "completed",
+      summary: newSessionSummary.trim(),
+      created_at: new Date().toISOString(),
+    };
+    existingSessions.push(newSession);
+    localStorage.setItem(sessionsKey, JSON.stringify(existingSessions));
+    
+    setNewSessionSummary("");
+    setAddSessionDialogOpen(false);
+    toast.success("Registro de sessão adicionado!");
   };
 
   const getGoalResult = (goal: string) => plan?.goal_results.find(r => r.goal === goal);
