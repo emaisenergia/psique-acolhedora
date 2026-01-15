@@ -471,9 +471,13 @@ export function TreatmentPlanTab({
                     {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
                     {generating ? "Gerando..." : "Gerar com IA"}
                   </Button>
-                  <Button size="sm" className="rounded-full" onClick={openEditDialog}>
+                  <Button size="sm" className="rounded-full" onClick={openEditDialog} disabled={!plan}>
                     <Edit2 className="w-4 h-4 mr-2" />
-                    {plan ? "Editar Plano" : "Criar Plano"}
+                    Editar Plano
+                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-full" onClick={createNewPlan}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Criar Plano
                   </Button>
                   {plan && (
                     <>
