@@ -166,6 +166,59 @@ export type Database = {
           },
         ]
       }
+      financial_transactions: {
+        Row: {
+          amount: number
+          category: string | null
+          clinic: string | null
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          patient_id: string | null
+          payment_method: string | null
+          transaction_date: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category?: string | null
+          clinic?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string | null
+          payment_method?: string | null
+          transaction_date?: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          clinic?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string | null
+          payment_method?: string | null
+          transaction_date?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_transactions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insurances: {
         Row: {
           contact_email: string | null
