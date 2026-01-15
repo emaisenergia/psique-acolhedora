@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar } from "lucide-react";
+import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, CalendarPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -46,6 +46,8 @@ interface TreatmentPlan {
   current_status_notes: string | null;
   last_review_date: string | null;
   next_review_date: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface TreatmentPlanTabProps {
@@ -55,6 +57,7 @@ interface TreatmentPlanTabProps {
   patientNotes?: string | null;
   sessionsCompleted: number;
   journalNotes?: string;
+  onAddSession?: () => void;
 }
 
 const STATUS_OPTIONS = [
@@ -87,8 +90,10 @@ export function TreatmentPlanTab({
   patientNotes,
   sessionsCompleted,
   journalNotes,
+  onAddSession,
 }: TreatmentPlanTabProps) {
   const [plan, setPlan] = useState<TreatmentPlan | null>(null);
+  const [archivedPlans, setArchivedPlans] = useState<TreatmentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -96,6 +101,8 @@ export function TreatmentPlanTab({
   const [addGoalDialogOpen, setAddGoalDialogOpen] = useState(false);
   const [addImprovementDialogOpen, setAddImprovementDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [showArchivedPlans, setShowArchivedPlans] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   
   const [editForm, setEditForm] = useState({
     start_date: "",
@@ -115,6 +122,7 @@ export function TreatmentPlanTab({
 
   useEffect(() => {
     fetchPlan();
+    fetchArchivedPlans();
   }, [patientId]);
 
   const parseJsonArray = <T,>(val: unknown, defaultVal: T[] = []): T[] => {
@@ -154,6 +162,73 @@ export function TreatmentPlanTab({
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchArchivedPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("treatment_plans")
+        .select("*")
+        .eq("patient_id", patientId)
+        .eq("status", "archived")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      if (data) {
+        setArchivedPlans(data.map(d => ({
+          ...d,
+          objectives: parseJsonArray<string>(d.objectives).map(String),
+          discharge_objectives: parseJsonArray<string>(d.discharge_objectives).map(String),
+          short_term_goals: parseJsonArray<string>(d.short_term_goals).map(String),
+          long_term_goals: parseJsonArray<string>(d.long_term_goals).map(String),
+          approaches: d.approaches || [],
+          goal_results: parseJsonArray<GoalResult>(d.goal_results),
+          improvements: parseJsonArray<Improvement>(d.improvements),
+          current_status: d.current_status || "em_andamento",
+          current_status_notes: d.current_status_notes,
+          last_review_date: d.last_review_date,
+          next_review_date: d.next_review_date,
+        })));
+      }
+    } catch (error) {
+      console.error("Error fetching archived plans:", error);
+    }
+  };
+
+  const archiveCurrentPlan = async () => {
+    if (!plan) return;
+    
+    try {
+      const { error } = await supabase
+        .from("treatment_plans")
+        .update({ status: "archived" })
+        .eq("id", plan.id);
+      if (error) throw error;
+      
+      setPlan(null);
+      setArchiveConfirmOpen(false);
+      await fetchArchivedPlans();
+      toast.success("Plano arquivado! Você pode criar um novo plano.");
+    } catch (error) {
+      console.error("Error archiving plan:", error);
+      toast.error("Erro ao arquivar plano");
+    }
+  };
+
+  const createNewPlan = () => {
+    setEditForm({
+      start_date: new Date().toISOString().split("T")[0],
+      estimated_sessions: 12,
+      objectives: "",
+      discharge_objectives: "",
+      short_term_goals: "",
+      long_term_goals: "",
+      approaches: "",
+      notes: "",
+      next_review_date: "",
+    });
+    setEditDialogOpen(true);
   };
 
   const generateWithAI = async () => {
@@ -450,6 +525,12 @@ export function TreatmentPlanTab({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {onAddSession && (
+                    <Button variant="outline" size="sm" className="rounded-full" onClick={onAddSession}>
+                      <CalendarPlus className="w-4 h-4 mr-2" />
+                      Adicionar Sessão
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -464,6 +545,34 @@ export function TreatmentPlanTab({
                     <Edit2 className="w-4 h-4 mr-2" />
                     {plan ? "Editar Plano" : "Criar Plano"}
                   </Button>
+                  {plan && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full"
+                        onClick={() => {
+                          setStatusForm({
+                            status: plan.current_status || "em_andamento",
+                            notes: plan.current_status_notes || "",
+                          });
+                          setStatusDialogOpen(true);
+                        }}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Atualizar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full text-amber-600 hover:text-amber-700"
+                        onClick={() => setArchiveConfirmOpen(true)}
+                      >
+                        <Archive className="w-4 h-4 mr-2" />
+                        Arquivar
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -980,6 +1089,116 @@ export function TreatmentPlanTab({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Archive Confirm Dialog */}
+      <Dialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Arquivar Plano de Tratamento</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja arquivar este plano? O plano será salvo no histórico e você poderá criar um novo plano para o paciente.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+            <Button variant="destructive" onClick={archiveCurrentPlan}>
+              <Archive className="w-4 h-4 mr-2" /> Arquivar Plano
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archived Plans Section */}
+      {archivedPlans.length > 0 && (
+        <Card className="mt-6 card-glass">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-muted-foreground" />
+                <div className="text-lg font-semibold text-foreground">Planos Anteriores</div>
+                <Badge variant="secondary">{archivedPlans.length}</Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowArchivedPlans(!showArchivedPlans)}
+              >
+                {showArchivedPlans ? "Ocultar" : "Mostrar"}
+              </Button>
+            </div>
+            
+            {showArchivedPlans && (
+              <div className="space-y-4">
+                {archivedPlans.map((archivedPlan) => {
+                  const archivedStatusOption = STATUS_OPTIONS.find(s => s.value === archivedPlan.current_status) || STATUS_OPTIONS[0];
+                  const archivedCompletedGoals = [...archivedPlan.short_term_goals, ...archivedPlan.long_term_goals]
+                    .filter(g => archivedPlan.goal_results.find(r => r.goal === g)?.completed).length;
+                  const archivedTotalGoals = archivedPlan.short_term_goals.length + archivedPlan.long_term_goals.length;
+                  
+                  return (
+                    <div key={archivedPlan.id} className="rounded-xl border border-border/60 bg-slate-50 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge className={archivedStatusOption.color}>
+                              {archivedStatusOption.label}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {archivedPlan.start_date ? new Date(archivedPlan.start_date).toLocaleDateString("pt-BR") : "—"}
+                              {archivedPlan.created_at && ` - Arquivado em ${new Date(archivedPlan.updated_at || archivedPlan.created_at).toLocaleDateString("pt-BR")}`}
+                            </span>
+                          </div>
+                          
+                          <div className="grid md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">Sessões estimadas:</span>
+                              <span className="ml-1 font-medium">{archivedPlan.estimated_sessions}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Metas concluídas:</span>
+                              <span className="ml-1 font-medium">{archivedCompletedGoals}/{archivedTotalGoals}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Melhoras registradas:</span>
+                              <span className="ml-1 font-medium">{archivedPlan.improvements?.length || 0}</span>
+                            </div>
+                          </div>
+                          
+                          {archivedPlan.objectives && archivedPlan.objectives.length > 0 && (
+                            <div className="mt-3">
+                              <div className="text-xs text-muted-foreground mb-1">Objetivos:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {archivedPlan.objectives.slice(0, 3).map((obj, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs font-normal">
+                                    {obj.length > 40 ? obj.slice(0, 40) + "..." : obj}
+                                  </Badge>
+                                ))}
+                                {archivedPlan.objectives.length > 3 && (
+                                  <Badge variant="outline" className="text-xs font-normal">
+                                    +{archivedPlan.objectives.length - 3} mais
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {archivedPlan.notes && (
+                            <div className="mt-2 text-xs text-muted-foreground italic">
+                              {archivedPlan.notes.length > 100 ? archivedPlan.notes.slice(0, 100) + "..." : archivedPlan.notes}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }
