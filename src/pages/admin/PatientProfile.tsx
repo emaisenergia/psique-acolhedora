@@ -1670,6 +1670,7 @@ const PatientProfile = () => {
           open={responseViewerOpen}
           onOpenChange={setResponseViewerOpen}
           activity={{
+            id: selectedActivityForView.id,
             title: selectedActivityForView.title,
             description: selectedActivityForView.description,
             fields: selectedActivityForView.fields,
@@ -1677,8 +1678,27 @@ const PatientProfile = () => {
             attachmentName: selectedActivityForView.attachmentName,
             patientResponses: (selectedActivityForView as any).patientResponses,
             responseHistory: (selectedActivityForView as any).responseHistory,
+            psychologistFeedback: (selectedActivityForView as any).psychologistFeedback,
+            feedbackAt: (selectedActivityForView as any).feedbackAt,
           }}
           patientName={patient?.name}
+          onSaveFeedback={async (activityId, feedback) => {
+            const activityToUpdate = activities.find(a => a.id === activityId);
+            if (activityToUpdate) {
+              const updatedActivity = {
+                ...activityToUpdate,
+                psychologistFeedback: feedback,
+                feedbackAt: new Date().toISOString(),
+              } as any;
+              const updatedActivities = activities.map(a => 
+                a.id === activityId ? updatedActivity : a
+              );
+              storage.saveActivities(updatedActivities);
+              setActivities(updatedActivities);
+              setSelectedActivityForView(updatedActivity);
+              toast.success("Feedback salvo com sucesso!");
+            }
+          }}
         />
       )}
 

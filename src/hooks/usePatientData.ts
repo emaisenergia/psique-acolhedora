@@ -44,6 +44,8 @@ export type PatientActivity = {
   attachment_name?: string | null;
   patient_responses?: Record<string, string | boolean> | null;
   response_history?: ResponseHistoryEntry[] | null;
+  psychologist_feedback?: string | null;
+  feedback_at?: string | null;
 };
 
 export type PatientMessage = {
