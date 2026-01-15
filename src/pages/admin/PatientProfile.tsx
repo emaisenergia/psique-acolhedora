@@ -99,36 +99,73 @@ const PatientProfile = () => {
   
   // Supabase patient UUID (for database operations)
   const [supabasePatientId, setSupabasePatientId] = useState<string | null>(null);
+  const [supabasePatientLoading, setSupabasePatientLoading] = useState(true);
 
   const patientId = patient?.id || null;
   
-  // Fetch the Supabase UUID for this patient based on email
+  // Fetch or create the Supabase patient based on email
   useEffect(() => {
-    const fetchSupabasePatientId = async () => {
-      if (!patient?.email) return;
+    const syncSupabasePatient = async () => {
+      if (!patient?.email || !patient?.name) {
+        setSupabasePatientLoading(false);
+        return;
+      }
+      
+      setSupabasePatientLoading(true);
       
       try {
-        const { data, error } = await supabase
+        // First try to fetch existing patient
+        const { data: existingPatient, error: fetchError } = await supabase
           .from("patients")
           .select("id")
           .eq("email", patient.email)
           .maybeSingle();
         
-        if (error) {
-          console.error("Error fetching Supabase patient ID:", error);
+        if (fetchError) {
+          console.error("Error fetching Supabase patient:", fetchError);
+          setSupabasePatientLoading(false);
           return;
         }
         
-        if (data) {
-          setSupabasePatientId(data.id);
+        if (existingPatient) {
+          setSupabasePatientId(existingPatient.id);
+          setSupabasePatientLoading(false);
+          return;
+        }
+        
+        // Patient doesn't exist in Supabase, create it
+        const { data: newPatient, error: insertError } = await supabase
+          .from("patients")
+          .insert({
+            name: patient.name,
+            email: patient.email,
+            phone: patient.phone || null,
+            birth_date: patient.birthDate || null,
+            notes: patient.notes || null,
+            status: patient.status || "active",
+          })
+          .select("id")
+          .single();
+        
+        if (insertError) {
+          console.error("Error creating Supabase patient:", insertError);
+          setSupabasePatientLoading(false);
+          return;
+        }
+        
+        if (newPatient) {
+          setSupabasePatientId(newPatient.id);
+          toast.success("Paciente sincronizado com o banco de dados");
         }
       } catch (error) {
-        console.error("Error fetching Supabase patient ID:", error);
+        console.error("Error syncing Supabase patient:", error);
+      } finally {
+        setSupabasePatientLoading(false);
       }
     };
     
-    fetchSupabasePatientId();
-  }, [patient?.email]);
+    syncSupabasePatient();
+  }, [patient?.email, patient?.name, patient?.phone, patient?.birthDate, patient?.notes, patient?.status]);
 
   const myActivities = useMemo(() => {
     if (!patientId) return [] as Activity[];
@@ -1033,7 +1070,16 @@ const PatientProfile = () => {
         </TabsContent>
 
         <TabsContent value="plano" className="mt-6">
-          {supabasePatientId ? (
+          {supabasePatientLoading ? (
+            <Card className="card-glass">
+              <CardContent className="p-6">
+                <div className="text-center text-muted-foreground py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                  <p>Sincronizando paciente...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : supabasePatientId ? (
             <TreatmentPlanTab
               patientId={supabasePatientId}
               patientName={patient.name}
@@ -1047,8 +1093,8 @@ const PatientProfile = () => {
             <Card className="card-glass">
               <CardContent className="p-6">
                 <div className="text-center text-muted-foreground py-8">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  <p>Carregando plano de tratamento...</p>
+                  <p>Não foi possível sincronizar o paciente com o banco de dados.</p>
+                  <p className="text-sm mt-2">Verifique se o email do paciente está preenchido.</p>
                 </div>
               </CardContent>
             </Card>
