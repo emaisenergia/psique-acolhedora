@@ -30,7 +30,15 @@ import {
   ClipboardList,
   Activity,
   RefreshCw,
+  Filter,
+  X,
+  CalendarDays,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { sessionsService, SESSION_STATUS_CONFIG, type Session } from "@/lib/sessions";
 
 interface Patient {
@@ -84,6 +92,16 @@ const Prontuarios = () => {
   const [isEvolutionDialogOpen, setIsEvolutionDialogOpen] = useState(false);
   const [evolutionReport, setEvolutionReport] = useState<string | null>(null);
   const [isGeneratingEvolution, setIsGeneratingEvolution] = useState(false);
+  
+  // Advanced filters
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
+  const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
+  const [keywordFilter, setKeywordFilter] = useState("");
+  const [datePreset, setDatePreset] = useState<string>("all");
 
   // Load patients
   const loadPatients = useCallback(async () => {
@@ -147,19 +165,101 @@ const Prontuarios = () => {
     });
   }, [patients, allSessions]);
 
-  // Filter patients
+  // Filter patients with advanced filters
   const filteredPatients = useMemo(() => {
     return patientsWithSessions.filter((patient) => {
+      // Basic search filter
       const matchesSearch =
         patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         patient.email.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Patient status filter
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && patient.status === "active") ||
         (statusFilter === "inactive" && patient.status === "inactive");
-      return matchesSearch && matchesStatus;
+      
+      if (!matchesSearch || !matchesStatus) return false;
+      
+      // Advanced filters - check if patient has sessions matching criteria
+      const hasMatchingSessions = patient.sessions.some((session) => {
+        // Date range filter
+        if (dateRange.from || dateRange.to) {
+          const sessionDate = parseISO(session.session_date);
+          if (dateRange.from && dateRange.to) {
+            if (!isWithinInterval(sessionDate, { start: dateRange.from, end: dateRange.to })) {
+              return false;
+            }
+          } else if (dateRange.from && sessionDate < dateRange.from) {
+            return false;
+          } else if (dateRange.to && sessionDate > dateRange.to) {
+            return false;
+          }
+        }
+        
+        // Session status filter
+        if (sessionStatusFilter !== "all" && session.status !== sessionStatusFilter) {
+          return false;
+        }
+        
+        // Keyword filter in notes
+        if (keywordFilter.trim()) {
+          const keyword = keywordFilter.toLowerCase();
+          const matchesKeyword = 
+            (session.detailed_notes?.toLowerCase().includes(keyword)) ||
+            (session.summary?.toLowerCase().includes(keyword)) ||
+            (session.ai_generated_summary?.toLowerCase().includes(keyword)) ||
+            (session.clinical_observations?.toLowerCase().includes(keyword)) ||
+            (session.transcription?.toLowerCase().includes(keyword));
+          if (!matchesKeyword) return false;
+        }
+        
+        return true;
+      });
+      
+      // If no advanced filters are set, include patient
+      const hasAdvancedFilters = dateRange.from || dateRange.to || sessionStatusFilter !== "all" || keywordFilter.trim();
+      if (!hasAdvancedFilters) return true;
+      
+      return hasMatchingSessions;
     });
-  }, [patientsWithSessions, searchTerm, statusFilter]);
+  }, [patientsWithSessions, searchTerm, statusFilter, dateRange, sessionStatusFilter, keywordFilter]);
+
+  // Handle date preset changes
+  const handleDatePresetChange = (preset: string) => {
+    setDatePreset(preset);
+    const now = new Date();
+    switch (preset) {
+      case "this_month":
+        setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+        break;
+      case "last_month":
+        const lastMonth = subMonths(now, 1);
+        setDateRange({ from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) });
+        break;
+      case "last_3_months":
+        setDateRange({ from: startOfMonth(subMonths(now, 2)), to: endOfMonth(now) });
+        break;
+      case "last_6_months":
+        setDateRange({ from: startOfMonth(subMonths(now, 5)), to: endOfMonth(now) });
+        break;
+      case "all":
+      default:
+        setDateRange({ from: undefined, to: undefined });
+        break;
+    }
+  };
+
+  // Clear all advanced filters
+  const clearAdvancedFilters = () => {
+    setDateRange({ from: undefined, to: undefined });
+    setSessionStatusFilter("all");
+    setKeywordFilter("");
+    setDatePreset("all");
+  };
+
+  // Check if any advanced filters are active
+  const hasActiveFilters = dateRange.from || dateRange.to || sessionStatusFilter !== "all" || keywordFilter.trim();
 
   // Statistics
   const stats = useMemo(() => {
@@ -327,26 +427,206 @@ const Prontuarios = () => {
       {/* Search and Filters */}
       <Card className="card-glass mb-6">
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar paciente por nome ou email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          <div className="flex flex-col gap-4">
+            {/* Main search row */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar paciente por nome ou email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                <TabsList>
+                  <TabsTrigger value="all">Todos</TabsTrigger>
+                  <TabsTrigger value="active">Ativos</TabsTrigger>
+                  <TabsTrigger value="inactive">Inativos</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="flex gap-2">
+                <Button
+                  variant={showAdvancedFilters ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="gap-2"
+                >
+                  <Filter className="w-4 h-4" />
+                  Filtros Avançados
+                  {hasActiveFilters && (
+                    <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                      !
+                    </Badge>
+                  )}
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => { loadPatients(); loadSessions(); }}>
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-              <TabsList>
-                <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="active">Ativos</TabsTrigger>
-                <TabsTrigger value="inactive">Inativos</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button variant="outline" size="icon" onClick={() => { loadPatients(); loadSessions(); }}>
-              <RefreshCw className="w-4 h-4" />
-            </Button>
+
+            {/* Advanced filters */}
+            {showAdvancedFilters && (
+              <div className="p-4 bg-muted/30 rounded-lg border border-border/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <Filter className="w-4 h-4" />
+                    Filtros Avançados de Sessões
+                  </h4>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearAdvancedFilters} className="gap-1 h-7 text-xs">
+                      <X className="w-3 h-3" />
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Date preset */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">Período</label>
+                    <Select value={datePreset} onValueChange={handleDatePresetChange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecionar período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Qualquer período</SelectItem>
+                        <SelectItem value="this_month">Este mês</SelectItem>
+                        <SelectItem value="last_month">Mês passado</SelectItem>
+                        <SelectItem value="last_3_months">Últimos 3 meses</SelectItem>
+                        <SelectItem value="last_6_months">Últimos 6 meses</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Custom date range - From */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">De</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <CalendarDays className="mr-2 h-4 w-4" />
+                          {dateRange.from ? format(dateRange.from, "dd/MM/yyyy", { locale: ptBR }) : "Data inicial"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={dateRange.from}
+                          onSelect={(date) => {
+                            setDateRange(prev => ({ ...prev, from: date }));
+                            setDatePreset("all");
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Custom date range - To */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">Até</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <CalendarDays className="mr-2 h-4 w-4" />
+                          {dateRange.to ? format(dateRange.to, "dd/MM/yyyy", { locale: ptBR }) : "Data final"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={dateRange.to}
+                          onSelect={(date) => {
+                            setDateRange(prev => ({ ...prev, to: date }));
+                            setDatePreset("all");
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Session status filter */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground">Status da Sessão</label>
+                    <Select value={sessionStatusFilter} onValueChange={setSessionStatusFilter}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Todos os status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os status</SelectItem>
+                        <SelectItem value="completed">Realizadas</SelectItem>
+                        <SelectItem value="scheduled">Agendadas</SelectItem>
+                        <SelectItem value="cancelled">Canceladas</SelectItem>
+                        <SelectItem value="no_show">Não compareceu</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Keyword search */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Buscar nas notas, resumos e transcrições
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Digite palavras-chave para buscar no conteúdo das sessões..."
+                      value={keywordFilter}
+                      onChange={(e) => setKeywordFilter(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Active filters summary */}
+                {hasActiveFilters && (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
+                    <span className="text-xs text-muted-foreground">Filtros ativos:</span>
+                    {(dateRange.from || dateRange.to) && (
+                      <Badge variant="secondary" className="gap-1">
+                        <CalendarDays className="w-3 h-3" />
+                        {dateRange.from && format(dateRange.from, "dd/MM/yy")}
+                        {dateRange.from && dateRange.to && " - "}
+                        {dateRange.to && format(dateRange.to, "dd/MM/yy")}
+                        <button
+                          onClick={() => { setDateRange({ from: undefined, to: undefined }); setDatePreset("all"); }}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {sessionStatusFilter !== "all" && (
+                      <Badge variant="secondary" className="gap-1">
+                        {SESSION_STATUS_CONFIG[sessionStatusFilter as keyof typeof SESSION_STATUS_CONFIG]?.label || sessionStatusFilter}
+                        <button
+                          onClick={() => setSessionStatusFilter("all")}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {keywordFilter.trim() && (
+                      <Badge variant="secondary" className="gap-1">
+                        "{keywordFilter}"
+                        <button
+                          onClick={() => setKeywordFilter("")}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
