@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 type NotificationType = 
   | "new_message" 
   | "new_activity" 
+  | "activity_response"
   | "appointment_reminder" 
   | "appointment_confirmation"
   | "appointment_created"
@@ -12,6 +13,7 @@ type NotificationType =
 interface NotificationData {
   content?: string;
   activityTitle?: string;
+  patientName?: string;
   appointmentDate?: string;
   appointmentTime?: string;
   appointmentMode?: string;
@@ -31,6 +33,34 @@ export const sendNotificationEmail = async (
 
     if (error) {
       console.error("Error sending notification:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error invoking notification function:", err);
+    return { success: false, error: err.message };
+  }
+};
+
+// Notify admin/psychologist when patient submits activity response
+export const notifyActivityResponse = async (
+  patientId: string, 
+  activityTitle: string,
+  patientName: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { data: response, error } = await supabase.functions.invoke("send-notification-email", {
+      body: { 
+        type: "activity_response", 
+        patientId, 
+        data: { activityTitle, patientName },
+        notifyAdmin: true 
+      },
+    });
+
+    if (error) {
+      console.error("Error sending activity response notification:", error);
       return { success: false, error: error.message };
     }
 
