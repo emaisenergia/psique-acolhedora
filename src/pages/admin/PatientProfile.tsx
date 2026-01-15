@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield, UserPlus, Key, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, useEffect, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -96,8 +96,39 @@ const PatientProfile = () => {
   const [patientHasAccount, setPatientHasAccount] = useState<boolean | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // Supabase patient UUID (for database operations)
+  const [supabasePatientId, setSupabasePatientId] = useState<string | null>(null);
 
   const patientId = patient?.id || null;
+  
+  // Fetch the Supabase UUID for this patient based on email
+  useEffect(() => {
+    const fetchSupabasePatientId = async () => {
+      if (!patient?.email) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("email", patient.email)
+          .maybeSingle();
+        
+        if (error) {
+          console.error("Error fetching Supabase patient ID:", error);
+          return;
+        }
+        
+        if (data) {
+          setSupabasePatientId(data.id);
+        }
+      } catch (error) {
+        console.error("Error fetching Supabase patient ID:", error);
+      }
+    };
+    
+    fetchSupabasePatientId();
+  }, [patient?.email]);
 
   const myActivities = useMemo(() => {
     if (!patientId) return [] as Activity[];
@@ -1002,18 +1033,29 @@ const PatientProfile = () => {
         </TabsContent>
 
         <TabsContent value="plano" className="mt-6">
-          <TreatmentPlanTab
-            patientId={patient.id}
-            patientName={patient.name}
-            patientAge={age}
-            patientNotes={patient.notes}
-            sessionsCompleted={doneHistory.length}
-            journalNotes={patientJournals.slice(0, 3).map(j => j.note).join("\n")}
-            onAddSession={() => setTab("sessoes")}
-          />
+          {supabasePatientId ? (
+            <TreatmentPlanTab
+              patientId={supabasePatientId}
+              patientName={patient.name}
+              patientAge={age}
+              patientNotes={patient.notes}
+              sessionsCompleted={doneHistory.length}
+              journalNotes={patientJournals.slice(0, 3).map(j => j.note).join("\n")}
+              onAddSession={() => setTab("sessoes")}
+            />
+          ) : (
+            <Card className="card-glass">
+              <CardContent className="p-6">
+                <div className="text-center text-muted-foreground py-8">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                  <p>Carregando plano de tratamento...</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
         <TabsContent value="sessoes" className="mt-6">
-          <SessionsModule patientId={patient.id} patientName={patient.name} />
+          <SessionsModule patientId={supabasePatientId || patient.id} patientName={patient.name} />
         </TabsContent>
         <TabsContent value="atividades" className="mt-6">
           <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">
