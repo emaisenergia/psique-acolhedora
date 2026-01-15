@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, DragEvent } from "react";
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek, setHours, setMinutes, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertCircle, Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, GripVertical, Plus, Repeat, Search } from "lucide-react";
+import { AlertCircle, Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, Grid3X3, GripVertical, Package, Plus, Repeat, Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 
@@ -19,6 +19,9 @@ import { usePatients } from "@/hooks/usePatients";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScheduleValidation, WORKING_HOURS } from "@/hooks/useScheduleValidation";
 import { useToast } from "@/hooks/use-toast";
+import { useSessionPackages } from "@/hooks/useSessionPackages";
+import { DailyTimeGrid } from "@/components/appointments/DailyTimeGrid";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const weekOptions = { weekStartsOn: 0 as const };
 
@@ -41,6 +44,7 @@ type AppointmentFormState = {
   repeatCount?: number;
   paymentType?: PaymentType;
   sessionValue?: string;
+  packageId?: string;
 };
 
 const defaultFormState: AppointmentFormState = {
@@ -77,10 +81,10 @@ const Appointments = () => {
     deleteAppointment 
   } = useAppointments();
   const { patients, isLoading: patientsLoading, createPatient } = usePatients();
+  const { packages, getActivePackagesForPatient } = useSessionPackages();
   const { 
     validateDateTime, 
-    getTimeSlotsForDate, 
-    hasAvailableSlots,
+    getTimeSlotsForDate,
   } = useScheduleValidation(appointments);
   
   const [form, setForm] = useState<AppointmentFormState>({ ...defaultFormState });
@@ -101,8 +105,15 @@ const Appointments = () => {
   const [draggedAppointment, setDraggedAppointment] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<"calendar" | "grid">("calendar");
 
   const isLoading = appointmentsLoading || patientsLoading;
+
+  // Get available packages for selected patient
+  const availablePackages = useMemo(() => {
+    if (!form.patientId) return [];
+    return getActivePackagesForPatient(form.patientId);
+  }, [form.patientId, getActivePackagesForPatient]);
 
   // Get time slots for the create form date
   const createFormTimeSlots = useMemo(() => {
@@ -522,7 +533,7 @@ const Appointments = () => {
         </Button>
       </div>
 
-      {/* Search and Filters */}
+      {/* Search, Filters and View Toggle */}
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
@@ -535,6 +546,24 @@ const Appointments = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant={viewMode === "calendar" ? "default" : "outline"} 
+                size="sm"
+                onClick={() => setViewMode("calendar")}
+              >
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Calendário
+              </Button>
+              <Button 
+                variant={viewMode === "grid" ? "default" : "outline"} 
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid3X3 className="h-4 w-4 mr-2" />
+                Grade Horária
+              </Button>
+            </div>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4" />
               Filtros
@@ -543,7 +572,42 @@ const Appointments = () => {
         </CardContent>
       </Card>
 
-      {/* Main Content - Calendar and Day Details */}
+      {viewMode === "grid" ? (
+        /* Daily Time Grid View */
+        <div className="space-y-6 mb-6">
+          <DailyTimeGrid
+            date={selectedDate}
+            appointments={appointments}
+            patientMap={patientMap}
+            onSlotClick={(time) => {
+              setForm({
+                ...defaultFormState,
+                date: format(selectedDate, "yyyy-MM-dd"),
+                time,
+              });
+              setShowCreateForm(true);
+            }}
+            onAppointmentClick={(appt) => startEditing(appt.id)}
+          />
+          
+          {/* Date navigation for grid view */}
+          <div className="flex items-center justify-center gap-4">
+            <Button variant="outline" onClick={() => updateSelectedDate(addDays(selectedDate, -1))}>
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Dia Anterior
+            </Button>
+            <Button variant="outline" onClick={() => updateSelectedDate(today)}>
+              Hoje
+            </Button>
+            <Button variant="outline" onClick={() => updateSelectedDate(addDays(selectedDate, 1))}>
+              Próximo Dia
+              <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Main Content - Calendar and Day Details */}
       <div className="grid gap-6 lg:grid-cols-[400px_1fr] mb-6">
         {/* Calendar Card */}
         <Card>
@@ -895,6 +959,8 @@ const Appointments = () => {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
 
       {/* Create Form Dialog */}
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
@@ -1134,11 +1200,13 @@ const Appointments = () => {
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, paymentType: "package" })}
+                  disabled={availablePackages.length === 0}
                   className={cn(
                     "relative rounded-lg border-2 p-4 text-left transition-all",
                     form.paymentType === "package" 
                       ? "border-emerald-500 bg-emerald-50" 
-                      : "border-border hover:border-muted-foreground/30"
+                      : "border-border hover:border-muted-foreground/30",
+                    availablePackages.length === 0 && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -1154,14 +1222,45 @@ const Appointments = () => {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                        <Package className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium text-sm">Pacote</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">Usar pacote existente</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {availablePackages.length === 0 
+                          ? "Nenhum pacote disponível" 
+                          : `${availablePackages.length} pacote(s) disponível(is)`}
+                      </p>
                     </div>
                   </div>
                 </button>
               </div>
+
+              {/* Package selector */}
+              {form.paymentType === "package" && availablePackages.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Selecionar Pacote</label>
+                  <Select 
+                    value={form.packageId || ""} 
+                    onValueChange={(v) => setForm({ ...form, packageId: v })}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Selecione um pacote" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePackages.map((pkg) => (
+                        <SelectItem key={pkg.id} value={pkg.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{pkg.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {pkg.total_sessions - pkg.used_sessions}/{pkg.total_sessions} restantes
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <DialogFooter className="pt-2">

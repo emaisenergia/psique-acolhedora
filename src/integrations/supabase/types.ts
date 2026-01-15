@@ -106,7 +106,10 @@ export type Database = {
           meeting_url: string | null
           mode: string
           notes: string | null
+          package_id: string | null
           patient_id: string
+          payment_type: string | null
+          payment_value: number | null
           psychologist_id: string | null
           service: string | null
           status: string
@@ -120,7 +123,10 @@ export type Database = {
           meeting_url?: string | null
           mode?: string
           notes?: string | null
+          package_id?: string | null
           patient_id: string
+          payment_type?: string | null
+          payment_value?: number | null
           psychologist_id?: string | null
           service?: string | null
           status?: string
@@ -134,13 +140,23 @@ export type Database = {
           meeting_url?: string | null
           mode?: string
           notes?: string | null
+          package_id?: string | null
           patient_id?: string
+          payment_type?: string | null
+          payment_value?: number | null
           psychologist_id?: string | null
           service?: string | null
           status?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "session_packages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_patient_id_fkey"
             columns: ["patient_id"]
@@ -149,6 +165,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      insurances: {
+        Row: {
+          contact_email: string | null
+          contact_phone: string | null
+          coverage_percentage: number | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          coverage_percentage?: number | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          coverage_percentage?: number | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       journal_entries: {
         Row: {
@@ -188,6 +240,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          insurance_id: string | null
           name: string
           notes: string | null
           phone: string | null
@@ -200,6 +253,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          insurance_id?: string | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -212,6 +266,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          insurance_id?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -219,7 +274,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "patients_insurance_id_fkey"
+            columns: ["insurance_id"]
+            isOneToOne: false
+            referencedRelation: "insurances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       secure_messages: {
         Row: {
@@ -334,6 +397,62 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_packages: {
+        Row: {
+          created_at: string
+          expiry_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          patient_id: string
+          price: number
+          price_per_session: number | null
+          start_date: string | null
+          status: string
+          total_sessions: number
+          updated_at: string
+          used_sessions: number
+        }
+        Insert: {
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          patient_id: string
+          price?: number
+          price_per_session?: number | null
+          start_date?: string | null
+          status?: string
+          total_sessions?: number
+          updated_at?: string
+          used_sessions?: number
+        }
+        Update: {
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          patient_id?: string
+          price?: number
+          price_per_session?: number | null
+          start_date?: string | null
+          status?: string
+          total_sessions?: number
+          updated_at?: string
+          used_sessions?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_packages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]

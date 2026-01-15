@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Handshake,
   FileText,
+  Package,
   Plus,
   RefreshCcw,
   ShieldCheck,
@@ -41,6 +42,8 @@ import {
   type JournalEntry,
 } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
+import { SessionPackagesManager } from "@/components/appointments/SessionPackagesManager";
+import { InsurancesManager } from "@/components/appointments/InsurancesManager";
 
 const DAY_OPTIONS = [
   { value: "monday", label: "Segunda" },
