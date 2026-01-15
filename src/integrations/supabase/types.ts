@@ -135,6 +135,45 @@ export type Database = {
           },
         ]
       }
+      ai_knowledge_documents: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          file_name: string | null
+          file_type: string | null
+          id: string
+          is_active: boolean | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_messages: {
         Row: {
           content: string
