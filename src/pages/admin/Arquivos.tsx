@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, DragEvent } from "react";
 import AdminLayout from "./AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,10 @@ import {
   Link,
   User,
   Calendar,
+  X,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +69,12 @@ interface StorageFile {
     size?: number;
     mimetype?: string;
   };
+}
+
+interface PreviewFile {
+  url: string;
+  name: string;
+  type: "image" | "pdf" | "other";
 }
 
 const formatFileSize = (bytes: number | undefined): string => {
@@ -94,6 +104,13 @@ const getFileTypeLabel = (mimeType: string | undefined): string => {
   return "Arquivo";
 };
 
+const getPreviewType = (mimeType: string | undefined): "image" | "pdf" | "other" => {
+  if (!mimeType) return "other";
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.includes("pdf")) return "pdf";
+  return "other";
+};
+
 const Arquivos = () => {
   const [files, setFiles] = useState<StorageFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,6 +121,11 @@ const Arquivos = () => {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<string>("");
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+  const [imageZoom, setImageZoom] = useState(100);
+  const [imageRotation, setImageRotation] = useState(0);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { patients } = usePatients();
 
@@ -288,7 +310,19 @@ const Arquivos = () => {
         .from(selectedBucket)
         .getPublicUrl(filePath);
 
-      window.open(data.publicUrl, "_blank");
+      const previewType = getPreviewType(file.metadata?.mimetype);
+      
+      if (previewType === "other") {
+        window.open(data.publicUrl, "_blank");
+      } else {
+        setPreviewFile({
+          url: data.publicUrl,
+          name: file.name,
+          type: previewType,
+        });
+        setImageZoom(100);
+        setImageRotation(0);
+      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -297,6 +331,84 @@ const Arquivos = () => {
       });
     }
   };
+
+  // Drag and Drop handlers
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set drag over to false if leaving the drop zone entirely
+    if (dropZoneRef.current && !dropZoneRef.current.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+      setIsUploading(true);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 0; i < droppedFiles.length; i++) {
+        const file = droppedFiles[i];
+        let filePath = currentFolder ? `${currentFolder}/${file.name}` : file.name;
+
+        try {
+          const { error } = await supabase.storage
+            .from(selectedBucket)
+            .upload(filePath, file, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+
+          if (error) {
+            if (error.message.includes("already exists")) {
+              const timestamp = Date.now();
+              const ext = file.name.split(".").pop();
+              const name = file.name.replace(`.${ext}`, "");
+              const newPath = currentFolder 
+                ? `${currentFolder}/${name}_${timestamp}.${ext}`
+                : `${name}_${timestamp}.${ext}`;
+              
+              await supabase.storage.from(selectedBucket).upload(newPath, file);
+            } else {
+              throw error;
+            }
+          }
+          successCount++;
+        } catch (error) {
+          console.error("Error uploading file:", file.name, error);
+          errorCount++;
+        }
+      }
+
+      setIsUploading(false);
+
+      if (successCount > 0) {
+        toast({
+          title: "Upload concluído",
+          description: `${successCount} arquivo(s) enviado(s) com sucesso.${errorCount > 0 ? ` ${errorCount} erro(s).` : ""}`,
+        });
+        loadFiles();
+      } else {
+        toast({
+          title: "Erro no upload",
+          description: "Nenhum arquivo foi enviado.",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [currentFolder, selectedBucket, toast, loadFiles]);
 
   const handleCreateFolder = async () => {
     const folderName = prompt("Nome da pasta:");
@@ -407,13 +519,44 @@ const Arquivos = () => {
         </div>
 
         {/* Main Content */}
-        <Card className="card-glass">
+        <Card 
+          ref={dropZoneRef}
+          className={`card-glass relative transition-all duration-200 ${
+            isDragOver 
+              ? "ring-2 ring-primary ring-offset-2 bg-primary/5" 
+              : ""
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {/* Drag overlay */}
+          {isDragOver && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg border-2 border-dashed border-primary">
+              <div className="text-center">
+                <Upload className="h-12 w-12 mx-auto mb-4 text-primary animate-bounce" />
+                <p className="text-lg font-medium text-primary">Solte os arquivos aqui</p>
+                <p className="text-sm text-muted-foreground">para fazer upload</p>
+              </div>
+            </div>
+          )}
+
+          {/* Upload progress overlay */}
+          {isUploading && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+              <div className="text-center">
+                <Loader2 className="h-12 w-12 mx-auto mb-4 text-primary animate-spin" />
+                <p className="text-lg font-medium">Enviando arquivos...</p>
+              </div>
+            </div>
+          )}
+
           <CardHeader className="pb-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <CardTitle className="text-lg">Gerenciador de Arquivos</CardTitle>
                 <CardDescription>
-                  {currentFolder ? `/${currentFolder}` : "Raiz do bucket"}
+                  {currentFolder ? `/${currentFolder}` : "Raiz do bucket"} • Arraste arquivos para fazer upload
                 </CardDescription>
               </div>
               <div className="flex items-center gap-4">
@@ -625,6 +768,91 @@ const Arquivos = () => {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 truncate pr-4">
+                {previewFile?.type === "image" ? (
+                  <FileImage className="h-5 w-5 text-primary" />
+                ) : (
+                  <FileText className="h-5 w-5 text-primary" />
+                )}
+                <span className="truncate">{previewFile?.name}</span>
+              </DialogTitle>
+              {previewFile?.type === "image" && (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setImageZoom(Math.max(25, imageZoom - 25))}
+                    disabled={imageZoom <= 25}
+                  >
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground w-12 text-center">
+                    {imageZoom}%
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setImageZoom(Math.min(200, imageZoom + 25))}
+                    disabled={imageZoom >= 200}
+                  >
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setImageRotation((imageRotation + 90) % 360)}
+                  >
+                    <RotateCw className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto p-4 bg-muted/30 min-h-[60vh]">
+            {previewFile?.type === "image" && (
+              <div className="flex items-center justify-center min-h-full">
+                <img
+                  src={previewFile.url}
+                  alt={previewFile.name}
+                  className="max-w-full transition-transform duration-200"
+                  style={{
+                    transform: `scale(${imageZoom / 100}) rotate(${imageRotation}deg)`,
+                    transformOrigin: "center center",
+                  }}
+                />
+              </div>
+            )}
+            {previewFile?.type === "pdf" && (
+              <iframe
+                src={previewFile.url}
+                title={previewFile.name}
+                className="w-full h-[70vh] border-0 rounded-lg"
+              />
+            )}
+          </div>
+
+          <div className="p-4 pt-2 border-t flex justify-between items-center">
+            <a
+              href={previewFile?.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline"
+            >
+              Abrir em nova aba
+            </a>
+            <Button variant="outline" onClick={() => setPreviewFile(null)}>
+              Fechar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </AdminLayout>
