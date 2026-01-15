@@ -802,10 +802,16 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_progress: number | null
+          current_status: string | null
+          current_status_notes: string | null
           discharge_objectives: Json | null
           estimated_sessions: number | null
+          goal_results: Json | null
           id: string
+          improvements: Json | null
+          last_review_date: string | null
           long_term_goals: Json | null
+          next_review_date: string | null
           notes: string | null
           objectives: Json | null
           patient_id: string
@@ -819,10 +825,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_progress?: number | null
+          current_status?: string | null
+          current_status_notes?: string | null
           discharge_objectives?: Json | null
           estimated_sessions?: number | null
+          goal_results?: Json | null
           id?: string
+          improvements?: Json | null
+          last_review_date?: string | null
           long_term_goals?: Json | null
+          next_review_date?: string | null
           notes?: string | null
           objectives?: Json | null
           patient_id: string
@@ -836,10 +848,16 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_progress?: number | null
+          current_status?: string | null
+          current_status_notes?: string | null
           discharge_objectives?: Json | null
           estimated_sessions?: number | null
+          goal_results?: Json | null
           id?: string
+          improvements?: Json | null
+          last_review_date?: string | null
           long_term_goals?: Json | null
+          next_review_date?: string | null
           notes?: string | null
           objectives?: Json | null
           patient_id?: string

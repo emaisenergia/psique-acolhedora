@@ -6,10 +6,26 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
-import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CalendarDays, CheckCircle2, Save, Trash2 } from "lucide-react";
+import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface GoalResult {
+  goal: string;
+  completed: boolean;
+  result?: string;
+  completedAt?: string;
+}
+
+interface Improvement {
+  id: string;
+  description: string;
+  date: string;
+  category: string;
+}
 
 interface TreatmentPlan {
   id: string;
@@ -24,6 +40,12 @@ interface TreatmentPlan {
   long_term_goals: string[];
   notes: string | null;
   status: string;
+  goal_results: GoalResult[];
+  improvements: Improvement[];
+  current_status: string;
+  current_status_notes: string | null;
+  last_review_date: string | null;
+  next_review_date: string | null;
 }
 
 interface TreatmentPlanTabProps {
@@ -34,6 +56,29 @@ interface TreatmentPlanTabProps {
   sessionsCompleted: number;
   journalNotes?: string;
 }
+
+const STATUS_OPTIONS = [
+  { value: "em_andamento", label: "Em Andamento", color: "bg-blue-100 text-blue-700" },
+  { value: "progredindo", label: "Progredindo Bem", color: "bg-emerald-100 text-emerald-700" },
+  { value: "estagnado", label: "Estagnado", color: "bg-amber-100 text-amber-700" },
+  { value: "dificuldades", label: "Com Dificuldades", color: "bg-rose-100 text-rose-700" },
+  { value: "proximo_alta", label: "Próximo da Alta", color: "bg-purple-100 text-purple-700" },
+  { value: "concluido", label: "Concluído", color: "bg-slate-100 text-slate-700" },
+];
+
+const IMPROVEMENT_CATEGORIES = [
+  "Sintomas",
+  "Comportamento",
+  "Relacionamentos",
+  "Autocuidado",
+  "Trabalho/Estudos",
+  "Sono",
+  "Alimentação",
+  "Humor",
+  "Ansiedade",
+  "Autoestima",
+  "Outro",
+];
 
 export function TreatmentPlanTab({
   patientId,
@@ -48,6 +93,10 @@ export function TreatmentPlanTab({
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addGoalDialogOpen, setAddGoalDialogOpen] = useState(false);
+  const [addImprovementDialogOpen, setAddImprovementDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  
   const [editForm, setEditForm] = useState({
     start_date: "",
     estimated_sessions: 12,
@@ -57,11 +106,21 @@ export function TreatmentPlanTab({
     long_term_goals: "",
     approaches: "",
     notes: "",
+    next_review_date: "",
   });
+
+  const [newGoal, setNewGoal] = useState({ type: "short_term", text: "" });
+  const [newImprovement, setNewImprovement] = useState({ description: "", category: "Sintomas" });
+  const [statusForm, setStatusForm] = useState({ status: "em_andamento", notes: "" });
 
   useEffect(() => {
     fetchPlan();
   }, [patientId]);
+
+  const parseJsonArray = <T,>(val: unknown, defaultVal: T[] = []): T[] => {
+    if (Array.isArray(val)) return val as T[];
+    return defaultVal;
+  };
 
   const fetchPlan = async () => {
     try {
@@ -75,17 +134,19 @@ export function TreatmentPlanTab({
       if (error) throw error;
       
       if (data) {
-        const parseJsonArray = (val: unknown): string[] => {
-          if (Array.isArray(val)) return val.map(String);
-          return [];
-        };
         setPlan({
           ...data,
-          objectives: parseJsonArray(data.objectives),
-          discharge_objectives: parseJsonArray(data.discharge_objectives),
-          short_term_goals: parseJsonArray(data.short_term_goals),
-          long_term_goals: parseJsonArray(data.long_term_goals),
+          objectives: parseJsonArray<string>(data.objectives).map(String),
+          discharge_objectives: parseJsonArray<string>(data.discharge_objectives).map(String),
+          short_term_goals: parseJsonArray<string>(data.short_term_goals).map(String),
+          long_term_goals: parseJsonArray<string>(data.long_term_goals).map(String),
           approaches: data.approaches || [],
+          goal_results: parseJsonArray<GoalResult>(data.goal_results),
+          improvements: parseJsonArray<Improvement>(data.improvements),
+          current_status: data.current_status || "em_andamento",
+          current_status_notes: data.current_status_notes,
+          last_review_date: data.last_review_date,
+          next_review_date: data.next_review_date,
         });
       }
     } catch (error) {
@@ -116,7 +177,6 @@ export function TreatmentPlanTab({
 
       const aiPlan = data.plan;
       
-      // Create or update the plan
       const planData = {
         patient_id: patientId,
         start_date: new Date().toISOString().split("T")[0],
@@ -129,6 +189,7 @@ export function TreatmentPlanTab({
         notes: aiPlan.notes || null,
         current_progress: 0,
         status: "active",
+        current_status: "em_andamento",
       };
 
       if (plan) {
@@ -165,6 +226,7 @@ export function TreatmentPlanTab({
         long_term_goals: plan.long_term_goals.join("\n"),
         approaches: plan.approaches.join(", "),
         notes: plan.notes || "",
+        next_review_date: plan.next_review_date || "",
       });
     } else {
       setEditForm({
@@ -176,6 +238,7 @@ export function TreatmentPlanTab({
         long_term_goals: "",
         approaches: "",
         notes: "",
+        next_review_date: "",
       });
     }
     setEditDialogOpen(true);
@@ -194,6 +257,7 @@ export function TreatmentPlanTab({
         long_term_goals: editForm.long_term_goals.split("\n").filter(Boolean),
         approaches: editForm.approaches.split(",").map(s => s.trim()).filter(Boolean),
         notes: editForm.notes || null,
+        next_review_date: editForm.next_review_date || null,
         status: "active",
       };
 
@@ -221,23 +285,148 @@ export function TreatmentPlanTab({
     }
   };
 
-  const updateProgress = async (newProgress: number) => {
+  const toggleGoalCompletion = async (goalType: "short_term" | "long_term", index: number) => {
     if (!plan) return;
+    
+    const goals = goalType === "short_term" ? plan.short_term_goals : plan.long_term_goals;
+    const goal = goals[index];
+    const existingResult = plan.goal_results.find(r => r.goal === goal);
+    
+    let newResults: GoalResult[];
+    if (existingResult) {
+      newResults = plan.goal_results.map(r => 
+        r.goal === goal ? { ...r, completed: !r.completed, completedAt: !r.completed ? new Date().toISOString() : undefined } : r
+      );
+    } else {
+      newResults = [...plan.goal_results, { goal, completed: true, completedAt: new Date().toISOString() }];
+    }
+
     try {
       const { error } = await supabase
         .from("treatment_plans")
-        .update({ current_progress: newProgress })
+        .update({ goal_results: JSON.parse(JSON.stringify(newResults)) })
         .eq("id", plan.id);
       if (error) throw error;
-      setPlan({ ...plan, current_progress: newProgress });
+      setPlan({ ...plan, goal_results: newResults });
     } catch (error) {
-      console.error("Error updating progress:", error);
+      console.error("Error updating goal:", error);
     }
   };
 
-  const progressPercent = plan 
-    ? Math.min(100, Math.round((sessionsCompleted / plan.estimated_sessions) * 100))
-    : 0;
+  const updateGoalResult = async (goal: string, result: string) => {
+    if (!plan) return;
+    
+    const existingResult = plan.goal_results.find(r => r.goal === goal);
+    let newResults: GoalResult[];
+    if (existingResult) {
+      newResults = plan.goal_results.map(r => r.goal === goal ? { ...r, result } : r);
+    } else {
+      newResults = [...plan.goal_results, { goal, completed: false, result }];
+    }
+
+    try {
+      const { error } = await supabase
+        .from("treatment_plans")
+        .update({ goal_results: JSON.parse(JSON.stringify(newResults)) })
+        .eq("id", plan.id);
+      if (error) throw error;
+      setPlan({ ...plan, goal_results: newResults });
+      toast.success("Resultado atualizado!");
+    } catch (error) {
+      console.error("Error updating result:", error);
+    }
+  };
+
+  const addGoal = async () => {
+    if (!plan || !newGoal.text.trim()) return;
+    
+    const field = newGoal.type === "short_term" ? "short_term_goals" : "long_term_goals";
+    const currentGoals = newGoal.type === "short_term" ? plan.short_term_goals : plan.long_term_goals;
+    const updatedGoals = [...currentGoals, newGoal.text.trim()];
+
+    try {
+      const { error } = await supabase
+        .from("treatment_plans")
+        .update({ [field]: updatedGoals })
+        .eq("id", plan.id);
+      if (error) throw error;
+      
+      setPlan({ ...plan, [field]: updatedGoals });
+      setNewGoal({ type: "short_term", text: "" });
+      setAddGoalDialogOpen(false);
+      toast.success("Meta adicionada!");
+    } catch (error) {
+      console.error("Error adding goal:", error);
+      toast.error("Erro ao adicionar meta");
+    }
+  };
+
+  const addImprovement = async () => {
+    if (!plan || !newImprovement.description.trim()) return;
+    
+    const improvement: Improvement = {
+      id: crypto.randomUUID(),
+      description: newImprovement.description.trim(),
+      date: new Date().toISOString(),
+      category: newImprovement.category,
+    };
+
+    const updatedImprovements = [...plan.improvements, improvement];
+
+    try {
+      const { error } = await supabase
+        .from("treatment_plans")
+        .update({ improvements: JSON.parse(JSON.stringify(updatedImprovements)) })
+        .eq("id", plan.id);
+      if (error) throw error;
+      
+      setPlan({ ...plan, improvements: updatedImprovements });
+      setNewImprovement({ description: "", category: "Sintomas" });
+      setAddImprovementDialogOpen(false);
+      toast.success("Melhora registrada!");
+    } catch (error) {
+      console.error("Error adding improvement:", error);
+      toast.error("Erro ao registrar melhora");
+    }
+  };
+
+  const updateStatus = async () => {
+    if (!plan) return;
+    
+    try {
+      const { error } = await supabase
+        .from("treatment_plans")
+        .update({
+          current_status: statusForm.status,
+          current_status_notes: statusForm.notes || null,
+          last_review_date: new Date().toISOString().split("T")[0],
+        })
+        .eq("id", plan.id);
+      if (error) throw error;
+      
+      setPlan({
+        ...plan,
+        current_status: statusForm.status,
+        current_status_notes: statusForm.notes || null,
+        last_review_date: new Date().toISOString().split("T")[0],
+      });
+      setStatusDialogOpen(false);
+      toast.success("Status atualizado!");
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast.error("Erro ao atualizar status");
+    }
+  };
+
+  const getGoalResult = (goal: string) => plan?.goal_results.find(r => r.goal === goal);
+  const isGoalCompleted = (goal: string) => getGoalResult(goal)?.completed || false;
+  
+  const completedGoalsCount = plan ? 
+    [...plan.short_term_goals, ...plan.long_term_goals].filter(g => isGoalCompleted(g)).length : 0;
+  const totalGoalsCount = plan ? plan.short_term_goals.length + plan.long_term_goals.length : 0;
+  const goalsProgress = totalGoalsCount > 0 ? Math.round((completedGoalsCount / totalGoalsCount) * 100) : 0;
+
+  const currentStatusOption = STATUS_OPTIONS.find(s => s.value === plan?.current_status) || STATUS_OPTIONS[0];
 
   if (loading) {
     return (
@@ -250,166 +439,343 @@ export function TreatmentPlanTab({
   return (
     <>
       <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">
-        <Card className="card-glass">
-          <CardContent className="p-6 space-y-6">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="text-lg font-semibold text-foreground">Plano de Tratamento</div>
-                <div className="text-sm text-muted-foreground">
-                  Defina objetivos, metas e acompanhe o progresso do paciente.
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  onClick={generateWithAI}
-                  disabled={generating}
-                >
-                  {generating ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4 mr-2" />
-                  )}
-                  {generating ? "Gerando..." : "Gerar com IA"}
-                </Button>
-                <Button size="sm" className="rounded-full" onClick={openEditDialog}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {plan ? "Editar Plano" : "Criar Plano"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Progress Section */}
-            <div className="rounded-xl border border-border/60 bg-gradient-to-br from-primary/5 to-primary/10 p-6">
-              <div className="flex items-center justify-between mb-4">
+        <div className="space-y-6">
+          <Card className="card-glass">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <div className="text-lg font-semibold text-foreground">Plano de Tratamento</div>
+                  <div className="text-sm text-muted-foreground">
+                    Gerencie objetivos, metas e acompanhe o progresso.
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={generateWithAI}
+                    disabled={generating}
+                  >
+                    {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                    {generating ? "Gerando..." : "Gerar com IA"}
+                  </Button>
+                  <Button size="sm" className="rounded-full" onClick={openEditDialog}>
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    {plan ? "Editar Plano" : "Criar Plano"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Status Atual */}
+              <div className="rounded-xl border border-border/60 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-primary" />
+                      Status Atual do Paciente
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge className={currentStatusOption.color}>
+                        {currentStatusOption.label}
+                      </Badge>
+                      {plan?.last_review_date && (
+                        <span className="text-xs text-muted-foreground">
+                          Última revisão: {new Date(plan.last_review_date).toLocaleDateString("pt-BR")}
+                        </span>
+                      )}
+                    </div>
+                    {plan?.current_status_notes && (
+                      <p className="text-sm text-muted-foreground mt-2">{plan.current_status_notes}</p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setStatusForm({
+                        status: plan?.current_status || "em_andamento",
+                        notes: plan?.current_status_notes || "",
+                      });
+                      setStatusDialogOpen(true);
+                    }}
+                    disabled={!plan}
+                  >
+                    Atualizar Status
+                  </Button>
+                </div>
+              </div>
+
+              {/* Progress Section */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-border/60 bg-gradient-to-br from-primary/5 to-primary/10 p-4">
+                  <div className="text-sm font-medium text-foreground flex items-center gap-2 mb-2">
                     <TrendingUp className="w-4 h-4 text-primary" />
-                    Progresso do Tratamento
+                    Progresso das Sessões
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {sessionsCompleted} de {plan?.estimated_sessions || 12} sessões estimadas
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">
+                      {sessionsCompleted} de {plan?.estimated_sessions || 12} sessões
+                    </span>
+                    <span className="text-lg font-bold text-primary">
+                      {plan ? Math.min(100, Math.round((sessionsCompleted / plan.estimated_sessions) * 100)) : 0}%
+                    </span>
+                  </div>
+                  <Progress value={plan ? Math.min(100, Math.round((sessionsCompleted / plan.estimated_sessions) * 100)) : 0} className="h-2" />
+                </div>
+
+                <div className="rounded-xl border border-border/60 bg-gradient-to-br from-emerald-50 to-emerald-100 p-4">
+                  <div className="text-sm font-medium text-foreground flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Progresso das Metas
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">
+                      {completedGoalsCount} de {totalGoalsCount} metas
+                    </span>
+                    <span className="text-lg font-bold text-emerald-600">{goalsProgress}%</span>
+                  </div>
+                  <Progress value={goalsProgress} className="h-2 bg-emerald-200" />
+                </div>
+              </div>
+
+              {/* Info Fields */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                  <div className="text-xs text-muted-foreground mb-1">Data de Início</div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    {plan?.start_date ? new Date(plan.start_date).toLocaleDateString("pt-BR") : "Não definida"}
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-primary">{progressPercent}%</div>
+                <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                  <div className="text-xs text-muted-foreground mb-1">Sessões Estimadas</div>
+                  <div className="text-sm font-medium">{plan?.estimated_sessions || 12} sessões</div>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                  <div className="text-xs text-muted-foreground mb-1">Próxima Revisão</div>
+                  <div className="text-sm font-medium">
+                    {plan?.next_review_date ? new Date(plan.next_review_date).toLocaleDateString("pt-BR") : "Não agendada"}
+                  </div>
+                </div>
               </div>
-              <Progress value={progressPercent} className="h-3" />
-              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                <span>Início: {plan?.start_date ? new Date(plan.start_date).toLocaleDateString("pt-BR") : "Não definido"}</span>
-                <span>Sessões estimadas: {plan?.estimated_sessions || 12}</span>
-              </div>
-            </div>
 
-            {/* Objectives */}
-            <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-              <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                <Target className="w-4 h-4 text-primary" />
-                Objetivos Terapêuticos
-              </div>
-              {plan?.objectives && plan.objectives.length > 0 ? (
-                <div className="space-y-2">
-                  {plan.objectives.map((objective, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center flex-shrink-0">
-                        {index + 1}
-                      </div>
-                      <div className="text-sm text-muted-foreground">{objective}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
-                  Nenhum objetivo definido. Use a IA ou adicione manualmente.
-                </div>
-              )}
-            </div>
-
-            {/* Discharge Objectives */}
-            <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-              <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Objetivos para Alta
-              </div>
-              {plan?.discharge_objectives && plan.discharge_objectives.length > 0 ? (
-                <div className="space-y-2">
-                  {plan.discharge_objectives.map((objective, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-muted-foreground">{objective}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
-                  Defina critérios claros para o encerramento do tratamento.
-                </div>
-              )}
-            </div>
-
-            {/* Short Term Goals */}
-            <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-              <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-blue-600" />
-                Metas de Curto Prazo
-              </div>
-              {plan?.short_term_goals && plan.short_term_goals.length > 0 ? (
-                <div className="space-y-2">
-                  {plan.short_term_goals.map((goal, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-blue-50">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0" />
-                      <div className="text-sm text-muted-foreground">{goal}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
-                  Metas para as próximas 4-8 sessões.
-                </div>
-              )}
-            </div>
-
-            {/* Long Term Goals */}
-            <div className="rounded-xl border border-border/60 bg-background/60 p-4">
-              <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                <Award className="w-4 h-4 text-amber-600" />
-                Metas de Longo Prazo
-              </div>
-              {plan?.long_term_goals && plan.long_term_goals.length > 0 ? (
-                <div className="space-y-2">
-                  {plan.long_term_goals.map((goal, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-amber-50">
-                      <Award className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-muted-foreground">{goal}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
-                  Resultados esperados ao longo do processo terapêutico.
-                </div>
-              )}
-            </div>
-
-            {/* Approaches */}
-            {plan?.approaches && plan.approaches.length > 0 && (
+              {/* Objectives */}
               <div className="rounded-xl border border-border/60 bg-background/60 p-4">
                 <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4 text-purple-600" />
-                  Abordagens Terapêuticas
+                  <Target className="w-4 h-4 text-primary" />
+                  Objetivos Terapêuticos
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {plan.approaches.map((approach, index) => (
-                    <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-700">
-                      {approach}
-                    </Badge>
+                {plan?.objectives && plan.objectives.length > 0 ? (
+                  <div className="space-y-2">
+                    {plan.objectives.map((objective, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                        <div className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center flex-shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="text-sm text-muted-foreground">{objective}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                    Nenhum objetivo definido. Use a IA ou adicione manualmente.
+                  </div>
+                )}
+              </div>
+
+              {/* Discharge Objectives */}
+              <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Critérios para Alta
+                </div>
+                {plan?.discharge_objectives && plan.discharge_objectives.length > 0 ? (
+                  <div className="space-y-2">
+                    {plan.discharge_objectives.map((objective, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-muted-foreground">{objective}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                    Defina critérios claros para o encerramento do tratamento.
+                  </div>
+                )}
+              </div>
+
+              {/* Goals with Checkbox and Results */}
+              <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                    Metas de Curto Prazo
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => { setNewGoal({ type: "short_term", text: "" }); setAddGoalDialogOpen(true); }} disabled={!plan}>
+                    <Plus className="w-4 h-4 mr-1" /> Adicionar
+                  </Button>
+                </div>
+                {plan?.short_term_goals && plan.short_term_goals.length > 0 ? (
+                  <div className="space-y-3">
+                    {plan.short_term_goals.map((goal, index) => {
+                      const result = getGoalResult(goal);
+                      return (
+                        <div key={index} className={`p-3 rounded-lg border ${result?.completed ? "bg-emerald-50 border-emerald-200" : "bg-blue-50 border-blue-100"}`}>
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={result?.completed || false}
+                              onCheckedChange={() => toggleGoalCompletion("short_term", index)}
+                              className="mt-0.5"
+                            />
+                            <div className="flex-1">
+                              <div className={`text-sm ${result?.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                {goal}
+                              </div>
+                              {result?.completed && result.completedAt && (
+                                <div className="text-xs text-emerald-600 mt-1">
+                                  Concluída em {new Date(result.completedAt).toLocaleDateString("pt-BR")}
+                                </div>
+                              )}
+                              <div className="mt-2">
+                                <Input
+                                  placeholder="Resultado/observações..."
+                                  value={result?.result || ""}
+                                  onChange={(e) => updateGoalResult(goal, e.target.value)}
+                                  className="text-xs h-8"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                    Adicione metas de curto prazo para acompanhar.
+                  </div>
+                )}
+              </div>
+
+              {/* Long Term Goals */}
+              <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Award className="w-4 h-4 text-amber-600" />
+                    Metas de Longo Prazo
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => { setNewGoal({ type: "long_term", text: "" }); setAddGoalDialogOpen(true); }} disabled={!plan}>
+                    <Plus className="w-4 h-4 mr-1" /> Adicionar
+                  </Button>
+                </div>
+                {plan?.long_term_goals && plan.long_term_goals.length > 0 ? (
+                  <div className="space-y-3">
+                    {plan.long_term_goals.map((goal, index) => {
+                      const result = getGoalResult(goal);
+                      return (
+                        <div key={index} className={`p-3 rounded-lg border ${result?.completed ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-100"}`}>
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={result?.completed || false}
+                              onCheckedChange={() => toggleGoalCompletion("long_term", index)}
+                              className="mt-0.5"
+                            />
+                            <div className="flex-1">
+                              <div className={`text-sm ${result?.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                {goal}
+                              </div>
+                              {result?.completed && result.completedAt && (
+                                <div className="text-xs text-emerald-600 mt-1">
+                                  Concluída em {new Date(result.completedAt).toLocaleDateString("pt-BR")}
+                                </div>
+                              )}
+                              <div className="mt-2">
+                                <Input
+                                  placeholder="Resultado/observações..."
+                                  value={result?.result || ""}
+                                  onChange={(e) => updateGoalResult(goal, e.target.value)}
+                                  className="text-xs h-8"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                    Adicione metas de longo prazo para acompanhar.
+                  </div>
+                )}
+              </div>
+
+              {/* Approaches */}
+              {plan?.approaches && plan.approaches.length > 0 && (
+                <div className="rounded-xl border border-border/60 bg-background/60 p-4">
+                  <div className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                    <ClipboardList className="w-4 h-4 text-purple-600" />
+                    Abordagens Terapêuticas
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {plan.approaches.map((approach, index) => (
+                      <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-700">
+                        {approach}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Improvements Section */}
+          <Card className="card-glass">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <ArrowUp className="w-5 h-5 text-emerald-600" />
+                    Registro de Melhoras
+                  </div>
+                  <div className="text-sm text-muted-foreground">Documente progressos e avanços do paciente.</div>
+                </div>
+                <Button size="sm" className="rounded-full" onClick={() => setAddImprovementDialogOpen(true)} disabled={!plan}>
+                  <Plus className="w-4 h-4 mr-2" /> Registrar Melhora
+                </Button>
+              </div>
+
+              {plan?.improvements && plan.improvements.length > 0 ? (
+                <div className="space-y-3">
+                  {plan.improvements.slice().reverse().map((imp) => (
+                    <div key={imp.id} className="p-4 rounded-xl border border-emerald-200 bg-emerald-50">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-xs bg-white">
+                              {imp.category}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(imp.date).toLocaleDateString("pt-BR")}
+                            </span>
+                          </div>
+                          <p className="text-sm text-foreground">{imp.description}</p>
+                        </div>
+                        <ArrowUp className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <div className="text-sm text-muted-foreground p-6 rounded-lg border border-dashed border-border/70 bg-white/50 text-center">
+                  Nenhuma melhora registrada ainda. Use o botão acima para documentar progressos.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Sidebar */}
         <div className="space-y-4">
@@ -418,22 +784,20 @@ export function TreatmentPlanTab({
               <div className="text-sm font-medium text-muted-foreground">Resumo do Plano</div>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-border/40">
-                  <span className="text-sm text-muted-foreground">Data de início</span>
-                  <span className="text-sm font-medium">
-                    {plan?.start_date ? new Date(plan.start_date).toLocaleDateString("pt-BR") : "—"}
-                  </span>
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <Badge className={currentStatusOption.color}>{currentStatusOption.label}</Badge>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-border/40">
-                  <span className="text-sm text-muted-foreground">Sessões estimadas</span>
-                  <span className="text-sm font-medium">{plan?.estimated_sessions || 12}</span>
+                  <span className="text-sm text-muted-foreground">Metas concluídas</span>
+                  <span className="text-sm font-medium">{completedGoalsCount}/{totalGoalsCount}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border/40">
+                  <span className="text-sm text-muted-foreground">Melhoras registradas</span>
+                  <span className="text-sm font-medium">{plan?.improvements?.length || 0}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-border/40">
                   <span className="text-sm text-muted-foreground">Sessões realizadas</span>
                   <span className="text-sm font-medium">{sessionsCompleted}</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-border/40">
-                  <span className="text-sm text-muted-foreground">Progresso</span>
-                  <Badge className="bg-primary/10 text-primary">{progressPercent}%</Badge>
                 </div>
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Objetivos definidos</span>
@@ -457,103 +821,161 @@ export function TreatmentPlanTab({
               <div className="font-medium text-foreground">Dicas para o plano</div>
               <ul className="list-disc pl-4 space-y-1">
                 <li>Revise os objetivos a cada 8-12 sessões.</li>
-                <li>Alinhe metas com a demanda inicial do paciente.</li>
-                <li>Use o prontuário para documentar progressos.</li>
-                <li>Compartilhe conquistas com o paciente.</li>
+                <li>Marque metas concluídas para acompanhar progresso.</li>
+                <li>Registre melhoras observadas a cada sessão.</li>
+                <li>Atualize o status do paciente regularmente.</li>
               </ul>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Edit Dialog */}
+      {/* Edit Plan Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{plan ? "Editar Plano de Tratamento" : "Novo Plano de Tratamento"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Data de Início</Label>
-                <Input
-                  type="date"
-                  value={editForm.start_date}
-                  onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })}
-                />
+                <Input type="date" value={editForm.start_date} onChange={(e) => setEditForm({ ...editForm, start_date: e.target.value })} />
               </div>
               <div>
                 <Label>Sessões Estimadas</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={editForm.estimated_sessions}
-                  onChange={(e) => setEditForm({ ...editForm, estimated_sessions: parseInt(e.target.value) || 12 })}
-                />
+                <Input type="number" min={1} max={100} value={editForm.estimated_sessions} onChange={(e) => setEditForm({ ...editForm, estimated_sessions: parseInt(e.target.value) || 12 })} />
+              </div>
+              <div>
+                <Label>Próxima Revisão</Label>
+                <Input type="date" value={editForm.next_review_date} onChange={(e) => setEditForm({ ...editForm, next_review_date: e.target.value })} />
               </div>
             </div>
             <div>
               <Label>Objetivos Terapêuticos (um por linha)</Label>
-              <Textarea
-                rows={4}
-                value={editForm.objectives}
-                onChange={(e) => setEditForm({ ...editForm, objectives: e.target.value })}
-                placeholder="Reduzir sintomas de ansiedade&#10;Desenvolver estratégias de enfrentamento&#10;Melhorar qualidade do sono"
-              />
+              <Textarea rows={4} value={editForm.objectives} onChange={(e) => setEditForm({ ...editForm, objectives: e.target.value })} placeholder="Reduzir sintomas de ansiedade&#10;Desenvolver estratégias de enfrentamento" />
             </div>
             <div>
-              <Label>Objetivos para Alta (um por linha)</Label>
-              <Textarea
-                rows={3}
-                value={editForm.discharge_objectives}
-                onChange={(e) => setEditForm({ ...editForm, discharge_objectives: e.target.value })}
-                placeholder="Autonomia no manejo da ansiedade&#10;Manutenção de rotina de autocuidado"
-              />
+              <Label>Critérios para Alta (um por linha)</Label>
+              <Textarea rows={3} value={editForm.discharge_objectives} onChange={(e) => setEditForm({ ...editForm, discharge_objectives: e.target.value })} placeholder="Autonomia no manejo da ansiedade" />
             </div>
             <div>
               <Label>Metas de Curto Prazo (um por linha)</Label>
-              <Textarea
-                rows={3}
-                value={editForm.short_term_goals}
-                onChange={(e) => setEditForm({ ...editForm, short_term_goals: e.target.value })}
-                placeholder="Iniciar técnicas de respiração diafragmática&#10;Registro diário de pensamentos"
-              />
+              <Textarea rows={3} value={editForm.short_term_goals} onChange={(e) => setEditForm({ ...editForm, short_term_goals: e.target.value })} placeholder="Iniciar técnicas de respiração" />
             </div>
             <div>
               <Label>Metas de Longo Prazo (um por linha)</Label>
-              <Textarea
-                rows={3}
-                value={editForm.long_term_goals}
-                onChange={(e) => setEditForm({ ...editForm, long_term_goals: e.target.value })}
-                placeholder="Retomar atividades sociais evitadas&#10;Consolidar padrão de sono saudável"
-              />
+              <Textarea rows={3} value={editForm.long_term_goals} onChange={(e) => setEditForm({ ...editForm, long_term_goals: e.target.value })} placeholder="Retomar atividades sociais" />
             </div>
             <div>
               <Label>Abordagens Terapêuticas (separadas por vírgula)</Label>
-              <Input
-                value={editForm.approaches}
-                onChange={(e) => setEditForm({ ...editForm, approaches: e.target.value })}
-                placeholder="TCC, Mindfulness, ACT"
-              />
+              <Input value={editForm.approaches} onChange={(e) => setEditForm({ ...editForm, approaches: e.target.value })} placeholder="TCC, Mindfulness, ACT" />
             </div>
             <div>
               <Label>Observações</Label>
-              <Textarea
-                rows={2}
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                placeholder="Notas adicionais sobre o plano..."
-              />
+              <Textarea rows={2} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} placeholder="Notas adicionais..." />
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <DialogClose asChild>
-              <Button variant="outline">Cancelar</Button>
-            </DialogClose>
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
             <Button onClick={savePlan} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Goal Dialog */}
+      <Dialog open={addGoalDialogOpen} onOpenChange={setAddGoalDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar Nova Meta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Tipo de Meta</Label>
+              <Select value={newGoal.type} onValueChange={(v) => setNewGoal({ ...newGoal, type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="short_term">Curto Prazo</SelectItem>
+                  <SelectItem value="long_term">Longo Prazo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Descrição da Meta</Label>
+              <Textarea rows={3} value={newGoal.text} onChange={(e) => setNewGoal({ ...newGoal, text: e.target.value })} placeholder="Descreva a meta..." />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+            <Button onClick={addGoal} disabled={!newGoal.text.trim()}>
+              <Plus className="w-4 h-4 mr-2" /> Adicionar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Improvement Dialog */}
+      <Dialog open={addImprovementDialogOpen} onOpenChange={setAddImprovementDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Melhora</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Categoria</Label>
+              <Select value={newImprovement.category} onValueChange={(v) => setNewImprovement({ ...newImprovement, category: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {IMPROVEMENT_CATEGORIES.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Descrição da Melhora</Label>
+              <Textarea rows={3} value={newImprovement.description} onChange={(e) => setNewImprovement({ ...newImprovement, description: e.target.value })} placeholder="Descreva a melhora observada..." />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+            <Button onClick={addImprovement} disabled={!newImprovement.description.trim()}>
+              <ArrowUp className="w-4 h-4 mr-2" /> Registrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Status Dialog */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atualizar Status do Paciente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Status Atual</Label>
+              <Select value={statusForm.status} onValueChange={(v) => setStatusForm({ ...statusForm, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Observações</Label>
+              <Textarea rows={3} value={statusForm.notes} onChange={(e) => setStatusForm({ ...statusForm, notes: e.target.value })} placeholder="Observações sobre o status atual..." />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+            <Button onClick={updateStatus}>
+              <Save className="w-4 h-4 mr-2" /> Salvar
             </Button>
           </div>
         </DialogContent>
