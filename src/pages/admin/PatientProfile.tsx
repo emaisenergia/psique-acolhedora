@@ -1676,7 +1676,9 @@ const PatientProfile = () => {
             attachmentUrl: selectedActivityForView.attachmentUrl,
             attachmentName: selectedActivityForView.attachmentName,
             patientResponses: (selectedActivityForView as any).patientResponses,
+            responseHistory: (selectedActivityForView as any).responseHistory,
           }}
+          patientName={patient?.name}
         />
       )}
 

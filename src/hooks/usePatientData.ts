@@ -24,6 +24,11 @@ export type ActivityField = {
   value?: string | boolean;
 };
 
+export type ResponseHistoryEntry = {
+  timestamp: string;
+  responses: Record<string, string | boolean>;
+};
+
 export type PatientActivity = {
   id: string;
   patient_id: string;
@@ -38,6 +43,7 @@ export type PatientActivity = {
   attachment_url?: string | null;
   attachment_name?: string | null;
   patient_responses?: Record<string, string | boolean> | null;
+  response_history?: ResponseHistoryEntry[] | null;
 };
 
 export type PatientMessage = {
@@ -143,6 +149,7 @@ export const usePatientActivities = () => {
         ...item,
         custom_fields: item.custom_fields as ActivityField[] | null,
         patient_responses: item.patient_responses as Record<string, string | boolean> | null,
+        response_history: item.response_history as ResponseHistoryEntry[] | null,
       }));
       setActivities(mappedData);
     }
@@ -153,10 +160,27 @@ export const usePatientActivities = () => {
     fetchActivities();
   }, [patient?.id]);
 
-  const updateActivity = async (id: string, updates: Partial<PatientActivity>) => {
+  const updateActivity = async (id: string, updates: Partial<PatientActivity>, saveToHistory: boolean = false) => {
+    // If saving to history and there are patient_responses, get current state first
+    let historyUpdate = {};
+    if (saveToHistory && updates.patient_responses) {
+      const activity = activities.find((a) => a.id === id);
+      if (activity?.patient_responses && Object.keys(activity.patient_responses).length > 0) {
+        // Add current responses to history before updating
+        const currentHistory = activity.response_history || [];
+        const newHistoryEntry: ResponseHistoryEntry = {
+          timestamp: new Date().toISOString(),
+          responses: activity.patient_responses,
+        };
+        historyUpdate = {
+          response_history: [newHistoryEntry, ...currentHistory],
+        };
+      }
+    }
+
     const { data, error } = await supabase
       .from("activities")
-      .update(updates)
+      .update({ ...updates, ...historyUpdate })
       .eq("id", id)
       .select()
       .single();
@@ -166,6 +190,7 @@ export const usePatientActivities = () => {
         ...data,
         custom_fields: data.custom_fields as ActivityField[] | null,
         patient_responses: data.patient_responses as Record<string, string | boolean> | null,
+        response_history: data.response_history as ResponseHistoryEntry[] | null,
       };
       setActivities((prev) => prev.map((a) => (a.id === id ? mappedData : a)));
     }

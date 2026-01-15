@@ -115,7 +115,8 @@ const PortalActivities = () => {
   };
 
   const handleSubmitResponses = async (activityId: string, responses: Record<string, string | boolean>) => {
-    const result = await updateActivity(activityId, { patient_responses: responses } as any);
+    // Pass true for saveToHistory to track edits
+    const result = await updateActivity(activityId, { patient_responses: responses } as any, true);
     
     // Send notification to psychologist
     if (!result.error && patient?.id && selectedActivity) {
