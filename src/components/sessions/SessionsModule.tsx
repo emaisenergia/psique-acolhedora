@@ -40,6 +40,8 @@ import {
   User,
   Heart,
   Activity,
+  Shield,
+  DollarSign,
 } from "lucide-react";
 import { sessionsService, SESSION_STATUS_CONFIG, type Session, type SessionFile, type SessionStatus } from "@/lib/sessions";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
@@ -104,6 +106,9 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
 
   // Agendamentos do localStorage para sincronização
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  
+  // Pagamentos registrados no Supabase
+  const [registeredPayments, setRegisteredPayments] = useState<Set<string>>(new Set());
 
   const audioRecorder = useAudioRecorder();
 
@@ -144,6 +149,40 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
     setAppointments(patientAppts);
   }, [patientId]);
 
+  // Load payments from Supabase to check which appointments have payments
+  const loadPayments = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("financial_transactions")
+        .select("transaction_date, patient_id, description, notes")
+        .eq("patient_id", patientId)
+        .eq("type", "revenue")
+        .eq("category", "Sessão");
+
+      if (error) throw error;
+
+      // Create a set of dates that have payments registered
+      const paymentDates = new Set<string>();
+      data?.forEach((t) => {
+        // Add the transaction date as a key
+        paymentDates.add(t.transaction_date);
+        
+        // Also try to extract date from notes (which contains the session date)
+        if (t.notes) {
+          const dateMatch = t.notes.match(/(\d{2}\/\d{2}\/\d{4})/);
+          if (dateMatch) {
+            const [day, month, year] = dateMatch[1].split("/");
+            paymentDates.add(`${year}-${month}-${day}`);
+          }
+        }
+      });
+      
+      setRegisteredPayments(paymentDates);
+    } catch (error) {
+      console.error("Error loading payments:", error);
+    }
+  }, [patientId]);
+
   const loadSessions = useCallback(async () => {
     try {
       setLoading(true);
@@ -164,7 +203,8 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
   useEffect(() => {
     loadSessions();
     loadAppointments();
-  }, [loadSessions, loadAppointments]);
+    loadPayments();
+  }, [loadSessions, loadAppointments, loadPayments]);
 
   // Agendamentos não vinculados a uma sessão
   const unlinkedAppointments = useMemo(() => {
@@ -724,6 +764,15 @@ ${anamnesis.observacoes || "Nenhuma"}
                     .map((appt) => {
                       const linkedSession = sessions.find(s => s.appointment_id === appt.id);
                       const isPast = new Date(appt.dateTime) < new Date();
+                      // Check service field for insurance - common patterns: "convenio", "convênio", etc.
+                      const isInsurance = appt.service?.toLowerCase().includes("conven") || 
+                                          appt.service?.toLowerCase().includes("plano") ||
+                                          appt.paymentStatus === "paid" && appt.service?.toLowerCase().includes("seguro");
+                      
+                      // Check if this appointment has a payment registered in Supabase
+                      const apptDate = format(new Date(appt.dateTime), "yyyy-MM-dd");
+                      const hasPayment = registeredPayments.has(apptDate) || appt.paymentStatus === "paid";
+                      
                       const statusColors: Record<string, string> = {
                         scheduled: "bg-blue-100 text-blue-700",
                         confirmed: "bg-emerald-100 text-emerald-700",
@@ -740,12 +789,12 @@ ${anamnesis.observacoes || "Nenhuma"}
                       return (
                         <div
                           key={appt.id}
-                          className="flex items-center justify-between gap-3 p-3 bg-white rounded-lg border border-border/50"
+                          className={`flex items-center justify-between gap-3 p-3 bg-white rounded-lg border ${hasPayment ? "border-emerald-300 bg-emerald-50/30" : "border-border/50"}`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${appt.status === "done" ? "bg-green-500" : appt.status === "cancelled" ? "bg-red-500" : isPast ? "bg-amber-500" : "bg-blue-500"}`} />
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-sm font-medium">
                                   {new Date(appt.dateTime).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
                                 </span>
@@ -755,12 +804,31 @@ ${anamnesis.observacoes || "Nenhuma"}
                                 <Badge className={`text-xs ${statusColors[appt.status] || "bg-gray-100 text-gray-700"}`}>
                                   {statusLabels[appt.status] || appt.status}
                                 </Badge>
+                                {/* Insurance indicator */}
+                                {isInsurance && (
+                                  <Badge className="text-xs bg-purple-100 text-purple-700 flex items-center gap-1">
+                                    <Shield className="w-3 h-3" />
+                                    Convênio
+                                  </Badge>
+                                )}
+                                {/* Payment indicator */}
+                                {hasPayment && (
+                                  <Badge className="text-xs bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                    <DollarSign className="w-3 h-3" />
+                                    Pago
+                                  </Badge>
+                                )}
                               </div>
-                              <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                              <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
                                 <span>{appt.mode === "online" ? "Online" : "Presencial"}</span>
                                 {linkedSession && (
                                   <span className="flex items-center gap-1 text-emerald-600">
                                     <CheckCircle2 className="w-3 h-3" /> Sessão registrada
+                                  </span>
+                                )}
+                                {appt.fee && !isInsurance && (
+                                  <span className="text-muted-foreground">
+                                    R$ {Number(appt.fee).toFixed(2)}
                                   </span>
                                 )}
                               </div>
@@ -781,7 +849,7 @@ ${anamnesis.observacoes || "Nenhuma"}
                                 Registrar Sessão
                               </Button>
                             )}
-                            {(appt.status === "done" || linkedSession?.status === "completed") && (
+                            {(appt.status === "done" || linkedSession?.status === "completed") && !hasPayment && !isInsurance && (
                               <Button
                                 size="sm"
                                 variant="outline"
