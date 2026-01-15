@@ -121,6 +121,7 @@ export function TreatmentPlanTab({
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [showArchivedPlans, setShowArchivedPlans] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
   const [addSessionDialogOpen, setAddSessionDialogOpen] = useState(false);
   const [newSessionSummary, setNewSessionSummary] = useState("");
   const [savingSession, setSavingSession] = useState(false);
@@ -182,7 +183,15 @@ export function TreatmentPlanTab({
     toast.success("Plano arquivado! Você pode criar um novo plano.");
   };
 
-  const createNewPlan = () => {
+  const handleCreateNewPlan = () => {
+    if (plan) {
+      setCreateConfirmOpen(true);
+    } else {
+      openNewPlanDialog();
+    }
+  };
+
+  const openNewPlanDialog = () => {
     setEditForm({
       start_date: new Date().toISOString().split("T")[0],
       estimated_sessions: 12,
@@ -194,6 +203,7 @@ export function TreatmentPlanTab({
       notes: "",
       next_review_date: "",
     });
+    setCreateConfirmOpen(false);
     setEditDialogOpen(true);
   };
 
@@ -475,7 +485,7 @@ export function TreatmentPlanTab({
                     <Edit2 className="w-4 h-4 mr-2" />
                     Editar Plano
                   </Button>
-                  <Button variant="outline" size="sm" className="rounded-full" onClick={createNewPlan}>
+                  <Button variant="outline" size="sm" className="rounded-full" onClick={handleCreateNewPlan}>
                     <Plus className="w-4 h-4 mr-2" />
                     Criar Plano
                   </Button>
@@ -509,6 +519,110 @@ export function TreatmentPlanTab({
                   )}
                 </div>
               </div>
+
+              {/* Resumo do Plano Atual */}
+              {plan && (
+                <div className="rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/10 p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <ClipboardList className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground">Resumo do Plano</h3>
+                      <p className="text-xs text-muted-foreground">Visão geral do tratamento atual</p>
+                    </div>
+                    <Badge className={`ml-auto ${currentStatusOption.color}`}>
+                      {currentStatusOption.label}
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4 mb-4">
+                    {/* Principais Objetivos */}
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Target className="w-4 h-4 text-primary" />
+                        Objetivos Principais
+                      </div>
+                      {plan.objectives && plan.objectives.length > 0 ? (
+                        <ul className="space-y-1">
+                          {plan.objectives.slice(0, 3).map((obj, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                              <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center flex-shrink-0 mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <span className="line-clamp-1">{obj}</span>
+                            </li>
+                          ))}
+                          {plan.objectives.length > 3 && (
+                            <li className="text-xs text-muted-foreground ml-7">
+                              +{plan.objectives.length - 3} mais...
+                            </li>
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground italic">Nenhum objetivo definido</p>
+                      )}
+                    </div>
+
+                    {/* Metas em Andamento */}
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-blue-600" />
+                        Metas em Andamento
+                      </div>
+                      {(() => {
+                        const pendingGoals = [...plan.short_term_goals, ...plan.long_term_goals]
+                          .filter(g => !isGoalCompleted(g));
+                        return pendingGoals.length > 0 ? (
+                          <ul className="space-y-1">
+                            {pendingGoals.slice(0, 3).map((goal, idx) => (
+                              <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2 flex-shrink-0" />
+                                <span className="line-clamp-1">{goal}</span>
+                              </li>
+                            ))}
+                            {pendingGoals.length > 3 && (
+                              <li className="text-xs text-muted-foreground ml-4">
+                                +{pendingGoals.length - 3} mais...
+                              </li>
+                            )}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-emerald-600 flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4" />
+                            Todas as metas concluídas!
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Barras de Progresso */}
+                  <div className="grid md:grid-cols-2 gap-4 pt-3 border-t border-border/50">
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">Sessões</span>
+                        <span className="font-medium text-primary">
+                          {sessionsCompleted}/{plan.estimated_sessions}
+                        </span>
+                      </div>
+                      <Progress 
+                        value={Math.min(100, Math.round((sessionsCompleted / plan.estimated_sessions) * 100))} 
+                        className="h-2" 
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">Metas Concluídas</span>
+                        <span className="font-medium text-emerald-600">
+                          {completedGoalsCount}/{totalGoalsCount}
+                        </span>
+                      </div>
+                      <Progress value={goalsProgress} className="h-2 bg-emerald-200" />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Status Atual */}
               <div className="rounded-xl border border-border/60 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
@@ -1039,6 +1153,37 @@ export function TreatmentPlanTab({
             <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
             <Button variant="destructive" onClick={archiveCurrentPlan}>
               <Archive className="w-4 h-4 mr-2" /> Arquivar Plano
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create New Plan Confirm Dialog */}
+      <Dialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Criar Novo Plano de Tratamento</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Já existe um plano de tratamento ativo para este paciente. Deseja arquivar o plano atual e criar um novo?
+            </p>
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-700">
+                <strong>Atenção:</strong> O plano atual será arquivado e ficará disponível no histórico.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+            <Button 
+              variant="default" 
+              onClick={() => {
+                archiveCurrentPlan();
+                openNewPlanDialog();
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Arquivar e Criar Novo
             </Button>
           </div>
         </DialogContent>
