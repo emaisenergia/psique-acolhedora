@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 type MessageRole = "user" | "assistant";
 
@@ -18,14 +19,127 @@ interface UseAIAgentOptions {
     patientHistory?: string;
     reportType?: string;
   };
+  patientId?: string;
+  conversationId?: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string | null;
+  type: string;
+  patient_id: string | null;
+  created_at: string;
 }
 
 const AI_AGENT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-agent`;
 
-export const useAIAgent = ({ type, context }: UseAIAgentOptions) => {
+export const useAIAgent = ({ type, context, patientId, conversationId: initialConversationId }: UseAIAgentOptions) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(initialConversationId || null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const { toast } = useToast();
+
+  // Load conversations history
+  const loadConversations = useCallback(async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) return;
+
+      const { data, error } = await supabase
+        .from("ai_conversations")
+        .select("*")
+        .eq("type", type)
+        .order("updated_at", { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setConversations(data || []);
+    } catch (error) {
+      console.error("Error loading conversations:", error);
+    }
+  }, [type]);
+
+  // Load messages for a conversation
+  const loadConversation = useCallback(async (convId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("ai_messages")
+        .select("*")
+        .eq("conversation_id", convId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      setMessages(
+        (data || []).map((m) => ({
+          id: m.id,
+          role: m.role as MessageRole,
+          content: m.content,
+          timestamp: new Date(m.created_at),
+        }))
+      );
+      setConversationId(convId);
+    } catch (error) {
+      console.error("Error loading conversation:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar conversa",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Create a new conversation
+  const createConversation = useCallback(async (firstMessage: string): Promise<string | null> => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error("Não autenticado");
+
+      const title = firstMessage.slice(0, 100) + (firstMessage.length > 100 ? "..." : "");
+
+      const { data, error } = await supabase
+        .from("ai_conversations")
+        .insert({
+          user_id: sessionData.session.user.id,
+          type,
+          title,
+          patient_id: patientId || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setConversationId(data.id);
+      return data.id;
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      return null;
+    }
+  }, [type, patientId]);
+
+  // Save a message to the database
+  const saveMessage = useCallback(async (convId: string, role: MessageRole, content: string) => {
+    try {
+      await supabase.from("ai_messages").insert({
+        conversation_id: convId,
+        role,
+        content,
+      });
+
+      // Update conversation timestamp
+      await supabase
+        .from("ai_conversations")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", convId);
+    } catch (error) {
+      console.error("Error saving message:", error);
+    }
+  }, []);
 
   const sendMessage = useCallback(async (input: string) => {
     const userMessage: Message = {
@@ -39,8 +153,19 @@ export const useAIAgent = ({ type, context }: UseAIAgentOptions) => {
     setIsLoading(true);
 
     let assistantContent = "";
+    let currentConversationId = conversationId;
 
     try {
+      // Create conversation if it doesn't exist
+      if (!currentConversationId) {
+        currentConversationId = await createConversation(input);
+      }
+
+      // Save user message
+      if (currentConversationId) {
+        await saveMessage(currentConversationId, "user", input);
+      }
+
       const response = await fetch(AI_AGENT_URL, {
         method: "POST",
         headers: {
@@ -119,6 +244,12 @@ export const useAIAgent = ({ type, context }: UseAIAgentOptions) => {
           }
         }
       }
+
+      // Save assistant response
+      if (currentConversationId && assistantContent) {
+        await saveMessage(currentConversationId, "assistant", assistantContent);
+        loadConversations(); // Refresh conversations list
+      }
     } catch (error) {
       console.error("AI Agent error:", error);
       toast({
@@ -129,16 +260,56 @@ export const useAIAgent = ({ type, context }: UseAIAgentOptions) => {
     } finally {
       setIsLoading(false);
     }
-  }, [messages, type, context, toast]);
+  }, [messages, type, context, toast, conversationId, createConversation, saveMessage, loadConversations]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    setConversationId(null);
   }, []);
+
+  const startNewConversation = useCallback(() => {
+    setMessages([]);
+    setConversationId(null);
+  }, []);
+
+  const deleteConversation = useCallback(async (convId: string) => {
+    try {
+      const { error } = await supabase
+        .from("ai_conversations")
+        .delete()
+        .eq("id", convId);
+
+      if (error) throw error;
+
+      if (convId === conversationId) {
+        setMessages([]);
+        setConversationId(null);
+      }
+
+      loadConversations();
+      toast({
+        title: "Conversa excluída",
+        description: "A conversa foi removida do histórico.",
+      });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a conversa.",
+        variant: "destructive",
+      });
+    }
+  }, [conversationId, loadConversations, toast]);
 
   return {
     messages,
     isLoading,
     sendMessage,
     clearMessages,
+    conversations,
+    conversationId,
+    loadConversation,
+    startNewConversation,
+    deleteConversation,
   };
 };
