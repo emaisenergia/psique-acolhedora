@@ -1,17 +1,20 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck } from "lucide-react";
+import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck, ClipboardList, ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { usePatientAppointments, usePatientActivities } from "@/hooks/usePatientData";
 import { useNavigate } from "react-router-dom";
+import { useTreatmentPlan } from "@/hooks/useTreatmentPlan";
+import { Progress } from "@/components/ui/progress";
 
 const PortalHome = () => {
   const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
   const { appointments } = usePatientAppointments();
   const { activities } = usePatientActivities();
+  const { plan, loading: planLoading } = useTreatmentPlan(patient?.id || "");
 
   const myAppointments = useMemo(() => {
     return [...appointments].sort((a, b) => 
@@ -140,6 +143,9 @@ const PortalHome = () => {
             <button onClick={() => navigate('/portal/mensagens')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
               <MessageSquare className="w-4 h-4" /> Mensagens
             </button>
+            <button onClick={() => navigate('/portal/plano')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
+              <ClipboardList className="w-4 h-4" /> Plano
+            </button>
           </div>
         </div>
 
@@ -195,6 +201,106 @@ const PortalHome = () => {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Plano de Tratamento - Visual Summary */}
+        <div className="mt-10">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-display font-light flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Plano de Tratamento
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/portal/plano")}
+              className="text-primary hover:text-primary/80"
+            >
+              Ver Detalhes <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+
+          {planLoading ? (
+            <Card className="bg-white/95 border border-border/60 rounded-2xl">
+              <CardContent className="p-6">
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-muted rounded w-1/3"></div>
+                  <div className="h-8 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded w-1/2"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : plan ? (
+            <Card className="bg-white/95 border border-border/60 rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Progress Section */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between text-sm mb-2">
+                        <span className="text-muted-foreground">Progresso Geral</span>
+                        <span className="font-semibold text-primary">{plan.current_progress}%</span>
+                      </div>
+                      <Progress value={plan.current_progress} className="h-3" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="border rounded-lg p-3 bg-muted/30">
+                        <div className="text-xs text-muted-foreground">Sessões Previstas</div>
+                        <div className="text-lg font-semibold">{plan.estimated_sessions}</div>
+                      </div>
+                      <div className="border rounded-lg p-3 bg-muted/30">
+                        <div className="text-xs text-muted-foreground">Metas Concluídas</div>
+                        <div className="text-lg font-semibold text-primary">
+                          {plan.goal_results.filter(g => g.completed).length}/{plan.short_term_goals.length + plan.long_term_goals.length}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Goals Preview */}
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium text-muted-foreground">Próximas Metas</div>
+                    <div className="space-y-2">
+                      {[...plan.short_term_goals, ...plan.long_term_goals]
+                        .filter(goal => !plan.goal_results.find(gr => gr.goal === goal && gr.completed))
+                        .slice(0, 3)
+                        .map((goal, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <div className="w-2 h-2 rounded-full bg-primary/60"></div>
+                            <span className="line-clamp-1">{goal}</span>
+                          </div>
+                        ))}
+                      {plan.short_term_goals.length + plan.long_term_goals.length === 0 && (
+                        <div className="text-sm text-muted-foreground italic">
+                          Nenhuma meta definida ainda
+                        </div>
+                      )}
+                    </div>
+                    
+                    {plan.improvements.length > 0 && (
+                      <div className="pt-2 border-t">
+                        <div className="flex items-center gap-2 text-xs text-primary">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{plan.improvements.length} melhora(s) registrada(s)</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-white/95 border border-border/60 rounded-2xl">
+              <CardContent className="p-6 text-center">
+                <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground">Nenhum plano de tratamento ativo</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">
+                  Seu psicólogo irá criar um plano personalizado para você.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Ações Rápidas */}
