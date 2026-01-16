@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, DragEvent } from "react";
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek, setHours, setMinutes, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertCircle, Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, Grid3X3, GripVertical, Package, Plus, Repeat, Search } from "lucide-react";
+import { AlertCircle, Briefcase, Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, Grid3X3, GripVertical, Lock, Package, Plus, Repeat, Search, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 
@@ -14,13 +14,14 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useAppointments, type AppointmentStatus, type AppointmentRow } from "@/hooks/useAppointments";
+import { useAppointments, type AppointmentStatus, type AppointmentRow, type AppointmentType } from "@/hooks/useAppointments";
 import { usePatients } from "@/hooks/usePatients";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScheduleValidation, WORKING_HOURS } from "@/hooks/useScheduleValidation";
 import { useToast } from "@/hooks/use-toast";
 import { useSessionPackages } from "@/hooks/useSessionPackages";
 import { DailyTimeGrid } from "@/components/appointments/DailyTimeGrid";
+import { BlockTimeDialog, type BlockType } from "@/components/appointments/BlockTimeDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const weekOptions = { weekStartsOn: 0 as const };
@@ -106,6 +107,9 @@ const Appointments = () => {
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [viewMode, setViewMode] = useState<"calendar" | "grid">("calendar");
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockDialogInitialDate, setBlockDialogInitialDate] = useState<Date | undefined>();
+  const [blockDialogInitialTime, setBlockDialogInitialTime] = useState<string | undefined>();
 
   const isLoading = appointmentsLoading || patientsLoading;
 
@@ -234,6 +238,29 @@ const Appointments = () => {
     if (editingId === id) {
       closeEditDialog();
     }
+  };
+
+  const createBlockOrPersonal = async (data: {
+    appointment_type: BlockType;
+    date_time: string;
+    block_reason: string;
+    duration_minutes: number;
+  }) => {
+    await createAppointment({
+      patient_id: null as unknown as string, // null for blocks/personal
+      date_time: data.date_time,
+      appointment_type: data.appointment_type,
+      block_reason: data.block_reason,
+      duration_minutes: data.duration_minutes,
+      mode: "presencial",
+      status: "confirmed",
+    }, false); // Don't send notification for blocks
+  };
+
+  const openBlockDialog = (date?: Date, time?: string) => {
+    setBlockDialogInitialDate(date);
+    setBlockDialogInitialTime(time);
+    setBlockDialogOpen(true);
   };
 
   const patientMap = useMemo(() => Object.fromEntries(patients.map((p) => [p.id, p.name])), [patients]);
@@ -527,10 +554,23 @@ const Appointments = () => {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-display font-semibold">Agenda</h1>
-        <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowCreateForm(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Sessão
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => openBlockDialog(selectedDate)}>
+            <Lock className="h-4 w-4 mr-2" />
+            Bloquear
+          </Button>
+          <Button variant="outline" onClick={() => {
+            setBlockDialogInitialDate(selectedDate);
+            setBlockDialogOpen(true);
+          }}>
+            <Briefcase className="h-4 w-4 mr-2" />
+            Pessoal
+          </Button>
+          <Button className="bg-primary hover:bg-primary/90" onClick={() => setShowCreateForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Sessão
+          </Button>
+        </div>
       </div>
 
       {/* Search, Filters and View Toggle */}
@@ -1485,6 +1525,20 @@ const Appointments = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Block Time Dialog */}
+      <BlockTimeDialog
+        open={blockDialogOpen}
+        onClose={() => {
+          setBlockDialogOpen(false);
+          setBlockDialogInitialDate(undefined);
+          setBlockDialogInitialTime(undefined);
+        }}
+        onSave={createBlockOrPersonal}
+        initialDate={blockDialogInitialDate}
+        initialTime={blockDialogInitialTime}
+        appointments={appointments}
+      />
     </AdminLayout>
   );
 };

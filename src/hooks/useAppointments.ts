@@ -15,6 +15,7 @@ export type AppointmentInsert = TablesInsert<"appointments">;
 export type AppointmentUpdate = TablesUpdate<"appointments">;
 
 export type AppointmentStatus = "scheduled" | "confirmed" | "done" | "cancelled";
+export type AppointmentType = "session" | "blocked" | "personal";
 
 const formatDateForEmail = (dateString: string) => {
   try {
