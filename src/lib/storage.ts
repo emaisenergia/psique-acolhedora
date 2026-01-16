@@ -1,18 +1,35 @@
+// =============================================================
+// LEGACY STORAGE - PARTIALLY DEPRECATED
+// =============================================================
+// Most data has been migrated to Supabase. New features should use
+// the Supabase hooks directly. This file is kept for backwards
+// compatibility with existing components that haven't been migrated.
+// 
+// Migrated to Supabase (use hooks instead):
+// - Blog posts → useBlogPosts hook
+// - AI favorite prompts → useFavoritePrompts hook
+// - Admin preferences → useAdminPreferences hook
+// - Admin users/auth → Supabase Auth + AdminAuthProvider
+// 
+// Still using localStorage (legacy, pending migration):
+// - Some admin statistics and dashboard data
+// - Insurance providers (local cache)
+// =============================================================
+
 export type Patient = {
   id: string;
   name: string;
   email?: string;
   phone?: string;
   notes?: string;
-  // extended optional fields for richer UI (safe to ignore elsewhere)
   cpf?: string;
-  birthDate?: string; // ISO YYYY-MM-DD
-  gender?: string; // feminino | masculino | outro | nao_informar
+  birthDate?: string;
+  gender?: string;
   cep?: string;
   address?: string;
   profession?: string;
   status?: "active" | "inactive";
-  color?: string; // hex color like #00FFAA
+  color?: string;
   emergencyContacts?: { name: string; phone?: string; relation?: string }[];
   medications?: { name: string; dosage?: string }[];
   createdAt: string;
@@ -21,13 +38,13 @@ export type Patient = {
 export type Appointment = {
   id: string;
   patientId: string;
-  dateTime: string; // ISO
+  dateTime: string;
   service?: string;
   notes?: string;
   status?: "scheduled" | "done" | "cancelled";
   mode?: "online" | "presencial";
-  fee?: number; // valor da sessão
-  paymentStatus?: "paid" | "pending"; // status de pagamento
+  fee?: number;
+  paymentStatus?: "paid" | "pending";
   createdAt: string;
 };
 
@@ -36,7 +53,7 @@ export type ActivityField = {
   type: "text" | "checkbox";
   label: string;
   required?: boolean;
-  response?: string | boolean; // patient's response
+  response?: string | boolean;
 };
 
 export type Activity = {
@@ -44,12 +61,11 @@ export type Activity = {
   patientId: string;
   title: string;
   description?: string;
-  dueDate?: string; // ISO YYYY-MM-DD
+  dueDate?: string;
   status: "pending" | "completed";
   assignedBy?: string;
   createdAt: string;
   completedAt?: string;
-  // Extended fields for customizable tasks
   fields?: ActivityField[];
   attachmentUrl?: string;
   attachmentName?: string;
@@ -58,7 +74,7 @@ export type Activity = {
 export type JournalEntry = {
   id: string;
   patientId: string;
-  createdAt: string; // ISO
+  createdAt: string;
   mood: "muito_bem" | "bem" | "neutro" | "desafiador" | "dificil";
   note: string;
   tags?: string[];
@@ -69,7 +85,7 @@ export type SecureMessage = {
   patientId: string;
   author: "patient" | "psychologist";
   content: string;
-  createdAt: string; // ISO
+  createdAt: string;
   urgent?: boolean;
   read?: boolean;
 };
@@ -81,18 +97,16 @@ export type AdminBlogPost = {
   excerpt: string;
   category: string;
   readTime: string;
-  date: string; // e.g. 15 Mar 2024
-  iconName?: string; // e.g. "Heart"
+  date: string;
+  iconName?: string;
   featured?: boolean;
-  content: string; // plain text/markdown-ish
+  content: string;
   createdAt: string;
   updatedAt?: string;
 };
 
-// NOTE: Admin authentication has been migrated to Supabase Auth
-// The AdminUser type below is kept for legacy compatibility but should not be used for new code
-// Use the AdminAuthProvider from src/context/AdminAuth.tsx instead
 export type Role = "admin" | "psychologist" | "editor";
+
 export type AdminUser = {
   id: string;
   name: string;
@@ -130,12 +144,12 @@ export type Weekday =
 
 export type AdminScheduleConfig = {
   timezone: string;
-  startHour: string; // HH:mm
-  endHour: string; // HH:mm
+  startHour: string;
+  endHour: string;
   breakStart?: string;
   breakEnd?: string;
-  slotDuration: number; // minutes
-  gapBetweenAppointments: number; // minutes
+  slotDuration: number;
+  gapBetweenAppointments: number;
   allowOnlineBooking: boolean;
   availableDays: Weekday[];
   notes?: string;
@@ -203,7 +217,7 @@ export const storage = {
     localStorage.removeItem(KEYS.auth);
   },
 
-  // Patients
+  // Patients (legacy - data now in Supabase, but kept for fallback)
   getPatients(): Patient[] {
     try {
       return JSON.parse(localStorage.getItem(KEYS.patients) || "[]");
@@ -215,7 +229,7 @@ export const storage = {
     localStorage.setItem(KEYS.patients, JSON.stringify(patients));
   },
 
-  // Appointments
+  // Appointments (legacy - data now in Supabase, but kept for fallback)
   getAppointments(): Appointment[] {
     try {
       return JSON.parse(localStorage.getItem(KEYS.appointments) || "[]");
@@ -227,7 +241,7 @@ export const storage = {
     localStorage.setItem(KEYS.appointments, JSON.stringify(appts));
   },
 
-  // Blog posts
+  // Blog posts - DEPRECATED: Use useBlogPosts hook
   getPosts(): AdminBlogPost[] {
     try {
       return JSON.parse(localStorage.getItem(KEYS.posts) || "[]");
@@ -239,7 +253,7 @@ export const storage = {
     localStorage.setItem(KEYS.posts, JSON.stringify(posts));
   },
 
-  // Users
+  // Users (legacy - auth now in Supabase)
   getUsers(): AdminUser[] {
     try {
       const raw = JSON.parse(localStorage.getItem(KEYS.users) || "[]") as AdminUser[] | any[];
@@ -271,7 +285,7 @@ export const storage = {
     localStorage.setItem(KEYS.users, JSON.stringify(users));
   },
 
-  // Activities
+  // Activities (legacy - data now in Supabase)
   getActivities(): Activity[] {
     try {
       return JSON.parse(localStorage.getItem(KEYS.activities) || "[]");
@@ -283,7 +297,7 @@ export const storage = {
     localStorage.setItem(KEYS.activities, JSON.stringify(activities));
   },
 
-  // Patient journals
+  // Patient journals (legacy - data now in Supabase)
   getJournalEntries(): JournalEntry[] {
     try {
       return JSON.parse(localStorage.getItem(KEYS.journals) || "[]");
@@ -295,7 +309,7 @@ export const storage = {
     localStorage.setItem(KEYS.journals, JSON.stringify(entries));
   },
 
-  // Secure messages
+  // Secure messages (legacy - data now in Supabase)
   getMessages(): SecureMessage[] {
     try {
       const raw = JSON.parse(localStorage.getItem(KEYS.messages) || "[]") as SecureMessage[] | any[];
@@ -320,7 +334,7 @@ export const storage = {
     localStorage.setItem(KEYS.messages, JSON.stringify(messages));
   },
 
-  // Admin preferences
+  // Admin preferences - DEPRECATED: Use useAdminPreferences hook
   getAdminPreferences(): AdminPreferences {
     try {
       const raw = localStorage.getItem(KEYS.preferences);
@@ -368,7 +382,7 @@ export const storage = {
     localStorage.setItem(KEYS.scheduleConfig, JSON.stringify(config));
   },
 
-  // Admin insurances
+  // Admin insurances (legacy - data now in Supabase insurances table)
   getInsuranceProviders(): AdminInsurance[] {
     try {
       const raw = JSON.parse(localStorage.getItem(KEYS.insurances) || "[]") as AdminInsurance[] | any[];
@@ -388,11 +402,7 @@ export const storage = {
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-// NOTE: seedDefaultUsers is deprecated - admin users are now managed via Supabase Auth
-// This function is kept for backwards compatibility but does nothing
+// Deprecated - admin users managed via Supabase Auth
 export const seedDefaultUsers = () => {
-  // Admin authentication has been migrated to Supabase Auth
-  // New admin users should be created through the signup flow
-  // and roles assigned via the user_roles table in the database
   console.log("seedDefaultUsers is deprecated - use Supabase Auth instead");
 };

@@ -4,67 +4,61 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { storage, type AdminBlogPost, uid } from "@/lib/storage";
-import { getAllPosts } from "@/data/blog";
-import { useMemo, useState } from "react";
+import { useBlogPosts, type BlogPostInput } from "@/hooks/useBlogPosts";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const iconOptions = ["BookOpen", "Heart", "Brain", "Users"] as const;
 
-const toSlug = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
 const BlogAdmin = () => {
-  const [posts, setPosts] = useState<AdminBlogPost[]>(storage.getPosts());
-  const [form, setForm] = useState<Partial<AdminBlogPost>>({ iconName: "BookOpen", featured: false });
+  const { posts, loading, createPost, updatePost, deletePost } = useBlogPosts();
+  const [form, setForm] = useState<Partial<BlogPostInput & { slug?: string }>>({ 
+    icon: "BookOpen", 
+    is_published: false 
+  });
+  const [saving, setSaving] = useState(false);
 
-  const usedSlugs = useMemo(() => new Set(getAllPosts().map((p) => p.slug)), [posts]);
-
-  const save = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title || !form.excerpt || !form.category || !form.readTime || !form.date || !form.content) return;
-    const slug = form.slug && form.slug.trim().length > 0 ? form.slug : toSlug(form.title);
-    if (usedSlugs.has(slug)) {
-      alert("Slug já utilizado. Escolha outro.");
+    if (!form.title || !form.excerpt || !form.category || !form.content) {
       return;
     }
-    const post: AdminBlogPost = {
-      id: uid(),
-      slug,
+
+    setSaving(true);
+    await createPost({
       title: form.title,
+      slug: form.slug,
       excerpt: form.excerpt,
-      category: form.category,
-      readTime: form.readTime,
-      date: form.date,
-      iconName: form.iconName,
-      featured: !!form.featured,
       content: form.content,
-      createdAt: new Date().toISOString(),
-    };
-    const next = [post, ...posts];
-    setPosts(next);
-    storage.savePosts(next);
-    setForm({ iconName: "BookOpen", featured: false });
+      icon: form.icon,
+      category: form.category,
+      is_published: form.is_published,
+    });
+    setForm({ icon: "BookOpen", is_published: false });
+    setSaving(false);
   };
 
-  const remove = (id: string) => {
-    const next = posts.filter((p) => p.id !== id);
-    setPosts(next);
-    storage.savePosts(next);
+  const handleTogglePublish = async (id: string, currentStatus: boolean) => {
+    await updatePost(id, { is_published: !currentStatus });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Excluir este post permanentemente?")) return;
+    await deletePost(id);
   };
 
   return (
     <AdminLayout>
       <div className="mb-6">
         <h1 className="text-2xl font-display font-light">Blog</h1>
-        <p className="text-muted-foreground">Crie, edite e remova artigos do blog (armazenamento local).</p>
+        <p className="text-muted-foreground">Crie, edite e remova artigos do blog.</p>
       </div>
 
       <Card className="card-glass mb-6">
@@ -72,27 +66,32 @@ const BlogAdmin = () => {
           <form onSubmit={save} className="grid md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="text-sm">Título</label>
-              <Input value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <Input 
+                value={form.title || ""} 
+                onChange={(e) => setForm({ ...form, title: e.target.value })} 
+              />
             </div>
             <div>
               <label className="text-sm">Slug (opcional)</label>
-              <Input value={form.slug || ""} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="ex: meu-artigo" />
+              <Input 
+                value={form.slug || ""} 
+                onChange={(e) => setForm({ ...form, slug: e.target.value })} 
+                placeholder="ex: meu-artigo" 
+              />
             </div>
             <div>
               <label className="text-sm">Categoria</label>
-              <Input value={form.category || ""} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-sm">Tempo de leitura</label>
-              <Input value={form.readTime || ""} onChange={(e) => setForm({ ...form, readTime: e.target.value })} placeholder="ex: 6 min" />
-            </div>
-            <div>
-              <label className="text-sm">Data</label>
-              <Input value={form.date || ""} onChange={(e) => setForm({ ...form, date: e.target.value })} placeholder="ex: 15 Mar 2024" />
+              <Input 
+                value={form.category || ""} 
+                onChange={(e) => setForm({ ...form, category: e.target.value })} 
+              />
             </div>
             <div>
               <label className="text-sm">Ícone</label>
-              <Select value={form.iconName as any} onValueChange={(v) => setForm({ ...form, iconName: v })}>
+              <Select 
+                value={form.icon || "BookOpen"} 
+                onValueChange={(v) => setForm({ ...form, icon: v })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -103,21 +102,21 @@ const BlogAdmin = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="text-sm">Destaque</label>
-              <Select value={String(!!form.featured)} onValueChange={(v) => setForm({ ...form, featured: v === "true" })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="false">Não</SelectItem>
-                  <SelectItem value="true">Sim</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="is_published"
+                checked={form.is_published || false}
+                onCheckedChange={(checked) => setForm({ ...form, is_published: checked })}
+              />
+              <Label htmlFor="is_published">Publicar imediatamente</Label>
             </div>
             <div className="md:col-span-2">
               <label className="text-sm">Resumo</label>
-              <Textarea rows={2} value={form.excerpt || ""} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} />
+              <Textarea 
+                rows={2} 
+                value={form.excerpt || ""} 
+                onChange={(e) => setForm({ ...form, excerpt: e.target.value })} 
+              />
             </div>
             <div className="md:col-span-2">
               <label className="text-sm">Conteúdo (Markdown)</label>
@@ -127,7 +126,12 @@ const BlogAdmin = () => {
                   <TabsTrigger value="preview">Preview</TabsTrigger>
                 </TabsList>
                 <TabsContent value="editor">
-                  <Textarea rows={10} value={form.content || ""} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder={"Use Markdown: **negrito**, _itálico_, listas, títulos, etc."} />
+                  <Textarea 
+                    rows={10} 
+                    value={form.content || ""} 
+                    onChange={(e) => setForm({ ...form, content: e.target.value })} 
+                    placeholder={"Use Markdown: **negrito**, _itálico_, listas, títulos, etc."} 
+                  />
                 </TabsContent>
                 <TabsContent value="preview">
                   <div className="prose prose-invert max-w-none border border-border rounded-xl p-4">
@@ -139,27 +143,64 @@ const BlogAdmin = () => {
               </Tabs>
             </div>
             <div className="md:col-span-2">
-              <Button type="submit" className="btn-futuristic">Publicar Artigo</Button>
+              <Button type="submit" className="btn-futuristic" disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Salvar Artigo
+              </Button>
             </div>
           </form>
         </CardContent>
       </Card>
 
       <div className="grid gap-4">
-        {posts.length === 0 && <p className="text-muted-foreground">Nenhum artigo criado no painel.</p>}
-        {posts.map((p) => (
-          <Card key={p.id} className="card-glass">
-            <CardContent className="p-5 flex items-start justify-between gap-4">
-              <div>
-                <div className="font-semibold">{p.title}</div>
-                <div className="text-sm text-muted-foreground">{p.category} • {p.date} • {p.readTime}</div>
-                <p className="text-sm mt-2">{p.excerpt}</p>
-                <Link to={`/blog/${p.slug}`} className="text-primary text-sm mt-2 inline-block">Ver no site</Link>
-              </div>
-              <Button variant="outline" onClick={() => remove(p.id)}>Remover</Button>
-            </CardContent>
-          </Card>
-        ))}
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : posts.length === 0 ? (
+          <p className="text-muted-foreground">Nenhum artigo criado.</p>
+        ) : (
+          posts.map((p) => (
+            <Card key={p.id} className="card-glass">
+              <CardContent className="p-5 flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold">{p.title}</span>
+                    <Badge variant={p.is_published ? "default" : "secondary"}>
+                      {p.is_published ? "Publicado" : "Rascunho"}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {p.category} • {p.views} visualizações
+                  </div>
+                  <p className="text-sm mt-2">{p.excerpt}</p>
+                  {p.is_published && (
+                    <Link to={`/blog/${p.slug}`} className="text-primary text-sm mt-2 inline-block">
+                      Ver no site
+                    </Link>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleTogglePublish(p.id, p.is_published)}
+                    title={p.is_published ? "Despublicar" : "Publicar"}
+                  >
+                    {p.is_published ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => handleDelete(p.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </AdminLayout>
   );

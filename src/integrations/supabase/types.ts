@@ -85,6 +85,57 @@ export type Database = {
           },
         ]
       }
+      admin_preferences: {
+        Row: {
+          available_days: string[] | null
+          created_at: string
+          default_session_duration: number | null
+          email_notifications: boolean | null
+          id: string
+          language: string | null
+          reminder_hours_before: number | null
+          session_interval: number | null
+          session_reminders: boolean | null
+          theme: string | null
+          updated_at: string
+          user_id: string
+          work_end_time: string | null
+          work_start_time: string | null
+        }
+        Insert: {
+          available_days?: string[] | null
+          created_at?: string
+          default_session_duration?: number | null
+          email_notifications?: boolean | null
+          id?: string
+          language?: string | null
+          reminder_hours_before?: number | null
+          session_interval?: number | null
+          session_reminders?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id: string
+          work_end_time?: string | null
+          work_start_time?: string | null
+        }
+        Update: {
+          available_days?: string[] | null
+          created_at?: string
+          default_session_duration?: number | null
+          email_notifications?: boolean | null
+          id?: string
+          language?: string | null
+          reminder_hours_before?: number | null
+          session_interval?: number | null
+          session_reminders?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id?: string
+          work_end_time?: string | null
+          work_start_time?: string | null
+        }
+        Relationships: []
+      }
       admin_profiles: {
         Row: {
           bio: string | null
@@ -158,6 +209,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_favorite_prompts: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          last_used_at: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
       ai_knowledge_documents: {
         Row: {
@@ -298,6 +388,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      blog_posts: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          category: string | null
+          content: string
+          cover_image: string | null
+          created_at: string
+          excerpt: string | null
+          icon: string | null
+          id: string
+          is_published: boolean | null
+          published_at: string | null
+          slug: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+          views: number | null
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          category?: string | null
+          content: string
+          cover_image?: string | null
+          created_at?: string
+          excerpt?: string | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          published_at?: string | null
+          slug: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          views?: number | null
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          category?: string | null
+          content?: string
+          cover_image?: string | null
+          created_at?: string
+          excerpt?: string | null
+          icon?: string | null
+          id?: string
+          is_published?: boolean | null
+          published_at?: string | null
+          slug?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          views?: number | null
+        }
+        Relationships: []
       }
       file_tags: {
         Row: {
