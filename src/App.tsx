@@ -19,6 +19,7 @@ import PortalActivities from "@/pages/patient/PortalActivities";
 import PortalNotes from "@/pages/patient/PortalNotes";
 import PortalMessages from "@/pages/patient/PortalMessages";
 import PortalTreatmentPlan from "@/pages/patient/PortalTreatmentPlan";
+import PortalMaterials from "@/pages/patient/PortalMaterials";
 import Login from "@/pages/admin/Login";
 import Dashboard from "@/pages/admin/Dashboard";
 import Patients from "@/pages/admin/Patients";
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="/portal/atividades" element={<PatientProtectedRoute><PortalActivities /></PatientProtectedRoute>} />
               <Route path="/portal/anotacoes" element={<PatientProtectedRoute><PortalNotes /></PatientProtectedRoute>} />
               <Route path="/portal/mensagens" element={<PatientProtectedRoute><PortalMessages /></PatientProtectedRoute>} />
+              <Route path="/portal/materiais" element={<PatientProtectedRoute><PortalMaterials /></PatientProtectedRoute>} />
               <Route path="/admin/login" element={<Login />} />
               <Route path="/admin" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/admin/pacientes" element={<ProtectedRoute roles={["psychologist","admin"]}><Patients /></ProtectedRoute>} />

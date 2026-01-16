@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck, ClipboardList, ChevronRight } from "lucide-react";
+import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck, ClipboardList, ChevronRight, FolderOpen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { usePatientAppointments, usePatientActivities } from "@/hooks/usePatientData";
@@ -49,10 +49,10 @@ const PortalHome = () => {
       onSelect: () => navigate("/portal/atividades"),
     },
     {
-      icon: FileText,
-      title: "Recursos",
-      desc: "Explore conteúdo educativo",
-      onSelect: () => navigate("/blog"),
+      icon: FolderOpen,
+      title: "Materiais",
+      desc: "Acesse recursos terapêuticos",
+      onSelect: () => navigate("/portal/materiais"),
     },
   ];
 
@@ -145,6 +145,9 @@ const PortalHome = () => {
             </button>
             <button onClick={() => navigate('/portal/plano')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
               <ClipboardList className="w-4 h-4" /> Plano
+            </button>
+            <button onClick={() => navigate('/portal/materiais')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
+              <FolderOpen className="w-4 h-4" /> Materiais
             </button>
           </div>
         </div>
