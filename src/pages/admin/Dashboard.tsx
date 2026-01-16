@@ -10,13 +10,14 @@ import {
   Cake,
   TrendingUp,
 } from "lucide-react";
-import { storage } from "@/lib/storage";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { useAdminAuth } from "@/context/AdminAuth";
 import PackageAlerts from "@/components/alerts/PackageAlerts";
+import { usePatients } from "@/hooks/usePatients";
+import { useAppointments } from "@/hooks/useAppointments";
 
 const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) => (
   <Card className="card-glass">
@@ -34,8 +35,8 @@ const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: s
 
 const Dashboard = () => {
   const { user } = useAdminAuth();
-  const patients = storage.getPatients();
-  const appts = storage.getAppointments();
+  const { patients } = usePatients();
+  const { appointments } = useAppointments();
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -44,45 +45,45 @@ const Dashboard = () => {
 
   const dayAppts = useMemo(
     () =>
-      appts
-        .filter((a) => (a.dateTime || "").startsWith(todayKey))
-        .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()),
-    [appts, todayKey]
+      appointments
+        .filter((a) => (a.date_time || "").startsWith(todayKey))
+        .sort((a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime()),
+    [appointments, todayKey]
   );
 
-  const monthAppts = useMemo(() => appts.filter((a) => (a.dateTime || "").startsWith(monthPrefix)), [appts, monthPrefix]);
+  const monthAppts = useMemo(() => appointments.filter((a) => (a.date_time || "").startsWith(monthPrefix)), [appointments, monthPrefix]);
 
   const patientMap = useMemo(() => Object.fromEntries(patients.map((p) => [p.id, p.name])), [patients]);
 
   // KPIs
   const sessoesHoje = dayAppts.filter((a) => a.status !== "cancelled").length;
-  const pacientesAtivos = new Set(monthAppts.filter((a) => a.status !== "cancelled").map((a) => a.patientId)).size;
+  const pacientesAtivos = new Set(monthAppts.filter((a) => a.status !== "cancelled").map((a) => a.patient_id)).size;
   const receitaMensal = monthAppts
-    .filter((a) => a.status !== "cancelled" && a.paymentStatus === "paid")
-    .reduce((s, a) => s + (a.fee || 0), 0);
+    .filter((a) => a.status !== "cancelled")
+    .reduce((s, a) => s + (a.payment_value || 0), 0);
   const sessoesConcluidas = monthAppts.filter((a) => a.status === "done").length;
 
   const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   const receitaDia = dayAppts
-    .filter((a) => a.status !== "cancelled" && a.paymentStatus === "paid")
-    .reduce((s, a) => s + (a.fee || 0), 0);
+    .filter((a) => a.status !== "cancelled")
+    .reduce((s, a) => s + (a.payment_value || 0), 0);
   const pendenteDia = dayAppts
-    .filter((a) => a.status !== "cancelled" && a.paymentStatus === "pending")
-    .reduce((s, a) => s + (a.fee || 0), 0);
+    .filter((a) => a.status !== "cancelled" && a.status !== "done")
+    .reduce((s, a) => s + (a.payment_value || 0), 0);
   const canceladoValorDia = dayAppts
     .filter((a) => a.status === "cancelled")
-    .reduce((s, a) => s + (a.fee || 0), 0);
+    .reduce((s, a) => s + (a.payment_value || 0), 0);
 
   // Financeiro mensal
   const faturadoMes = receitaMensal;
   const pendenteMes = monthAppts
-    .filter((a) => a.status !== "cancelled" && a.paymentStatus === "pending")
-    .reduce((s, a) => s + (a.fee || 0), 0);
+    .filter((a) => a.status !== "cancelled" && a.status !== "done")
+    .reduce((s, a) => s + (a.payment_value || 0), 0);
   const canceladoMes = monthAppts
     .filter((a) => a.status === "cancelled")
-    .reduce((s, a) => s + (a.fee || 0), 0);
+    .reduce((s, a) => s + (a.payment_value || 0), 0);
   const previsaoTotal = faturadoMes + pendenteMes; // sessões não canceladas
-  const sessoesPagasMes = monthAppts.filter((a) => a.status !== "cancelled" && a.paymentStatus === "paid").length;
+  const sessoesPagasMes = monthAppts.filter((a) => a.status === "done").length;
   const valorMedio = sessoesPagasMes ? faturadoMes / sessoesPagasMes : 0;
 
   return (
@@ -167,17 +168,17 @@ const Dashboard = () => {
                 {dayAppts.map((a) => (
                   <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
                     <div className="flex flex-col">
-                      <span className="font-medium">{patientMap[a.patientId] || "Paciente"}</span>
+                      <span className="font-medium">{patientMap[a.patient_id] || "Paciente"}</span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(a.dateTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(a.date_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         {a.service ? ` • ${a.service}` : ""}
                         {a.mode ? ` • ${a.mode}` : ""}
                         {a.status ? ` • ${a.status}` : ""}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {typeof a.fee === "number" ? brl.format(a.fee) : "—"}
-                      {a.paymentStatus ? ` • ${a.paymentStatus === "paid" ? "Pago" : "Pendente"}` : ""}
+                      {typeof a.payment_value === "number" ? brl.format(a.payment_value) : "—"}
+                      {a.status === "done" ? " • Pago" : a.status === "scheduled" ? " • Pendente" : ""}
                     </div>
                   </div>
                 ))}
@@ -208,7 +209,7 @@ const Dashboard = () => {
               <div className="space-y-3">
                 {patients
                   .slice()
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                   .slice(0, 5)
                   .map((p) => (
                     <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
@@ -218,7 +219,7 @@ const Dashboard = () => {
                         </div>
                         <div>
                           <div className="font-medium">{p.name}</div>
-                          <div className="text-xs text-muted-foreground">Cadastrado em {new Date(p.createdAt).toLocaleDateString()}</div>
+                          <div className="text-xs text-muted-foreground">Cadastrado em {new Date(p.created_at).toLocaleDateString()}</div>
                         </div>
                       </div>
                       {p.phone && <div className="text-xs text-muted-foreground">{p.phone}</div>}

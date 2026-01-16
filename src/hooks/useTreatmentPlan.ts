@@ -35,6 +35,7 @@ export interface TreatmentPlan {
   current_status_notes: string | null;
   last_review_date: string | null;
   next_review_date: string | null;
+  is_shared_with_patient: boolean;
   created_at?: string;
   updated_at?: string;
   created_by?: string;
@@ -113,6 +114,7 @@ export const useTreatmentPlan = (patientId: string) => {
     current_status_notes: dbPlan.current_status_notes,
     last_review_date: dbPlan.last_review_date,
     next_review_date: dbPlan.next_review_date,
+    is_shared_with_patient: dbPlan.is_shared_with_patient || false,
     created_at: dbPlan.created_at,
     updated_at: dbPlan.updated_at,
     created_by: dbPlan.created_by,
@@ -136,6 +138,7 @@ export const useTreatmentPlan = (patientId: string) => {
     current_status_notes: plan.current_status_notes,
     last_review_date: plan.last_review_date,
     next_review_date: plan.next_review_date,
+    is_shared_with_patient: plan.is_shared_with_patient,
   });
 
   const savePlan = useCallback(async (updatedPlan: TreatmentPlan): Promise<boolean> => {

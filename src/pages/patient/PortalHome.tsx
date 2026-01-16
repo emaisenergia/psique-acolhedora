@@ -294,9 +294,9 @@ const PortalHome = () => {
             <Card className="bg-white/95 border border-border/60 rounded-2xl">
               <CardContent className="p-6 text-center">
                 <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground">Nenhum plano de tratamento ativo</p>
+                <p className="text-muted-foreground">Nenhum plano de tratamento disponível</p>
                 <p className="text-sm text-muted-foreground/70 mt-1">
-                  Seu psicólogo irá criar um plano personalizado para você.
+                  Seu psicólogo irá compartilhar o plano de tratamento quando estiver pronto.
                 </p>
               </CardContent>
             </Card>

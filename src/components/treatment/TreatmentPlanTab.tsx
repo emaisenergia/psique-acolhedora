@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from "@/components/ui/dialog";
 import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, CheckCircle2, Save, Edit2, ArrowUp, Activity, Calendar, RefreshCw, Archive, History, FileText, Download, BarChart3 } from "lucide-react";
@@ -173,6 +174,7 @@ export function TreatmentPlanTab({
         improvements: plan?.improvements || [],
         last_review_date: null,
         next_review_date: null,
+        is_shared_with_patient: plan?.is_shared_with_patient || false,
       };
 
       savePlanToStorage(newPlan);
@@ -234,6 +236,7 @@ export function TreatmentPlanTab({
       goal_results: plan?.goal_results || [],
       improvements: plan?.improvements || [],
       last_review_date: plan?.last_review_date || null,
+      is_shared_with_patient: plan?.is_shared_with_patient || false,
     };
 
     await savePlanToStorage(newPlan);
@@ -689,7 +692,7 @@ export function TreatmentPlanTab({
               {/* Resumo do Plano Atual */}
               {plan && (
                 <div className="rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/10 p-5">
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-4 flex-wrap">
                     <div className="p-2 rounded-lg bg-primary/10">
                       <ClipboardList className="w-5 h-5 text-primary" />
                     </div>
@@ -700,6 +703,29 @@ export function TreatmentPlanTab({
                     <Badge className={`ml-auto ${currentStatusOption.color}`}>
                       {currentStatusOption.label}
                     </Badge>
+                    
+                    {/* Toggle de Compartilhamento com Paciente */}
+                    <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border/60">
+                      <Switch
+                        id="share-with-patient"
+                        checked={plan.is_shared_with_patient}
+                        onCheckedChange={async (checked) => {
+                          const updatedPlan = { ...plan, is_shared_with_patient: checked };
+                          await savePlanToStorage(updatedPlan);
+                          setPlan(updatedPlan);
+                          toast.success(checked ? "Plano compartilhado com o paciente" : "Plano ocultado do paciente");
+                        }}
+                      />
+                      <Label htmlFor="share-with-patient" className="text-xs text-muted-foreground cursor-pointer">
+                        {plan.is_shared_with_patient ? (
+                          <span className="flex items-center gap-1 text-emerald-600">
+                            <CheckCircle2 className="w-3 h-3" /> Visível para paciente
+                          </span>
+                        ) : (
+                          <span>Oculto do paciente</span>
+                        )}
+                      </Label>
+                    </div>
                   </div>
                   
                   <div className="grid md:grid-cols-2 gap-4 mb-4">

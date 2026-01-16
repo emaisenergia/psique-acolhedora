@@ -178,8 +178,8 @@ const PortalTreatmentPlan = () => {
                 <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <div className="text-lg font-semibold">Plano de tratamento em desenvolvimento</div>
                 <div className="text-sm text-muted-foreground mt-2">
-                  Seu psicólogo ainda está preparando o plano de tratamento. Assim que estiver pronto, você poderá
-                  acompanhar seus objetivos e evolução aqui.
+                  Seu psicólogo ainda está preparando o plano de tratamento ou decidiu não compartilhá-lo neste momento. 
+                  Assim que estiver disponível, você poderá acompanhar seus objetivos e evolução aqui.
                 </div>
               </CardContent>
             </Card>
