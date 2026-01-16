@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,14 +34,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface FavoritePrompt {
-  id: string;
-  title: string;
-  prompt: string;
-  category: string;
-  createdAt: string;
-}
+import { useFavoritePrompts, type FavoritePrompt } from "@/hooks/useFavoritePrompts";
 
 const CATEGORIES = [
   { value: "tcc", label: "TCC", icon: Brain },
@@ -50,43 +43,24 @@ const CATEGORIES = [
   { value: "geral", label: "Geral", icon: Sparkles },
 ];
 
-const LOCAL_STORAGE_KEY = "ai_favorite_prompts";
-
 interface FavoritePromptsProps {
   onSelectPrompt?: (prompt: string) => void;
 }
 
 export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
-  const [prompts, setPrompts] = useState<FavoritePrompt[]>([]);
+  const { prompts, loading, createPrompt, updatePrompt, deletePrompt, trackUsage } = useFavoritePrompts();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<FavoritePrompt | null>(null);
   const [formData, setFormData] = useState({
     title: "",
-    prompt: "",
+    content: "",
     category: "geral",
   });
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  // Load from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (saved) {
-      try {
-        setPrompts(JSON.parse(saved));
-      } catch (e) {
-        console.error("Error loading favorite prompts:", e);
-      }
-    }
-  }, []);
-
-  // Save to localStorage
-  const savePrompts = (newPrompts: FavoritePrompt[]) => {
-    setPrompts(newPrompts);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newPrompts));
-  };
-
-  const handleSave = () => {
-    if (!formData.title.trim() || !formData.prompt.trim()) {
+  const handleSave = async () => {
+    if (!formData.title.trim() || !formData.content.trim()) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha o título e o prompt.",
@@ -95,60 +69,57 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
       return;
     }
 
+    setSaving(true);
     if (editingPrompt) {
-      const updated = prompts.map((p) =>
-        p.id === editingPrompt.id
-          ? { ...p, ...formData }
-          : p
-      );
-      savePrompts(updated);
-      toast({ title: "Prompt atualizado!" });
+      await updatePrompt(editingPrompt.id, {
+        title: formData.title,
+        content: formData.content,
+        category: formData.category,
+      });
     } else {
-      const newPrompt: FavoritePrompt = {
-        id: crypto.randomUUID(),
-        ...formData,
-        createdAt: new Date().toISOString(),
-      };
-      savePrompts([newPrompt, ...prompts]);
-      toast({ title: "Prompt salvo!" });
+      await createPrompt({
+        title: formData.title,
+        content: formData.content,
+        category: formData.category,
+      });
     }
-
+    setSaving(false);
     resetForm();
     setIsDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Excluir este prompt?")) return;
-    savePrompts(prompts.filter((p) => p.id !== id));
-    toast({ title: "Prompt excluído!" });
+    await deletePrompt(id);
   };
 
   const handleEdit = (prompt: FavoritePrompt) => {
     setEditingPrompt(prompt);
     setFormData({
       title: prompt.title,
-      prompt: prompt.prompt,
+      content: prompt.content,
       category: prompt.category,
     });
     setIsDialogOpen(true);
   };
 
-  const handleCopy = async (prompt: string) => {
-    await navigator.clipboard.writeText(prompt);
+  const handleCopy = async (content: string) => {
+    await navigator.clipboard.writeText(content);
     toast({ title: "Copiado!", description: "Prompt copiado para a área de transferência." });
   };
 
-  const handleUsePrompt = (prompt: string) => {
+  const handleUsePrompt = async (prompt: FavoritePrompt) => {
+    await trackUsage(prompt.id);
     if (onSelectPrompt) {
-      onSelectPrompt(prompt);
+      onSelectPrompt(prompt.content);
       toast({ title: "Prompt aplicado!", description: "O prompt foi enviado ao chat." });
     } else {
-      handleCopy(prompt);
+      handleCopy(prompt.content);
     }
   };
 
   const resetForm = () => {
-    setFormData({ title: "", prompt: "", category: "geral" });
+    setFormData({ title: "", content: "", category: "geral" });
     setEditingPrompt(null);
   };
 
@@ -180,7 +151,11 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {prompts.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : prompts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Star className="h-10 w-10 mx-auto mb-3 opacity-30" />
               <p className="text-sm">Nenhum prompt salvo</p>
@@ -206,9 +181,14 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
                             <Badge variant="secondary" className="text-xs">
                               {categoryConfig.label}
                             </Badge>
+                            {prompt.usage_count > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                ({prompt.usage_count}x)
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-2">
-                            {prompt.prompt}
+                            {prompt.content}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -216,7 +196,7 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => handleUsePrompt(prompt.prompt)}
+                            onClick={() => handleUsePrompt(prompt)}
                             title="Usar prompt"
                           >
                             <Sparkles className="h-3 w-3" />
@@ -225,7 +205,7 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => handleCopy(prompt.prompt)}
+                            onClick={() => handleCopy(prompt.content)}
                             title="Copiar"
                           >
                             <Copy className="h-3 w-3" />
@@ -302,8 +282,8 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
             <div className="space-y-2">
               <Label>Prompt *</Label>
               <Textarea
-                value={formData.prompt}
-                onChange={(e) => setFormData((prev) => ({ ...prev, prompt: e.target.value }))}
+                value={formData.content}
+                onChange={(e) => setFormData((prev) => ({ ...prev, content: e.target.value }))}
                 placeholder="Digite o prompt que será enviado à IA..."
                 className="min-h-[120px]"
               />
@@ -314,7 +294,8 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {editingPrompt ? "Salvar Alterações" : "Salvar Prompt"}
             </Button>
           </DialogFooter>
