@@ -4,6 +4,8 @@ type NotificationType =
   | "new_message" 
   | "new_activity" 
   | "activity_response"
+  | "thread_comment_patient"
+  | "thread_comment_psychologist"
   | "appointment_reminder" 
   | "appointment_confirmation"
   | "appointment_created"
@@ -138,3 +140,42 @@ export const notifyAppointmentConfirmation = (
     appointmentDate, 
     appointmentTime 
   });
+
+// Thread comment notifications
+export const notifyThreadCommentToPatient = (
+  patientId: string,
+  activityTitle: string,
+  content: string
+) =>
+  sendNotificationEmail("thread_comment_patient", patientId, {
+    activityTitle,
+    content,
+  });
+
+export const notifyThreadCommentToPsychologist = async (
+  patientId: string,
+  activityTitle: string,
+  patientName: string,
+  content: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { data: response, error } = await supabase.functions.invoke("send-notification-email", {
+      body: { 
+        type: "thread_comment_psychologist", 
+        patientId, 
+        data: { activityTitle, patientName, content },
+        notifyAdmin: true 
+      },
+    });
+
+    if (error) {
+      console.error("Error sending thread comment notification:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error invoking notification function:", err);
+    return { success: false, error: err.message };
+  }
+};

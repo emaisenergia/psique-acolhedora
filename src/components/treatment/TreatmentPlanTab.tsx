@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,43 +13,7 @@ import { Target, TrendingUp, Award, ClipboardList, Plus, Sparkles, Loader2, Chec
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from "recharts";
-
-interface GoalResult {
-  goal: string;
-  completed: boolean;
-  result?: string;
-  completedAt?: string;
-}
-
-interface Improvement {
-  id: string;
-  description: string;
-  date: string;
-  category: string;
-}
-
-interface TreatmentPlan {
-  id: string;
-  patient_id: string;
-  start_date: string | null;
-  estimated_sessions: number;
-  current_progress: number;
-  objectives: string[];
-  discharge_objectives: string[];
-  approaches: string[];
-  short_term_goals: string[];
-  long_term_goals: string[];
-  notes: string | null;
-  status: string;
-  goal_results: GoalResult[];
-  improvements: Improvement[];
-  current_status: string;
-  current_status_notes: string | null;
-  last_review_date: string | null;
-  next_review_date: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
+import { useTreatmentPlan, type TreatmentPlan, type GoalResult, type Improvement } from "@/hooks/useTreatmentPlan";
 
 interface TreatmentPlanTabProps {
   patientId: string;
@@ -84,22 +48,6 @@ const IMPROVEMENT_CATEGORIES = [
   "Outro",
 ];
 
-// Local storage helper functions
-const STORAGE_KEY = "treatment_plans";
-
-const getStoredPlans = (): TreatmentPlan[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveStoredPlans = (plans: TreatmentPlan[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-};
-
 const generateId = () => crypto.randomUUID();
 
 export function TreatmentPlanTab({
@@ -111,10 +59,18 @@ export function TreatmentPlanTab({
   journalNotes,
   onAddSession,
 }: TreatmentPlanTabProps) {
-  const [plan, setPlan] = useState<TreatmentPlan | null>(null);
-  const [archivedPlans, setArchivedPlans] = useState<TreatmentPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // Use the Supabase-backed hook instead of localStorage
+  const { 
+    plan, 
+    setPlan, 
+    archivedPlans, 
+    loading, 
+    saving, 
+    savePlan: savePlanToDb, 
+    archivePlan: archivePlanInDb,
+    refreshPlans 
+  } = useTreatmentPlan(patientId);
+  
   const [generating, setGenerating] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addGoalDialogOpen, setAddGoalDialogOpen] = useState(false);
@@ -143,45 +99,15 @@ export function TreatmentPlanTab({
   const [newImprovement, setNewImprovement] = useState({ description: "", category: "Sintomas" });
   const [statusForm, setStatusForm] = useState({ status: "em_andamento", notes: "" });
 
-  // Load plans from localStorage
-  const loadPlans = useCallback(() => {
-    const allPlans = getStoredPlans();
-    const activePlan = allPlans.find(p => p.patient_id === patientId && p.status === "active");
-    const archived = allPlans.filter(p => p.patient_id === patientId && p.status === "archived");
-    
-    setPlan(activePlan || null);
-    setArchivedPlans(archived);
-    setLoading(false);
-  }, [patientId]);
-
-  useEffect(() => {
-    loadPlans();
-  }, [loadPlans]);
-
-  // Save plan to localStorage
-  const savePlanToStorage = (updatedPlan: TreatmentPlan) => {
-    const allPlans = getStoredPlans();
-    const index = allPlans.findIndex(p => p.id === updatedPlan.id);
-    
-    if (index >= 0) {
-      allPlans[index] = { ...updatedPlan, updated_at: new Date().toISOString() };
-    } else {
-      allPlans.push({ ...updatedPlan, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-    }
-    
-    saveStoredPlans(allPlans);
-    loadPlans();
+  // Helper function to save plan (wraps the hook's savePlan)
+  const savePlanToStorage = async (updatedPlan: TreatmentPlan) => {
+    await savePlanToDb(updatedPlan);
   };
 
-  const archiveCurrentPlan = () => {
+  const archiveCurrentPlan = async () => {
     if (!plan) return;
-    
-    const updatedPlan = { ...plan, status: "archived" };
-    savePlanToStorage(updatedPlan);
-    setPlan(null);
+    await archivePlanInDb(plan.id);
     setArchiveConfirmOpen(false);
-    loadPlans();
-    toast.success("Plano arquivado! Você pode criar um novo plano.");
   };
 
   const handleCreateNewPlan = () => {
@@ -288,39 +214,31 @@ export function TreatmentPlanTab({
     setEditDialogOpen(true);
   };
 
-  const savePlan = () => {
-    setSaving(true);
-    try {
-      const newPlan: TreatmentPlan = {
-        id: plan?.id || generateId(),
-        patient_id: patientId,
-        start_date: editForm.start_date || null,
-        estimated_sessions: editForm.estimated_sessions,
-        objectives: editForm.objectives.split("\n").filter(Boolean),
-        discharge_objectives: editForm.discharge_objectives.split("\n").filter(Boolean),
-        short_term_goals: editForm.short_term_goals.split("\n").filter(Boolean),
-        long_term_goals: editForm.long_term_goals.split("\n").filter(Boolean),
-        approaches: editForm.approaches.split(",").map(s => s.trim()).filter(Boolean),
-        notes: editForm.notes || null,
-        next_review_date: editForm.next_review_date || null,
-        status: "active",
-        current_progress: plan?.current_progress || 0,
-        current_status: plan?.current_status || "em_andamento",
-        current_status_notes: plan?.current_status_notes || null,
-        goal_results: plan?.goal_results || [],
-        improvements: plan?.improvements || [],
-        last_review_date: plan?.last_review_date || null,
-      };
+  const savePlan = async () => {
+    const newPlan: TreatmentPlan = {
+      id: plan?.id || generateId(),
+      patient_id: patientId,
+      start_date: editForm.start_date || null,
+      estimated_sessions: editForm.estimated_sessions,
+      objectives: editForm.objectives.split("\n").filter(Boolean),
+      discharge_objectives: editForm.discharge_objectives.split("\n").filter(Boolean),
+      short_term_goals: editForm.short_term_goals.split("\n").filter(Boolean),
+      long_term_goals: editForm.long_term_goals.split("\n").filter(Boolean),
+      approaches: editForm.approaches.split(",").map(s => s.trim()).filter(Boolean),
+      notes: editForm.notes || null,
+      next_review_date: editForm.next_review_date || null,
+      status: "active",
+      current_progress: plan?.current_progress || 0,
+      current_status: plan?.current_status || "em_andamento",
+      current_status_notes: plan?.current_status_notes || null,
+      goal_results: plan?.goal_results || [],
+      improvements: plan?.improvements || [],
+      last_review_date: plan?.last_review_date || null,
+    };
 
-      savePlanToStorage(newPlan);
-      setEditDialogOpen(false);
-      toast.success("Plano de tratamento salvo!");
-    } catch (error) {
-      console.error("Error saving treatment plan:", error);
-      toast.error("Erro ao salvar plano de tratamento");
-    } finally {
-      setSaving(false);
-    }
+    await savePlanToStorage(newPlan);
+    setEditDialogOpen(false);
+    toast.success("Plano de tratamento salvo!");
   };
 
   const toggleGoalCompletion = (goalType: "short_term" | "long_term", index: number) => {
