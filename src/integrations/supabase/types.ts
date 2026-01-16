@@ -331,6 +331,8 @@ export type Database = {
       }
       appointments: {
         Row: {
+          appointment_type: string | null
+          block_reason: string | null
           created_at: string
           date_time: string
           duration_minutes: number
@@ -339,7 +341,7 @@ export type Database = {
           mode: string
           notes: string | null
           package_id: string | null
-          patient_id: string
+          patient_id: string | null
           payment_type: string | null
           payment_value: number | null
           psychologist_id: string | null
@@ -348,6 +350,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          appointment_type?: string | null
+          block_reason?: string | null
           created_at?: string
           date_time: string
           duration_minutes?: number
@@ -356,7 +360,7 @@ export type Database = {
           mode?: string
           notes?: string | null
           package_id?: string | null
-          patient_id: string
+          patient_id?: string | null
           payment_type?: string | null
           payment_value?: number | null
           psychologist_id?: string | null
@@ -365,6 +369,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          appointment_type?: string | null
+          block_reason?: string | null
           created_at?: string
           date_time?: string
           duration_minutes?: number
@@ -373,7 +379,7 @@ export type Database = {
           mode?: string
           notes?: string | null
           package_id?: string | null
-          patient_id?: string
+          patient_id?: string | null
           payment_type?: string | null
           payment_value?: number | null
           psychologist_id?: string | null

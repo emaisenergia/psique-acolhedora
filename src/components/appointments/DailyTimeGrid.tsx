@@ -1,18 +1,20 @@
 import { useMemo } from "react";
 import { format, parseISO, isSameDay, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Clock, User, Coffee, Lock } from "lucide-react";
+import { Clock, User, Coffee, Lock, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useScheduleConfig } from "@/hooks/useScheduleConfig";
-import type { AppointmentRow } from "@/hooks/useAppointments";
+import type { AppointmentRow, AppointmentType } from "@/hooks/useAppointments";
 
 type TimeSlot = {
   time: string;
-  status: "free" | "occupied" | "lunch" | "outside";
+  status: "free" | "occupied" | "lunch" | "outside" | "blocked" | "personal";
   appointment?: AppointmentRow;
   patientName?: string;
+  appointmentType?: AppointmentType;
+  blockReason?: string;
 };
 
 type DailyTimeGridProps = {
@@ -83,11 +85,35 @@ export const DailyTimeGrid = ({
       }
 
       if (appointment) {
+        const apptType = (appointment.appointment_type as AppointmentType) || "session";
+        
+        // Handle blocked and personal appointments
+        if (apptType === "blocked") {
+          return {
+            time,
+            status: "blocked" as const,
+            appointment,
+            appointmentType: apptType,
+            blockReason: appointment.block_reason || undefined,
+          };
+        }
+        
+        if (apptType === "personal") {
+          return {
+            time,
+            status: "personal" as const,
+            appointment,
+            appointmentType: apptType,
+            blockReason: appointment.block_reason || undefined,
+          };
+        }
+
         return {
           time,
           status: "occupied" as const,
           appointment,
           patientName: patientMap[appointment.patient_id] || "Paciente",
+          appointmentType: apptType,
         };
       }
 
@@ -138,6 +164,7 @@ export const DailyTimeGrid = ({
             {timeSlots.map((slot) => {
               const isOwn = slot.appointment?.patient_id === currentPatientId;
               const showDetails = !isPatientView || isOwn;
+              const isBlockedOrPersonal = slot.status === "blocked" || slot.status === "personal";
 
               return (
                 <button
@@ -146,16 +173,20 @@ export const DailyTimeGrid = ({
                   onClick={() => {
                     if (slot.status === "free" && onSlotClick) {
                       onSlotClick(slot.time);
-                    } else if (slot.appointment && showDetails && onAppointmentClick) {
+                    } else if (slot.appointment && showDetails && onAppointmentClick && !isPatientView) {
                       onAppointmentClick(slot.appointment);
                     }
                   }}
-                  disabled={slot.status === "lunch" || slot.status === "outside"}
+                  disabled={slot.status === "lunch" || slot.status === "outside" || (isPatientView && isBlockedOrPersonal)}
                   className={cn(
                     "flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all min-h-[80px]",
                     slot.status === "free" && "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300 cursor-pointer",
                     slot.status === "occupied" && showDetails && "border-blue-200 bg-blue-50 hover:bg-blue-100 cursor-pointer",
                     slot.status === "occupied" && !showDetails && "border-gray-200 bg-gray-100 cursor-not-allowed",
+                    slot.status === "blocked" && !isPatientView && "border-red-200 bg-red-50 hover:bg-red-100 cursor-pointer",
+                    slot.status === "blocked" && isPatientView && "border-gray-200 bg-gray-100 cursor-not-allowed",
+                    slot.status === "personal" && !isPatientView && "border-purple-200 bg-purple-50 hover:bg-purple-100 cursor-pointer",
+                    slot.status === "personal" && isPatientView && "border-gray-200 bg-gray-100 cursor-not-allowed",
                     slot.status === "lunch" && "border-amber-200 bg-amber-50 cursor-not-allowed",
                     slot.status === "outside" && "border-gray-100 bg-gray-50 cursor-not-allowed opacity-50"
                   )}
@@ -165,6 +196,10 @@ export const DailyTimeGrid = ({
                     slot.status === "free" && "text-emerald-700",
                     slot.status === "occupied" && showDetails && "text-blue-700",
                     slot.status === "occupied" && !showDetails && "text-gray-500",
+                    slot.status === "blocked" && !isPatientView && "text-red-700",
+                    slot.status === "blocked" && isPatientView && "text-gray-500",
+                    slot.status === "personal" && !isPatientView && "text-purple-700",
+                    slot.status === "personal" && isPatientView && "text-gray-500",
                     slot.status === "lunch" && "text-amber-700",
                     slot.status === "outside" && "text-gray-400"
                   )}>
@@ -191,6 +226,48 @@ export const DailyTimeGrid = ({
                     </div>
                   )}
 
+                  {slot.status === "blocked" && !isPatientView && (
+                    <div className="flex flex-col items-center mt-1">
+                      <div className="flex items-center gap-1">
+                        <Lock className="h-3 w-3 text-red-600" />
+                        <span className="text-xs text-red-600">Bloqueado</span>
+                      </div>
+                      {slot.blockReason && (
+                        <span className="text-[10px] text-red-500 truncate max-w-[80px] mt-0.5">
+                          {slot.blockReason}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {slot.status === "blocked" && isPatientView && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Lock className="h-3 w-3 text-gray-400" />
+                      <span className="text-xs text-gray-500">Indisponível</span>
+                    </div>
+                  )}
+
+                  {slot.status === "personal" && !isPatientView && (
+                    <div className="flex flex-col items-center mt-1">
+                      <div className="flex items-center gap-1">
+                        <Briefcase className="h-3 w-3 text-purple-600" />
+                        <span className="text-xs text-purple-600">Pessoal</span>
+                      </div>
+                      {slot.blockReason && (
+                        <span className="text-[10px] text-purple-500 truncate max-w-[80px] mt-0.5">
+                          {slot.blockReason}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {slot.status === "personal" && isPatientView && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Lock className="h-3 w-3 text-gray-400" />
+                      <span className="text-xs text-gray-500">Indisponível</span>
+                    </div>
+                  )}
+
                   {slot.status === "lunch" && (
                     <div className="flex items-center gap-1 mt-1">
                       <Coffee className="h-3 w-3 text-amber-600" />
@@ -211,8 +288,20 @@ export const DailyTimeGrid = ({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded bg-blue-100 border border-blue-300" />
-            <span>Ocupado</span>
+            <span>Sessão</span>
           </div>
+          {!isPatientView && (
+            <>
+              <div className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded bg-red-100 border border-red-300" />
+                <span>Bloqueado</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded bg-purple-100 border border-purple-300" />
+                <span>Pessoal</span>
+              </div>
+            </>
+          )}
           <div className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded bg-amber-100 border border-amber-300" />
             <span>Almoço</span>
