@@ -13,6 +13,8 @@ type NotificationType =
   | "new_message" 
   | "new_activity" 
   | "activity_response"
+  | "thread_comment_patient"
+  | "thread_comment_psychologist"
   | "appointment_reminder" 
   | "appointment_confirmation"
   | "appointment_created"
@@ -222,6 +224,54 @@ const getEmailContent = (type: NotificationType, patientName: string, data?: Not
             <a href="${siteUrl}/admin/pacientes" 
                style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
               Ver respostas do paciente
+            </a>
+            <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
+              Esta é uma notificação automática. Por favor, não responda este email.
+            </p>
+          </div>
+        `,
+      };
+
+    case "thread_comment_patient":
+      return {
+        subject: `💬 Novo comentário da sua psicóloga na atividade`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb; margin-bottom: 20px;">Olá, ${patientName}!</h1>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Sua psicóloga adicionou um novo comentário na atividade <strong>${data?.activityTitle || "terapêutica"}</strong>.
+            </p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="font-size: 14px; color: #6b7280; margin: 0;">Comentário:</p>
+              <p style="font-size: 16px; color: #1f2937; margin-top: 8px;">${data?.content?.substring(0, 200)}${(data?.content?.length || 0) > 200 ? "..." : ""}</p>
+            </div>
+            <a href="${siteUrl}/portal/atividades" 
+               style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Ver conversa completa
+            </a>
+            <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
+              Esta é uma notificação automática. Por favor, não responda este email.
+            </p>
+          </div>
+        `,
+      };
+
+    case "thread_comment_psychologist":
+      return {
+        subject: `💬 ${data?.patientName || "Paciente"} comentou na atividade`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb; margin-bottom: 20px;">Novo comentário do paciente!</h1>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              O paciente <strong>${data?.patientName || "Paciente"}</strong> adicionou um novo comentário na atividade.
+            </p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="font-size: 14px; color: #6b7280; margin: 0;">Atividade: ${data?.activityTitle}</p>
+              <p style="font-size: 16px; color: #1f2937; margin-top: 8px;">${data?.content?.substring(0, 200)}${(data?.content?.length || 0) > 200 ? "..." : ""}</p>
+            </div>
+            <a href="${siteUrl}/admin/pacientes" 
+               style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+              Ver conversa completa
             </a>
             <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
               Esta é uma notificação automática. Por favor, não responda este email.
