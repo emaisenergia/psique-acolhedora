@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from "recharts";
 import { useTreatmentPlan, type TreatmentPlan, type GoalResult, type Improvement } from "@/hooks/useTreatmentPlan";
+import { TreatmentPlanVersionHistory } from "./TreatmentPlanVersionHistory";
 
 interface TreatmentPlanTabProps {
   patientId: string;
@@ -101,8 +102,19 @@ export function TreatmentPlanTab({
   const [statusForm, setStatusForm] = useState({ status: "em_andamento", notes: "" });
 
   // Helper function to save plan (wraps the hook's savePlan)
-  const savePlanToStorage = async (updatedPlan: TreatmentPlan) => {
-    await savePlanToDb(updatedPlan);
+  const savePlanToStorage = async (updatedPlan: TreatmentPlan, changeSummary?: string) => {
+    await savePlanToDb(updatedPlan, changeSummary);
+  };
+
+  // Handler for restoring a version
+  const handleRestoreVersion = async (snapshot: TreatmentPlan) => {
+    const restoredPlan = {
+      ...snapshot,
+      id: plan?.id || snapshot.id,
+      patient_id: patientId,
+    };
+    await savePlanToStorage(restoredPlan, "Restaurado de versão anterior");
+    setPlan(restoredPlan);
   };
 
   const archiveCurrentPlan = async () => {
@@ -239,7 +251,7 @@ export function TreatmentPlanTab({
       is_shared_with_patient: plan?.is_shared_with_patient || false,
     };
 
-    await savePlanToStorage(newPlan);
+    await savePlanToStorage(newPlan, plan ? "Plano atualizado" : "Plano criado");
     setEditDialogOpen(false);
     toast.success("Plano de tratamento salvo!");
   };
@@ -326,7 +338,7 @@ export function TreatmentPlanTab({
       last_review_date: new Date().toISOString().split("T")[0],
     };
     
-    savePlanToStorage(updatedPlan);
+    savePlanToStorage(updatedPlan, `Status atualizado para: ${STATUS_OPTIONS.find(s => s.value === statusForm.status)?.label || statusForm.status}`);
     setPlan(updatedPlan);
     setStatusDialogOpen(false);
     toast.success("Status atualizado!");
@@ -1253,6 +1265,13 @@ export function TreatmentPlanTab({
               </CardContent>
             </Card>
           )}
+
+          {/* Version History */}
+          <TreatmentPlanVersionHistory
+            treatmentPlanId={plan?.id}
+            currentPlan={plan}
+            onRestoreVersion={handleRestoreVersion}
+          />
 
           <Card className="bg-white/90 border border-border/60">
             <CardContent className="p-6 space-y-3 text-sm text-muted-foreground">

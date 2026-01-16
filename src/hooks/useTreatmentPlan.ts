@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -141,12 +141,44 @@ export const useTreatmentPlan = (patientId: string) => {
     is_shared_with_patient: plan.is_shared_with_patient,
   });
 
-  const savePlan = useCallback(async (updatedPlan: TreatmentPlan): Promise<boolean> => {
+  // Helper to create a version snapshot
+  const createVersionSnapshot = useCallback(async (planId: string, planData: TreatmentPlan, changeSummary: string) => {
+    try {
+      // Get the next version number
+      const { data: existing } = await supabase
+        .from("treatment_plan_versions")
+        .select("version_number")
+        .eq("treatment_plan_id", planId)
+        .order("version_number", { ascending: false })
+        .limit(1);
+
+      const nextVersion = existing && existing.length > 0 
+        ? (existing[0].version_number || 0) + 1 
+        : 1;
+
+      const { data: session } = await supabase.auth.getSession();
+
+      await supabase
+        .from("treatment_plan_versions")
+        .insert({
+          treatment_plan_id: planId,
+          version_number: nextVersion,
+          snapshot: planData as any,
+          change_summary: changeSummary,
+          created_by: session.session?.user?.id,
+        });
+    } catch (error) {
+      console.error("Error creating version snapshot:", error);
+    }
+  }, []);
+
+  const savePlan = useCallback(async (updatedPlan: TreatmentPlan, changeSummary?: string): Promise<boolean> => {
     setSaving(true);
     try {
       const dbData = mapPlanToDb(updatedPlan);
+      const isNewPlan = !updatedPlan.id || updatedPlan.id.length !== 36;
 
-      if (updatedPlan.id && updatedPlan.id.length === 36) {
+      if (!isNewPlan) {
         // Update existing plan
         const { error } = await supabase
           .from("treatment_plans")
@@ -154,6 +186,11 @@ export const useTreatmentPlan = (patientId: string) => {
           .eq("id", updatedPlan.id);
 
         if (error) throw error;
+
+        // Create version snapshot for significant changes
+        if (changeSummary) {
+          await createVersionSnapshot(updatedPlan.id, updatedPlan, changeSummary);
+        }
       } else {
         // Create new plan
         const { data: session } = await supabase.auth.getSession();
@@ -168,7 +205,10 @@ export const useTreatmentPlan = (patientId: string) => {
 
         if (error) throw error;
         if (data) {
-          setPlan(mapDbToPlan(data));
+          const newPlan = mapDbToPlan(data);
+          setPlan(newPlan);
+          // Create initial version
+          await createVersionSnapshot(data.id, newPlan, "Versão inicial");
           return true;
         }
       }
@@ -182,7 +222,7 @@ export const useTreatmentPlan = (patientId: string) => {
     } finally {
       setSaving(false);
     }
-  }, [loadPlans]);
+  }, [loadPlans, createVersionSnapshot]);
 
   const archivePlan = useCallback(async (planId: string): Promise<boolean> => {
     try {
