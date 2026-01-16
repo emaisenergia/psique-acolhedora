@@ -577,6 +577,51 @@ export type Database = {
           },
         ]
       }
+      homework_templates: {
+        Row: {
+          ai_context: string | null
+          attachment_name: string | null
+          attachment_url: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          fields: Json | null
+          id: string
+          is_ai_enriched: boolean | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_context?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          fields?: Json | null
+          id?: string
+          is_ai_enriched?: boolean | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_context?: string | null
+          attachment_name?: string | null
+          attachment_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          fields?: Json | null
+          id?: string
+          is_ai_enriched?: boolean | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       insurances: {
         Row: {
           contact_email: string | null
@@ -979,6 +1024,51 @@ export type Database = {
           treatment_goals?: Json | null
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      therapeutic_resources: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_visible: boolean | null
+          patient_id: string | null
+          resource_file_name: string | null
+          resource_type: string
+          resource_url: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_visible?: boolean | null
+          patient_id?: string | null
+          resource_file_name?: string | null
+          resource_type?: string
+          resource_url?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_visible?: boolean | null
+          patient_id?: string | null
+          resource_file_name?: string | null
+          resource_type?: string
+          resource_url?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
