@@ -31,6 +31,7 @@ import AgentesIA from "@/pages/admin/AgentesIA";
 import Arquivos from "@/pages/admin/Arquivos";
 import Prontuarios from "@/pages/admin/Prontuarios";
 import Configuracoes from "@/pages/admin/Configuracoes";
+import TarefasCasa from "@/pages/admin/TarefasCasa";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
               <Route path="/admin/pacientes" element={<ProtectedRoute roles={["psychologist","admin"]}><Patients /></ProtectedRoute>} />
               <Route path="/admin/pacientes/:id" element={<ProtectedRoute roles={["psychologist","admin"]}><PatientProfile /></ProtectedRoute>} />
               <Route path="/admin/agendamentos" element={<ProtectedRoute roles={["psychologist","admin"]}><Appointments /></ProtectedRoute>} />
+              <Route path="/admin/tarefas-casa" element={<ProtectedRoute roles={["psychologist","admin"]}><TarefasCasa /></ProtectedRoute>} />
               <Route path="/admin/blog" element={<ProtectedRoute roles={["admin"]}><BlogAdmin /></ProtectedRoute>} />
               <Route path="/admin/profissionais" element={<ProtectedRoute roles={["admin"]}><Users /></ProtectedRoute>} />
               <Route path="/admin/financeiro" element={<ProtectedRoute roles={["psychologist","admin"]}><Financeiro /></ProtectedRoute>} />

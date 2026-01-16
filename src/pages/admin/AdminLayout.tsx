@@ -12,6 +12,7 @@ import {
   FileText,
   Settings,
   FileEdit,
+  ClipboardList,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -77,6 +78,20 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
                 <div className="flex flex-col">
                   <span className="font-semibold">Agenda</span>
                   <span className="text-xs text-muted-foreground">Agendamentos</span>
+                </div>
+                <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
+              </NavLink>
+            )}
+
+            {hasRole("psychologist", "admin") && (
+              <NavLink
+                to="/admin/tarefas-casa"
+                className={({ isActive }) => `${baseItem} ${isActive ? activeItem : inactiveItem} ${isActive ? 'active' : ''}`}
+              >
+                <ClipboardList className="w-5 h-5 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span className="font-semibold">Tarefas de Casa</span>
+                  <span className="text-xs text-muted-foreground">Templates e atividades</span>
                 </div>
                 <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
               </NavLink>
