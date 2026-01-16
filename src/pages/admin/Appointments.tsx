@@ -24,6 +24,7 @@ import { DailyTimeGrid } from "@/components/appointments/DailyTimeGrid";
 import { BlockTimeDialog, type BlockType } from "@/components/appointments/BlockTimeDialog";
 import { EditBlockDialog } from "@/components/appointments/EditBlockDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WhatsAppButton } from "@/components/appointments/WhatsAppButton";
 
 const weekOptions = { weekStartsOn: 0 as const };
 
@@ -833,6 +834,15 @@ const Appointments = () => {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* WhatsApp Button */}
+                          {appt.patient_id && (
+                            <WhatsAppButton
+                              patientName={patientName}
+                              patientPhone={patients.find(p => p.id === appt.patient_id)?.phone}
+                              appointmentDateTime={appt.date_time}
+                              appointmentMode={appt.mode}
+                            />
+                          )}
                           <Popover 
                             open={statusPopoverOpen === appt.id} 
                             onOpenChange={(open) => setStatusPopoverOpen(open ? appt.id : null)}
