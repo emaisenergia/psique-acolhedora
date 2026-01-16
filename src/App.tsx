@@ -62,7 +62,7 @@ const App = () => (
               <Route path="/admin/pacientes" element={<ProtectedRoute roles={["psychologist","admin"]}><Patients /></ProtectedRoute>} />
               <Route path="/admin/pacientes/:id" element={<ProtectedRoute roles={["psychologist","admin"]}><PatientProfile /></ProtectedRoute>} />
               <Route path="/admin/agendamentos" element={<ProtectedRoute roles={["psychologist","admin"]}><Appointments /></ProtectedRoute>} />
-              <Route path="/admin/blog" element={<ProtectedRoute roles={["editor","admin"]}><BlogAdmin /></ProtectedRoute>} />
+              <Route path="/admin/blog" element={<ProtectedRoute roles={["admin"]}><BlogAdmin /></ProtectedRoute>} />
               <Route path="/admin/profissionais" element={<ProtectedRoute roles={["admin"]}><Users /></ProtectedRoute>} />
               <Route path="/admin/financeiro" element={<ProtectedRoute roles={["psychologist","admin"]}><Financeiro /></ProtectedRoute>} />
               <Route path="/admin/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />

@@ -4,16 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useBlogPosts, type BlogPostInput } from "@/hooks/useBlogPosts";
+import { useBlogPosts, type BlogPost, type BlogPostInput } from "@/hooks/useBlogPosts";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Loader2, Eye, EyeOff, Trash2, Edit2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 
 const iconOptions = ["BookOpen", "Heart", "Brain", "Users"] as const;
 
@@ -24,6 +25,9 @@ const BlogAdmin = () => {
     is_published: false 
   });
   const [saving, setSaving] = useState(false);
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<BlogPostInput & { slug?: string }>>({});
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +56,36 @@ const BlogAdmin = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir este post permanentemente?")) return;
     await deletePost(id);
+  };
+
+  const openEditDialog = (post: BlogPost) => {
+    setEditingPost(post);
+    setEditForm({
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt || "",
+      content: post.content,
+      icon: post.icon || "BookOpen",
+      category: post.category || "",
+      is_published: post.is_published,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPost || !editForm.title || !editForm.content) return;
+    setSaving(true);
+    await updatePost(editingPost.id, {
+      title: editForm.title,
+      excerpt: editForm.excerpt,
+      content: editForm.content,
+      icon: editForm.icon,
+      category: editForm.category,
+      is_published: editForm.is_published,
+    });
+    setEditDialogOpen(false);
+    setEditingPost(null);
+    setSaving(false);
   };
 
   return (
@@ -184,6 +218,14 @@ const BlogAdmin = () => {
                   <Button
                     variant="outline"
                     size="icon"
+                    onClick={() => openEditDialog(p)}
+                    title="Editar"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
                     onClick={() => handleTogglePublish(p.id, p.is_published)}
                     title={p.is_published ? "Despublicar" : "Publicar"}
                   >
@@ -202,6 +244,55 @@ const BlogAdmin = () => {
           ))
         )}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Artigo</DialogTitle>
+          </DialogHeader>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <Label>Título</Label>
+              <Input value={editForm.title || ""} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+            </div>
+            <div>
+              <Label>Categoria</Label>
+              <Input value={editForm.category || ""} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} />
+            </div>
+            <div>
+              <Label>Ícone</Label>
+              <Select value={editForm.icon || "BookOpen"} onValueChange={(v) => setEditForm({ ...editForm, icon: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {iconOptions.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2 flex items-center gap-3">
+              <Switch id="edit_is_published" checked={editForm.is_published || false} onCheckedChange={(checked) => setEditForm({ ...editForm, is_published: checked })} />
+              <Label htmlFor="edit_is_published">Publicado</Label>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Resumo</Label>
+              <Textarea rows={2} value={editForm.excerpt || ""} onChange={(e) => setEditForm({ ...editForm, excerpt: e.target.value })} />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Conteúdo (Markdown)</Label>
+              <Textarea rows={12} value={editForm.content || ""} onChange={(e) => setEditForm({ ...editForm, content: e.target.value })} />
+            </div>
+            <div className="md:col-span-2 flex justify-end gap-2">
+              <DialogClose asChild>
+                <Button variant="outline">Cancelar</Button>
+              </DialogClose>
+              <Button onClick={handleSaveEdit} disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Salvar Alterações
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 };

@@ -11,6 +11,7 @@ import {
   Folder,
   FileText,
   Settings,
+  FileEdit,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -140,6 +141,20 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
               </div>
               <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
             </NavLink>
+
+            {hasRole("admin") && (
+              <NavLink
+                to="/admin/blog"
+                className={({ isActive }) => `${baseItem} ${isActive ? activeItem : inactiveItem} ${isActive ? 'active' : ''}`}
+              >
+                <FileEdit className="w-5 h-5 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span className="font-semibold">Blog</span>
+                  <span className="text-xs text-muted-foreground">Gerenciar artigos</span>
+                </div>
+                <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
+              </NavLink>
+            )}
           </nav>
 
           <div className="mt-auto pt-6">

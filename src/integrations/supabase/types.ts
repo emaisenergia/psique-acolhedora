@@ -980,6 +980,7 @@ export type Database = {
           goal_results: Json | null
           id: string
           improvements: Json | null
+          is_shared_with_patient: boolean
           last_review_date: string | null
           long_term_goals: Json | null
           next_review_date: string | null
@@ -1003,6 +1004,7 @@ export type Database = {
           goal_results?: Json | null
           id?: string
           improvements?: Json | null
+          is_shared_with_patient?: boolean
           last_review_date?: string | null
           long_term_goals?: Json | null
           next_review_date?: string | null
@@ -1026,6 +1028,7 @@ export type Database = {
           goal_results?: Json | null
           id?: string
           improvements?: Json | null
+          is_shared_with_patient?: boolean
           last_review_date?: string | null
           long_term_goals?: Json | null
           next_review_date?: string | null
