@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { usePatientMessages, usePatientActivities } from "@/hooks/usePatientData";
+import { useRealtimeUpdates } from "@/hooks/useRealtimeUpdates";
 import {
   Shield,
   Calendar,
@@ -23,6 +24,7 @@ import {
   AlertTriangle,
   Send,
   CheckCircle2,
+  Target,
 } from "lucide-react";
 
 const formatDateTimeLong = (iso?: string) => {
@@ -39,11 +41,23 @@ const formatDateTimeLong = (iso?: string) => {
 const PortalMessages = () => {
   const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const { messages, loading, sendMessage } = usePatientMessages();
+  const { messages, loading, sendMessage, fetchMessages } = usePatientMessages();
   const { activities } = usePatientActivities();
   const [draft, setDraft] = useState("");
   const [urgency, setUrgency] = useState<"normal" | "urgente">("normal");
   const [submitting, setSubmitting] = useState(false);
+
+  // Add realtime updates for messages
+  const handleMessagesChange = useCallback(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  useRealtimeUpdates({
+    table: "secure_messages",
+    filter: patient?.id ? `patient_id=eq.${patient.id}` : undefined,
+    onChange: handleMessagesChange,
+    enabled: !!patient?.id,
+  });
 
   const myMessages = useMemo(() => {
     return [...messages].sort((a, b) => 
@@ -154,6 +168,7 @@ const PortalMessages = () => {
           <div className="flex items-center gap-4 overflow-x-auto pb-3">
             <TabButton label="Visão Geral" icon={Shield} onClick={() => navigate("/portal/app")} />
             <TabButton label="Sessões" icon={Calendar} onClick={() => navigate("/portal/sessoes")} />
+            <TabButton label="Plano de Tratamento" icon={Target} onClick={() => navigate("/portal/plano")} />
             <TabButton label="Atividades" icon={BookOpen} onClick={() => navigate("/portal/atividades")} />
             <TabButton label="Anotações" icon={FileText} onClick={() => navigate("/portal/anotacoes")} />
             <TabButton label="Mensagens" icon={MessageSquare} active onClick={() => {}} />

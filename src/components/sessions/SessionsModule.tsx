@@ -1374,8 +1374,29 @@ ${anamnesis.observacoes || "Nenhuma"}
                   </div>
 
                   {selectedSession.transcription && (
-                    <div>
-                      <Label>Transcrição</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Transcrição</Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const currentNotes = selectedSession.detailed_notes || "";
+                            const transcriptionBlock = `\n\n---\n📝 Transcrição da sessão:\n${selectedSession.transcription}`;
+                            handleUpdateSession({ 
+                              detailed_notes: currentNotes + transcriptionBlock 
+                            });
+                            toast({
+                              title: "Transcrição adicionada",
+                              description: "A transcrição foi copiada para as notas detalhadas.",
+                            });
+                          }}
+                          className="gap-2"
+                        >
+                          <FileText className="w-3 h-3" />
+                          Usar nas Notas
+                        </Button>
+                      </div>
                       <Textarea
                         value={selectedSession.transcription}
                         onChange={(e) => handleUpdateSession({ transcription: e.target.value })}
