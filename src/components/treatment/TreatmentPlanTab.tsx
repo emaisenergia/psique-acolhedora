@@ -344,29 +344,34 @@ export function TreatmentPlanTab({
     toast.success("Status atualizado!");
   };
 
-  const saveSessionRecord = () => {
+  const saveSessionRecord = async () => {
     if (!newSessionSummary.trim()) {
       toast.error("Por favor, insira o resumo da sessão");
       return;
     }
     
-    // Save session record to localStorage
-    const sessionsKey = `sessions_${patientId}`;
-    const existingSessions = JSON.parse(localStorage.getItem(sessionsKey) || "[]");
-    const newSession = {
-      id: generateId(),
-      patient_id: patientId,
-      session_date: new Date().toISOString(),
-      status: "completed",
-      summary: newSessionSummary.trim(),
-      created_at: new Date().toISOString(),
-    };
-    existingSessions.push(newSession);
-    localStorage.setItem(sessionsKey, JSON.stringify(existingSessions));
-    
-    setNewSessionSummary("");
-    setAddSessionDialogOpen(false);
-    toast.success("Registro de sessão adicionado!");
+    try {
+      setSavingSession(true);
+      
+      // Import sessionsService dynamically to avoid circular dependencies
+      const { sessionsService } = await import("@/lib/sessions");
+      
+      await sessionsService.createSession({
+        patient_id: patientId,
+        session_date: new Date().toISOString(),
+        status: "completed",
+        summary: newSessionSummary.trim(),
+      });
+      
+      setNewSessionSummary("");
+      setAddSessionDialogOpen(false);
+      toast.success("Registro de sessão adicionado!");
+    } catch (error) {
+      console.error("Error saving session:", error);
+      toast.error("Erro ao salvar sessão");
+    } finally {
+      setSavingSession(false);
+    }
   };
 
   const getGoalResult = (goal: string) => plan?.goal_results.find(r => r.goal === goal);

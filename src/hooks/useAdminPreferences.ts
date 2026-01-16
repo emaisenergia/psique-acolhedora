@@ -15,6 +15,9 @@ export interface AdminPreferences {
   available_days: string[];
   work_start_time: string;
   work_end_time: string;
+  break_start_time: string;
+  break_end_time: string;
+  allow_online_booking: boolean;
   // Display
   theme: string;
   language: string;
@@ -27,8 +30,11 @@ const defaultPreferences: AdminPreferences = {
   default_session_duration: 50,
   session_interval: 10,
   available_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-  work_start_time: "08:00",
-  work_end_time: "18:00",
+  work_start_time: "07:00",
+  work_end_time: "19:00",
+  break_start_time: "12:00",
+  break_end_time: "13:00",
+  allow_online_booking: true,
   theme: "light",
   language: "pt-BR",
 };
@@ -65,8 +71,11 @@ export const useAdminPreferences = () => {
           default_session_duration: data.default_session_duration ?? 50,
           session_interval: data.session_interval ?? 10,
           available_days: data.available_days ?? defaultPreferences.available_days,
-          work_start_time: data.work_start_time ?? "08:00",
-          work_end_time: data.work_end_time ?? "18:00",
+          work_start_time: data.work_start_time ?? "07:00",
+          work_end_time: data.work_end_time ?? "19:00",
+          break_start_time: data.break_start_time ?? "12:00",
+          break_end_time: data.break_end_time ?? "13:00",
+          allow_online_booking: data.allow_online_booking ?? true,
           theme: data.theme ?? "light",
           language: data.language ?? "pt-BR",
         });
@@ -114,6 +123,9 @@ export const useAdminPreferences = () => {
             available_days: updatedPrefs.available_days,
             work_start_time: updatedPrefs.work_start_time,
             work_end_time: updatedPrefs.work_end_time,
+            break_start_time: updatedPrefs.break_start_time,
+            break_end_time: updatedPrefs.break_end_time,
+            allow_online_booking: updatedPrefs.allow_online_booking,
             theme: updatedPrefs.theme,
             language: updatedPrefs.language,
           })
@@ -134,6 +146,9 @@ export const useAdminPreferences = () => {
             available_days: updatedPrefs.available_days,
             work_start_time: updatedPrefs.work_start_time,
             work_end_time: updatedPrefs.work_end_time,
+            break_start_time: updatedPrefs.break_start_time,
+            break_end_time: updatedPrefs.break_end_time,
+            allow_online_booking: updatedPrefs.allow_online_booking,
             theme: updatedPrefs.theme,
             language: updatedPrefs.language,
           });
