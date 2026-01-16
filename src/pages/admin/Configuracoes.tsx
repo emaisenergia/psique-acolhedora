@@ -91,8 +91,11 @@ const Configuracoes = () => {
     default_session_duration: 50,
     session_interval: 10,
     available_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-    work_start_time: "08:00",
-    work_end_time: "18:00",
+    work_start_time: "07:00",
+    work_end_time: "19:00",
+    break_start_time: "12:00",
+    break_end_time: "13:00",
+    allow_online_booking: true,
     theme: "light",
     language: "pt-BR",
   });
@@ -143,8 +146,11 @@ const Configuracoes = () => {
       default_session_duration: 50,
       session_interval: 10,
       available_days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
-      work_start_time: "08:00",
-      work_end_time: "18:00",
+      work_start_time: "07:00",
+      work_end_time: "19:00",
+      break_start_time: "12:00",
+      break_end_time: "13:00",
+      allow_online_booking: true,
       theme: "light",
       language: "pt-BR",
     };
@@ -562,6 +568,25 @@ const Configuracoes = () => {
                           type="time"
                           value={prefsForm.work_end_time}
                           onChange={(e) => setPrefsForm(prev => ({ ...prev, work_end_time: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="flex flex-col gap-2">
+                        <Label>Início do almoço/intervalo</Label>
+                        <Input
+                          type="time"
+                          value={prefsForm.break_start_time}
+                          onChange={(e) => setPrefsForm(prev => ({ ...prev, break_start_time: e.target.value }))}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Label>Fim do almoço/intervalo</Label>
+                        <Input
+                          type="time"
+                          value={prefsForm.break_end_time}
+                          onChange={(e) => setPrefsForm(prev => ({ ...prev, break_end_time: e.target.value }))}
                         />
                       </div>
                     </div>

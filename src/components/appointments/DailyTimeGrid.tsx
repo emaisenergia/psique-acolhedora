@@ -5,7 +5,7 @@ import { Clock, User, Coffee, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { WORKING_HOURS } from "@/hooks/useScheduleValidation";
+import { useScheduleConfig } from "@/hooks/useScheduleConfig";
 import type { AppointmentRow } from "@/hooks/useAppointments";
 
 type TimeSlot = {
@@ -25,40 +25,6 @@ type DailyTimeGridProps = {
   currentPatientId?: string;
 };
 
-// Generate all slots including lunch break
-const generateAllSlots = (): string[] => {
-  const slots: string[] = [];
-  for (let hour = 7; hour <= 18; hour++) {
-    slots.push(`${hour.toString().padStart(2, "0")}:00`);
-    if (hour < 18 || (hour === 18 && true)) {
-      slots.push(`${hour.toString().padStart(2, "0")}:30`);
-    }
-  }
-  return slots;
-};
-
-const ALL_DAY_SLOTS = generateAllSlots();
-
-// Check if a time is during lunch break (12:00 - 13:00)
-const isLunchTime = (time: string): boolean => {
-  const [hours] = time.split(":").map(Number);
-  return hours === 12;
-};
-
-// Check if a time is within working hours
-const isWorkingTime = (time: string): boolean => {
-  const [hours, minutes] = time.split(":").map(Number);
-  const timeValue = hours * 60 + minutes;
-  
-  const morningStart = 7 * 60; // 07:00
-  const morningEnd = 11 * 60 + 30; // 11:30
-  const afternoonStart = 13 * 60; // 13:00
-  const afternoonEnd = 18 * 60 + 30; // 18:30
-
-  return (timeValue >= morningStart && timeValue <= morningEnd) ||
-         (timeValue >= afternoonStart && timeValue <= afternoonEnd);
-};
-
 export const DailyTimeGrid = ({
   date,
   appointments,
@@ -68,8 +34,25 @@ export const DailyTimeGrid = ({
   isPatientView = false,
   currentPatientId,
 }: DailyTimeGridProps) => {
+  const { scheduleConfig, isBreakTime, isWithinWorkingHours, isWorkDay: checkIsWorkDay } = useScheduleConfig();
+  
   const dayOfWeek = getDay(date);
-  const isWorkDay = WORKING_HOURS.workDays.includes(dayOfWeek);
+  const isWorkDay = checkIsWorkDay(dayOfWeek);
+
+  // Generate all slots dynamically based on config
+  const allDaySlots = useMemo(() => {
+    const slots: string[] = [];
+    const startHour = scheduleConfig.morning.start;
+    const endHour = scheduleConfig.afternoon.end;
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      slots.push(`${hour.toString().padStart(2, "0")}:00`);
+      if (hour < endHour - 1) {
+        slots.push(`${hour.toString().padStart(2, "0")}:30`);
+      }
+    }
+    return slots;
+  }, [scheduleConfig]);
 
   const timeSlots: TimeSlot[] = useMemo(() => {
     const dayAppointments = appointments.filter((appt) => {
@@ -78,7 +61,9 @@ export const DailyTimeGrid = ({
       return isSameDay(apptDate, date) && appt.status !== "cancelled";
     });
 
-    return ALL_DAY_SLOTS.map((time) => {
+    return allDaySlots.map((time) => {
+      const [hours, minutes] = time.split(":").map(Number);
+      
       // Check if there's an appointment at this time
       const appointment = dayAppointments.find((appt) => {
         const apptTime = format(parseISO(appt.date_time!), "HH:mm");
@@ -89,11 +74,11 @@ export const DailyTimeGrid = ({
         return { time, status: "outside" as const };
       }
 
-      if (isLunchTime(time)) {
+      if (isBreakTime(hours)) {
         return { time, status: "lunch" as const };
       }
 
-      if (!isWorkingTime(time)) {
+      if (!isWithinWorkingHours(hours, minutes)) {
         return { time, status: "outside" as const };
       }
 
@@ -108,7 +93,7 @@ export const DailyTimeGrid = ({
 
       return { time, status: "free" as const };
     });
-  }, [date, appointments, patientMap, isWorkDay]);
+  }, [date, appointments, patientMap, isWorkDay, allDaySlots, isBreakTime, isWithinWorkingHours]);
 
   const stats = useMemo(() => {
     const free = timeSlots.filter((s) => s.status === "free").length;

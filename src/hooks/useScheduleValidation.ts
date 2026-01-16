@@ -1,39 +1,43 @@
 import { useMemo, useCallback } from "react";
 import { parseISO, format, getDay, getHours, getMinutes, isSameDay, addMinutes } from "date-fns";
 import type { AppointmentRow } from "@/hooks/useAppointments";
+import { useScheduleConfig, DEFAULT_SCHEDULE_CONFIG, type ScheduleConfig } from "./useScheduleConfig";
 
-// Working hours configuration
-// Monday to Friday: 07:00-12:00 and 13:00-19:00
-// Last session can start at 18:30 (50 min session ends at 19:20, but we allow starting at 18:30)
+// Export for backward compatibility - but components should use useScheduleConfig
 export const WORKING_HOURS = {
-  morning: { start: 7, end: 12 }, // 07:00 - 12:00
-  afternoon: { start: 13, end: 19 }, // 13:00 - 19:00
-  lastSessionStart: { hour: 18, minute: 30 }, // Last session can start at 18:30
-  workDays: [1, 2, 3, 4, 5], // Monday to Friday (0 = Sunday, 6 = Saturday)
-  sessionDuration: 50, // minutes
+  morning: DEFAULT_SCHEDULE_CONFIG.morning,
+  afternoon: DEFAULT_SCHEDULE_CONFIG.afternoon,
+  lastSessionStart: { hour: 18, minute: 30 },
+  workDays: DEFAULT_SCHEDULE_CONFIG.workDays,
+  sessionDuration: DEFAULT_SCHEDULE_CONFIG.sessionDuration,
 };
 
-// Generate all available time slots for a work day
-export const generateTimeSlots = (): string[] => {
+// Generate time slots based on a schedule config
+export const generateTimeSlotsFromConfig = (config: ScheduleConfig): string[] => {
   const slots: string[] = [];
   
-  // Morning slots: 07:00 to 11:30 (last morning session at 11:30)
-  for (let hour = WORKING_HOURS.morning.start; hour < WORKING_HOURS.morning.end; hour++) {
+  // Morning slots
+  for (let hour = config.morning.start; hour < config.morning.end; hour++) {
     slots.push(`${hour.toString().padStart(2, "0")}:00`);
-    if (hour < 11 || (hour === 11 && true)) {
+    if (hour < config.morning.end - 1) {
       slots.push(`${hour.toString().padStart(2, "0")}:30`);
     }
   }
   
-  // Afternoon slots: 13:00 to 18:30 (last afternoon session at 18:30)
-  for (let hour = WORKING_HOURS.afternoon.start; hour <= WORKING_HOURS.lastSessionStart.hour; hour++) {
+  // Afternoon slots (up to 30 min before end for 50min sessions)
+  for (let hour = config.afternoon.start; hour < config.afternoon.end; hour++) {
     slots.push(`${hour.toString().padStart(2, "0")}:00`);
-    if (hour < WORKING_HOURS.lastSessionStart.hour || (hour === WORKING_HOURS.lastSessionStart.hour && WORKING_HOURS.lastSessionStart.minute === 30)) {
+    if (hour < config.afternoon.end - 1) {
       slots.push(`${hour.toString().padStart(2, "0")}:30`);
     }
   }
   
   return slots;
+};
+
+// Default time slots for backward compatibility
+export const generateTimeSlots = (): string[] => {
+  return generateTimeSlotsFromConfig(DEFAULT_SCHEDULE_CONFIG);
 };
 
 export const ALL_TIME_SLOTS = generateTimeSlots();

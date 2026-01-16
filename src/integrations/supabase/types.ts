@@ -87,7 +87,10 @@ export type Database = {
       }
       admin_preferences: {
         Row: {
+          allow_online_booking: boolean | null
           available_days: string[] | null
+          break_end_time: string | null
+          break_start_time: string | null
           created_at: string
           default_session_duration: number | null
           email_notifications: boolean | null
@@ -103,7 +106,10 @@ export type Database = {
           work_start_time: string | null
         }
         Insert: {
+          allow_online_booking?: boolean | null
           available_days?: string[] | null
+          break_end_time?: string | null
+          break_start_time?: string | null
           created_at?: string
           default_session_duration?: number | null
           email_notifications?: boolean | null
@@ -119,7 +125,10 @@ export type Database = {
           work_start_time?: string | null
         }
         Update: {
+          allow_online_booking?: boolean | null
           available_days?: string[] | null
+          break_end_time?: string | null
+          break_start_time?: string | null
           created_at?: string
           default_session_duration?: number | null
           email_notifications?: boolean | null
