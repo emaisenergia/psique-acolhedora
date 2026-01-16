@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield, UserPlus, Key, Loader2 } from "lucide-react";
-import { notifyNewActivity } from "@/lib/notifications";
+import { notifyNewActivity, notifyThreadCommentToPatient } from "@/lib/notifications";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMemo, useState, useEffect, type FormEvent } from "react";
@@ -1720,6 +1720,20 @@ const PatientProfile = () => {
               storage.saveActivities(updatedActivities);
               setActivities(updatedActivities);
               setSelectedActivityForView(updatedActivity);
+              
+              // Send notification to patient about new comment
+              if (supabasePatientId && activityToUpdate.title) {
+                try {
+                  await notifyThreadCommentToPatient(
+                    supabasePatientId,
+                    activityToUpdate.title,
+                    comment
+                  );
+                } catch (error) {
+                  console.error("Error sending thread notification to patient:", error);
+                }
+              }
+              
               toast.success("Comentário adicionado!");
             }
           }}

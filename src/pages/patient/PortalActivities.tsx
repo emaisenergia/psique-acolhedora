@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { usePatientActivities, type PatientActivity, type ThreadComment } from "@/hooks/usePatientData";
+import { useRealtimeUpdates } from "@/hooks/useRealtimeUpdates";
 import { ActivityResponseDialog } from "@/components/activities/ActivityResponseDialog";
 import { PatientActivityThreadDialog } from "@/components/activities/PatientActivityThreadDialog";
-import { notifyActivityResponse } from "@/lib/notifications";
+import { notifyActivityResponse, notifyThreadCommentToPsychologist } from "@/lib/notifications";
 import { toast } from "sonner";
 import {
   Shield,
@@ -45,11 +46,23 @@ const formatDateTimeLong = (iso?: string | null) => {
 const PortalActivities = () => {
   const { logout, patient, isLoading } = usePatientAuth();
   const navigate = useNavigate();
-  const { activities, loading, toggleActivityStatus, updateActivity } = usePatientActivities();
+  const { activities, loading, toggleActivityStatus, updateActivity, fetchActivities } = usePatientActivities();
   const [selectedActivity, setSelectedActivity] = useState<PatientActivity | null>(null);
   const [responseDialogOpen, setResponseDialogOpen] = useState(false);
   const [threadDialogOpen, setThreadDialogOpen] = useState(false);
   const [threadActivity, setThreadActivity] = useState<PatientActivity | null>(null);
+
+  // Add realtime updates for activities
+  const handleActivitiesChange = useCallback(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  useRealtimeUpdates({
+    table: "activities",
+    filter: patient?.id ? `patient_id=eq.${patient.id}` : undefined,
+    onChange: handleActivitiesChange,
+    enabled: !!patient?.id,
+  });
 
   const myActivities = useMemo(() => {
     return [...activities].sort((a, b) => {
@@ -193,6 +206,7 @@ const PortalActivities = () => {
           <div className="flex items-center gap-4 overflow-x-auto pb-3">
             <TabButton label="Visão Geral" icon={Shield} onClick={() => navigate("/portal/app")} />
             <TabButton label="Sessões" icon={Calendar} onClick={() => navigate("/portal/sessoes")} />
+            <TabButton label="Plano de Tratamento" icon={Target} onClick={() => navigate("/portal/plano")} />
             <TabButton label="Atividades" icon={BookOpen} active onClick={() => {}} />
             <TabButton label="Anotações" icon={FileText} onClick={() => navigate("/portal/anotacoes")} />
             <TabButton label="Mensagens" icon={MessageSquare} onClick={() => navigate("/portal/mensagens")} />
@@ -465,6 +479,21 @@ const PortalActivities = () => {
               ...threadActivity,
               feedback_thread: [...currentThread, newComment],
             });
+            
+            // Send notification to psychologist
+            if (patient?.id && threadActivity) {
+              try {
+                await notifyThreadCommentToPsychologist(
+                  patient.id,
+                  threadActivity.title,
+                  patient.name || "Paciente",
+                  comment
+                );
+              } catch (error) {
+                console.error("Error sending thread notification:", error);
+              }
+            }
+            
             toast.success("Comentário enviado!");
           }}
         />
