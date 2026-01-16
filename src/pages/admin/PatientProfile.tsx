@@ -20,6 +20,7 @@ import { SessionsModule } from "@/components/sessions/SessionsModule";
 import { TreatmentPlanTab } from "@/components/treatment/TreatmentPlanTab";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { ActivityResponseViewer } from "@/components/activities/ActivityResponseViewer";
+import { ResourcesTab } from "@/components/resources/ResourcesTab";
 
 type Activity = ActivityType;
 
@@ -814,6 +815,7 @@ const PatientProfile = () => {
           <TabsTrigger value="plano" className="flex-1 rounded-xl"><Target className="w-4 h-4 mr-2"/>Plano de Tratamento</TabsTrigger>
           <TabsTrigger value="sessoes" className="flex-1 rounded-xl"><CalendarDays className="w-4 h-4 mr-2"/>Sessões</TabsTrigger>
           <TabsTrigger value="atividades" className="flex-1 rounded-xl"><BookOpen className="w-4 h-4 mr-2"/>Atividades</TabsTrigger>
+          <TabsTrigger value="recursos" className="flex-1 rounded-xl"><FileText className="w-4 h-4 mr-2"/>Recursos</TabsTrigger>
           <TabsTrigger value="mensagens" className="flex-1 rounded-xl"><MessageSquare className="w-4 h-4 mr-2"/>Mensagens</TabsTrigger>
           <TabsTrigger value="progresso" className="flex-1 rounded-xl"><TrendingUp className="w-4 h-4 mr-2"/>Progresso</TabsTrigger>
           <TabsTrigger value="financeiro" className="flex-1 rounded-xl"><DollarSign className="w-4 h-4 mr-2"/>Financeiro</TabsTrigger>
@@ -1275,6 +1277,9 @@ const PatientProfile = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+        <TabsContent value="recursos" className="mt-6">
+          <ResourcesTab patientId={supabasePatientId || patient.id} />
         </TabsContent>
         <TabsContent value="mensagens" className="mt-6">
           <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">
