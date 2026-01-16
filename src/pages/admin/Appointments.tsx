@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSessionPackages } from "@/hooks/useSessionPackages";
 import { DailyTimeGrid } from "@/components/appointments/DailyTimeGrid";
 import { BlockTimeDialog, type BlockType } from "@/components/appointments/BlockTimeDialog";
+import { EditBlockDialog } from "@/components/appointments/EditBlockDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const weekOptions = { weekStartsOn: 0 as const };
@@ -110,6 +111,8 @@ const Appointments = () => {
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockDialogInitialDate, setBlockDialogInitialDate] = useState<Date | undefined>();
   const [blockDialogInitialTime, setBlockDialogInitialTime] = useState<string | undefined>();
+  const [editBlockDialogOpen, setEditBlockDialogOpen] = useState(false);
+  const [editingBlockAppointment, setEditingBlockAppointment] = useState<AppointmentRow | null>(null);
 
   const isLoading = appointmentsLoading || patientsLoading;
 
@@ -261,6 +264,32 @@ const Appointments = () => {
     setBlockDialogInitialDate(date);
     setBlockDialogInitialTime(time);
     setBlockDialogOpen(true);
+  };
+
+  const openEditBlockDialog = (appointment: AppointmentRow) => {
+    setEditingBlockAppointment(appointment);
+    setEditBlockDialogOpen(true);
+  };
+
+  const updateBlockOrPersonal = async (id: string, data: {
+    appointment_type: AppointmentType;
+    block_reason: string;
+    duration_minutes: number;
+  }) => {
+    await updateAppointment(id, {
+      appointment_type: data.appointment_type,
+      block_reason: data.block_reason,
+      duration_minutes: data.duration_minutes,
+    }, false); // Don't send notification
+  };
+
+  const handleAppointmentClick = (appt: AppointmentRow) => {
+    const apptType = appt.appointment_type as AppointmentType;
+    if (apptType === "blocked" || apptType === "personal") {
+      openEditBlockDialog(appt);
+    } else {
+      startEditing(appt.id);
+    }
   };
 
   const patientMap = useMemo(() => Object.fromEntries(patients.map((p) => [p.id, p.name])), [patients]);
@@ -627,7 +656,7 @@ const Appointments = () => {
               });
               setShowCreateForm(true);
             }}
-            onAppointmentClick={(appt) => startEditing(appt.id)}
+            onAppointmentClick={handleAppointmentClick}
           />
           
           {/* Date navigation for grid view */}
@@ -1538,6 +1567,18 @@ const Appointments = () => {
         initialDate={blockDialogInitialDate}
         initialTime={blockDialogInitialTime}
         appointments={appointments}
+      />
+
+      {/* Edit Block Dialog */}
+      <EditBlockDialog
+        open={editBlockDialogOpen}
+        onClose={() => {
+          setEditBlockDialogOpen(false);
+          setEditingBlockAppointment(null);
+        }}
+        onSave={updateBlockOrPersonal}
+        onDelete={deleteAppointment}
+        appointment={editingBlockAppointment}
       />
     </AdminLayout>
   );
