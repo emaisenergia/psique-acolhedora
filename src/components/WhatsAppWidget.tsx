@@ -8,7 +8,7 @@ const WhatsAppWidget = () => {
   const [hasNewMessage, setHasNewMessage] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  const phoneNumber = '5511999999999'; // Substituir pelo número real
+  const phoneNumber = '5545991244303';
   const message = encodeURIComponent('Olá! Gostaria de agendar uma consulta.');
   const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
 
