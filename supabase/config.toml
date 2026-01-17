@@ -17,3 +17,15 @@ verify_jwt = false
 
 [functions.generate-treatment-plan]
 verify_jwt = false
+
+[functions.ai-agent]
+verify_jwt = false
+
+[functions.google-calendar-auth]
+verify_jwt = false
+
+[functions.google-calendar-sync]
+verify_jwt = false
+
+[functions.appointment-actions]
+verify_jwt = false
