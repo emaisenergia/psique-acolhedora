@@ -1,16 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, ArrowRight, Sparkles } from 'lucide-react';
+import { MessageCircle, X, ArrowRight, Sparkles, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { useScheduleConfig } from '@/hooks/useScheduleConfig';
 
 const WhatsAppWidget = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [customMessage, setCustomMessage] = useState('');
+
+  const { scheduleConfig, isWithinWorkingHours, isWorkDay } = useScheduleConfig();
 
   const phoneNumber = '5545991244303';
-  const message = encodeURIComponent('Olá! Gostaria de agendar uma consulta.');
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+
+  const isClinicOpen = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    if (!isWorkDay(dayOfWeek)) return false;
+    return isWithinWorkingHours(hours, minutes);
+  }, [isWorkDay, isWithinWorkingHours]);
+
+  const whatsappUrl = useMemo(() => {
+    const finalMessage = customMessage.trim() || 'Olá! Gostaria de agendar uma consulta.';
+    return `https://wa.me/${phoneNumber}?text=${encodeURIComponent(finalMessage)}`;
+  }, [customMessage]);
+
+  const getWorkingHoursText = () => {
+    const days = scheduleConfig.workDays;
+    const hasWeekdays = days.includes(1) && days.includes(5);
+    const dayText = hasWeekdays ? 'Seg-Sex' : 'Dias úteis';
+    
+    const startHour = scheduleConfig.morning.start;
+    const endHour = scheduleConfig.afternoon.end;
+    
+    return `${dayText}, ${startHour}h às ${endHour}h`;
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -55,7 +84,12 @@ const WhatsAppWidget = () => {
               </div>
               <div className="flex-1 text-white">
                 <p className="font-semibold text-sm">Clínica Equanimité</p>
-                <p className="text-xs text-white/80">Online agora</p>
+                <div className="flex items-center gap-1.5 text-xs text-white/90">
+                  <span 
+                    className={`w-2 h-2 rounded-full ${isClinicOpen ? 'bg-white animate-pulse' : 'bg-white/50'}`} 
+                  />
+                  <span>{isClinicOpen ? 'Online agora' : 'Responderemos em breve'}</span>
+                </div>
               </div>
               <button 
                 onClick={() => setIsExpanded(false)}
@@ -94,8 +128,19 @@ const WhatsAppWidget = () => {
               </motion.div>
             </div>
 
+            {/* Custom Message Input */}
+            <div className="px-4 pb-2">
+              <Textarea
+                placeholder="Digite sua mensagem..."
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                className="resize-none text-sm min-h-[60px] bg-muted/50 border-border/50 focus:border-primary/50"
+                rows={2}
+              />
+            </div>
+
             {/* CTA Button */}
-            <div className="p-4 pt-0">
+            <div className="p-4 pt-2">
               <a
                 href={whatsappUrl}
                 target="_blank"
@@ -108,6 +153,14 @@ const WhatsAppWidget = () => {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </a>
+              
+              {/* Working Hours Info */}
+              {!isClinicOpen && (
+                <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Atendimento: {getWorkingHoursText()}</span>
+                </div>
+              )}
             </div>
           </motion.div>
         )}
