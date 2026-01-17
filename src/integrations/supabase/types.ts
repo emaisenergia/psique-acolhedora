@@ -329,6 +329,44 @@ export type Database = {
           },
         ]
       }
+      appointment_action_tokens: {
+        Row: {
+          action_type: string
+          appointment_id: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          action_type: string
+          appointment_id: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          action_type?: string
+          appointment_id?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_action_tokens_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           appointment_type: string | null
@@ -336,6 +374,7 @@ export type Database = {
           created_at: string
           date_time: string
           duration_minutes: number
+          google_event_id: string | null
           id: string
           meeting_url: string | null
           mode: string
@@ -355,6 +394,7 @@ export type Database = {
           created_at?: string
           date_time: string
           duration_minutes?: number
+          google_event_id?: string | null
           id?: string
           meeting_url?: string | null
           mode?: string
@@ -374,6 +414,7 @@ export type Database = {
           created_at?: string
           date_time?: string
           duration_minutes?: number
+          google_event_id?: string | null
           id?: string
           meeting_url?: string | null
           mode?: string
@@ -576,6 +617,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      google_calendar_tokens: {
+        Row: {
+          access_token: string
+          calendar_id: string | null
+          created_at: string | null
+          id: string
+          refresh_token: string
+          sync_enabled: boolean | null
+          token_expires_at: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          calendar_id?: string | null
+          created_at?: string | null
+          id?: string
+          refresh_token: string
+          sync_enabled?: boolean | null
+          token_expires_at: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          calendar_id?: string | null
+          created_at?: string | null
+          id?: string
+          refresh_token?: string
+          sync_enabled?: boolean | null
+          token_expires_at?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       homework_templates: {
         Row: {
