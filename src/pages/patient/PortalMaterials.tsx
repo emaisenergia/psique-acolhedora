@@ -17,10 +17,13 @@ import {
   Music,
   ExternalLink,
   FolderOpen,
+  Play,
+  Maximize2,
 } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { useNavigate } from "react-router-dom";
 import { useTherapeuticResources, TherapeuticResourceRow } from "@/hooks/useTherapeuticResources";
+import { useResourceViews } from "@/hooks/useResourceViews";
 
 const CATEGORY_LABELS: Record<string, string> = {
   psicoeducacao: "Psicoeducação",
@@ -40,16 +43,45 @@ const TYPE_ICONS: Record<string, typeof Link2> = {
 
 interface ResourceCardProps {
   resource: TherapeuticResourceRow;
+  patientId?: string;
 }
 
-function PatientResourceCard({ resource }: ResourceCardProps) {
+function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
   const Icon = TYPE_ICONS[resource.resource_type] || FileText;
+  const { recordView } = useResourceViews();
+  const [pdfExpanded, setPdfExpanded] = useState(false);
+  const [hasRecordedView, setHasRecordedView] = useState(false);
 
-  const handleOpen = () => {
+  const handleOpen = async () => {
     if (resource.resource_url) {
+      if (!hasRecordedView) {
+        await recordView(resource.id, patientId);
+        setHasRecordedView(true);
+      }
       window.open(resource.resource_url, "_blank", "noopener,noreferrer");
     }
   };
+
+  const handleAudioPlay = async () => {
+    if (!hasRecordedView) {
+      await recordView(resource.id, patientId);
+      setHasRecordedView(true);
+    }
+  };
+
+  const handlePdfLoad = async () => {
+    if (!hasRecordedView) {
+      await recordView(resource.id, patientId);
+      setHasRecordedView(true);
+    }
+  };
+
+  const isPdf = resource.resource_type === 'pdf';
+  const isAudio = resource.resource_type === 'audio';
+  const isVideo = resource.resource_type === 'video';
+
+  // Check if URL is a YouTube embed
+  const isYouTubeEmbed = resource.resource_url?.includes('youtube.com') || resource.resource_url?.includes('youtu.be');
 
   return (
     <Card className="bg-white/95 border border-border/60 rounded-2xl hover:shadow-soft transition-all">
@@ -78,7 +110,85 @@ function PatientResourceCard({ resource }: ResourceCardProps) {
           </div>
         </div>
 
-        {resource.resource_url && (
+        {/* Audio Player Inline */}
+        {isAudio && resource.resource_url && (
+          <div className="mt-4">
+            <div className="bg-muted/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+                <Play className="w-4 h-4" />
+                <span>Reproduzir áudio</span>
+              </div>
+              <audio 
+                controls 
+                className="w-full h-10"
+                onPlay={handleAudioPlay}
+                preload="metadata"
+              >
+                <source src={resource.resource_url} type="audio/mpeg" />
+                <source src={resource.resource_url} type="audio/wav" />
+                <source src={resource.resource_url} type="audio/ogg" />
+                Seu navegador não suporta o elemento de áudio.
+              </audio>
+            </div>
+          </div>
+        )}
+
+        {/* PDF Preview Inline */}
+        {isPdf && resource.resource_url && (
+          <div className="mt-4 space-y-3">
+            <div 
+              className={`rounded-lg overflow-hidden border bg-muted/30 transition-all ${
+                pdfExpanded ? 'h-[500px]' : 'h-64'
+              }`}
+            >
+              <iframe
+                src={`${resource.resource_url}#toolbar=1&navpanes=0&scrollbar=1`}
+                className="w-full h-full border-0"
+                title={resource.title}
+                onLoad={handlePdfLoad}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setPdfExpanded(!pdfExpanded)}
+                className="flex-1"
+              >
+                <Maximize2 className="w-4 h-4 mr-2" />
+                {pdfExpanded ? 'Reduzir' : 'Expandir'}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleOpen}
+                className="flex-1"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Abrir em nova aba
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* YouTube Video Embed */}
+        {isVideo && isYouTubeEmbed && resource.resource_url && (
+          <div className="mt-4">
+            <div className="rounded-lg overflow-hidden border bg-muted/30 aspect-video">
+              <iframe
+                src={getYouTubeEmbedUrl(resource.resource_url)}
+                className="w-full h-full border-0"
+                title={resource.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                onLoad={handlePdfLoad}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Default button for links and non-embeddable videos */}
+        {resource.resource_url && !isAudio && !isPdf && !(isVideo && isYouTubeEmbed) && (
           <Button
             onClick={handleOpen}
             className="w-full mt-4"
@@ -91,6 +201,27 @@ function PatientResourceCard({ resource }: ResourceCardProps) {
       </CardContent>
     </Card>
   );
+}
+
+// Helper function to convert YouTube URLs to embed format
+function getYouTubeEmbedUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    let videoId = '';
+    
+    if (urlObj.hostname.includes('youtube.com')) {
+      videoId = urlObj.searchParams.get('v') || '';
+    } else if (urlObj.hostname.includes('youtu.be')) {
+      videoId = urlObj.pathname.slice(1);
+    }
+    
+    if (videoId) {
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+  } catch {
+    // If URL parsing fails, return original
+  }
+  return url;
 }
 
 const PortalMaterials = () => {
@@ -265,7 +396,11 @@ const PortalMaterials = () => {
           ) : filteredResources.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredResources.map((resource) => (
-                <PatientResourceCard key={resource.id} resource={resource} />
+                <PatientResourceCard 
+                  key={resource.id} 
+                  resource={resource} 
+                  patientId={patient?.id}
+                />
               ))}
             </div>
           ) : (

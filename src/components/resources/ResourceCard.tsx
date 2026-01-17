@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ExternalLink, Eye, EyeOff, FileText, Link2, MoreVertical, Music, Pencil, Trash2, Video } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, FileText, Link2, MoreVertical, Music, Pencil, Trash2, Video, BarChart3 } from "lucide-react";
 import type { TherapeuticResourceRow } from "@/hooks/useTherapeuticResources";
 
 interface ResourceCardProps {
@@ -54,13 +54,19 @@ export function ResourceCard({ resource, onEdit, onDelete, onToggleVisibility }:
                   {resource.description}
                 </p>
               )}
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Badge variant="outline" className="text-xs">
                   {CATEGORY_LABELS[resource.category] || resource.category}
                 </Badge>
                 {resource.patient_id === null && (
                   <Badge variant="secondary" className="text-xs">
                     Global
+                  </Badge>
+                )}
+                {(resource.view_count ?? 0) > 0 && (
+                  <Badge variant="secondary" className="text-xs gap-1">
+                    <BarChart3 className="w-3 h-3" />
+                    {resource.view_count} {resource.view_count === 1 ? 'visualização' : 'visualizações'}
                   </Badge>
                 )}
               </div>

@@ -13,6 +13,7 @@ export interface TherapeuticResourceRow {
   resource_file_name: string | null;
   category: string;
   is_visible: boolean;
+  view_count: number;
   created_at: string;
   updated_at: string;
 }

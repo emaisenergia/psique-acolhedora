@@ -785,6 +785,42 @@ export type Database = {
         }
         Relationships: []
       }
+      resource_views: {
+        Row: {
+          id: string
+          patient_id: string | null
+          resource_id: string
+          viewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          patient_id?: string | null
+          resource_id: string
+          viewed_at?: string | null
+        }
+        Update: {
+          id?: string
+          patient_id?: string | null
+          resource_id?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_views_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_views_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "therapeutic_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       secure_messages: {
         Row: {
           author: string
@@ -1041,6 +1077,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          view_count: number | null
         }
         Insert: {
           category?: string | null
@@ -1055,6 +1092,7 @@ export type Database = {
           title: string
           updated_at?: string
           user_id: string
+          view_count?: number | null
         }
         Update: {
           category?: string | null
@@ -1069,6 +1107,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          view_count?: number | null
         }
         Relationships: []
       }
