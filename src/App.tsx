@@ -33,6 +33,9 @@ import Arquivos from "@/pages/admin/Arquivos";
 import Prontuarios from "@/pages/admin/Prontuarios";
 import Configuracoes from "@/pages/admin/Configuracoes";
 import TarefasCasa from "@/pages/admin/TarefasCasa";
+import ConfirmAppointment from "@/pages/appointment/ConfirmAppointment";
+import CancelAppointment from "@/pages/appointment/CancelAppointment";
+import RescheduleAppointment from "@/pages/appointment/RescheduleAppointment";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +63,10 @@ const App = () => (
               <Route path="/portal/anotacoes" element={<PatientProtectedRoute><PortalNotes /></PatientProtectedRoute>} />
               <Route path="/portal/mensagens" element={<PatientProtectedRoute><PortalMessages /></PatientProtectedRoute>} />
               <Route path="/portal/materiais" element={<PatientProtectedRoute><PortalMaterials /></PatientProtectedRoute>} />
+              {/* Public Appointment Action Routes */}
+              <Route path="/agendamento/confirmar" element={<ConfirmAppointment />} />
+              <Route path="/agendamento/cancelar" element={<CancelAppointment />} />
+              <Route path="/agendamento/reagendar" element={<RescheduleAppointment />} />
               <Route path="/admin/login" element={<Login />} />
               <Route path="/admin" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/admin/pacientes" element={<ProtectedRoute roles={["psychologist","admin"]}><Patients /></ProtectedRoute>} />
