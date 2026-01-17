@@ -18,6 +18,8 @@ import { useAdminAuth } from "@/context/AdminAuth";
 import PackageAlerts from "@/components/alerts/PackageAlerts";
 import { usePatients } from "@/hooks/usePatients";
 import { useAppointments } from "@/hooks/useAppointments";
+import { AppointmentMetricsCard } from "@/components/dashboard/AppointmentMetricsCard";
+import { addMonths, format, startOfMonth } from "date-fns";
 
 const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) => (
   <Card className="card-glass">
@@ -42,6 +44,8 @@ const Dashboard = () => {
   const pad = (n: number) => String(n).padStart(2, "0");
   const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const monthPrefix = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const previousMonth = addMonths(startOfMonth(now), -1);
+  const previousMonthPrefix = format(previousMonth, "yyyy-MM");
 
   const dayAppts = useMemo(
     () =>
@@ -132,6 +136,15 @@ const Dashboard = () => {
         <Stat icon={Users} label="Pacientes Ativos" value={pacientesAtivos} />
         <Stat icon={Wallet} label="Receita Mensal" value={brl.format(receitaMensal)} />
         <Stat icon={CheckCircle2} label="Sessões Concluídas" value={sessoesConcluidas} />
+      </div>
+
+      {/* Métricas de Agendamentos */}
+      <div className="mb-8">
+        <AppointmentMetricsCard
+          appointments={appointments}
+          monthPrefix={monthPrefix}
+          previousMonthPrefix={previousMonthPrefix}
+        />
       </div>
 
       {/* Alertas de Pacotes */}
