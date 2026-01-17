@@ -384,6 +384,7 @@ export type Database = {
           payment_type: string | null
           payment_value: number | null
           psychologist_id: string | null
+          rescheduled_from: string | null
           service: string | null
           status: string
           updated_at: string
@@ -404,6 +405,7 @@ export type Database = {
           payment_type?: string | null
           payment_value?: number | null
           psychologist_id?: string | null
+          rescheduled_from?: string | null
           service?: string | null
           status?: string
           updated_at?: string
@@ -424,6 +426,7 @@ export type Database = {
           payment_type?: string | null
           payment_value?: number | null
           psychologist_id?: string | null
+          rescheduled_from?: string | null
           service?: string | null
           status?: string
           updated_at?: string
@@ -441,6 +444,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_rescheduled_from_fkey"
+            columns: ["rescheduled_from"]
+            isOneToOne: false
+            referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
         ]
@@ -861,6 +871,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      reminder_logs: {
+        Row: {
+          appointment_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          reminder_type: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          reminder_type: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          reminder_type?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_logs_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       resource_views: {
         Row: {
