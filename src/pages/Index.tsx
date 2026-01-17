@@ -2,6 +2,7 @@ import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import AboutSection from '@/components/AboutSection';
 import ServicesSection from '@/components/ServicesSection';
+import TherapyProcessSection from '@/components/TherapyProcessSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import BookingSection from '@/components/BookingSection';
 import FAQSection from '@/components/FAQSection';
@@ -9,7 +10,7 @@ import BlogSection from '@/components/BlogSection';
 import ContactSection from '@/components/ContactSection';
 import Footer from '@/components/Footer';
 import ScrollToTop from '@/components/ScrollToTop';
-import WhatsAppButton from '@/components/WhatsAppButton';
+import WhatsAppWidget from '@/components/WhatsAppWidget';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -33,6 +34,7 @@ const Index = () => {
         <HeroSection />
         <AboutSection />
         <ServicesSection />
+        <TherapyProcessSection />
         <TestimonialsSection />
         <BookingSection />
         <FAQSection />
@@ -41,7 +43,7 @@ const Index = () => {
       </main>
       <Footer />
       <ScrollToTop />
-      <WhatsAppButton />
+      <WhatsAppWidget />
     </div>
   );
 };

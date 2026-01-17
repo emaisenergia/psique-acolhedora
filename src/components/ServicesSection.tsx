@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { 
   Users, 
   Video, 
@@ -9,9 +10,15 @@ import {
   Clock
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 const ServicesSection = () => {
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start end", "end start"]
+  });
+
   const services = [
     {
       icon: UserCheck,
@@ -69,30 +76,6 @@ const ServicesSection = () => {
     }
   ];
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
-  };
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 40, scale: 0.95 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: 0.5,
-        ease: "easeOut" as const,
-      },
-    },
-  };
-
   const headerVariants = {
     hidden: { opacity: 0, y: 30 },
     visible: {
@@ -105,10 +88,21 @@ const ServicesSection = () => {
     },
   };
 
+  // Parallax values for cards
+  const parallaxOffsets = [
+    useTransform(scrollYProgress, [0, 1], [40, -40]),
+    useTransform(scrollYProgress, [0, 1], [60, -60]),
+    useTransform(scrollYProgress, [0, 1], [30, -30]),
+    useTransform(scrollYProgress, [0, 1], [50, -50]),
+    useTransform(scrollYProgress, [0, 1], [35, -35]),
+    useTransform(scrollYProgress, [0, 1], [55, -55]),
+  ];
+
   return (
     <section 
       id="servicos" 
-      className="py-24 section-gradient"
+      ref={sectionRef}
+      className="py-24 section-gradient overflow-hidden"
     >
       <div className="container mx-auto px-4">
         {/* Header */}
@@ -137,28 +131,45 @@ const ServicesSection = () => {
           </p>
         </motion.div>
 
-        {/* Services Grid */}
-        <motion.div 
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-50px" }}
-        >
-          {services.map((service) => (
+        {/* Services Grid with Parallax */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
+          {services.map((service, index) => (
             <motion.div
               key={service.title}
-              variants={cardVariants}
-              whileHover={{ 
-                y: -8, 
-                transition: { duration: 0.3 } 
+              style={{ y: parallaxOffsets[index] }}
+              initial={{ opacity: 0, y: 60, rotateX: 15 }}
+              whileInView={{ 
+                opacity: 1, 
+                y: 0, 
+                rotateX: 0,
+                transition: {
+                  duration: 0.7,
+                  delay: index * 0.1,
+                  ease: [0.25, 0.4, 0.25, 1],
+                }
               }}
+              viewport={{ once: true, margin: "-50px" }}
+              whileHover={{ 
+                y: -12, 
+                scale: 1.02,
+                transition: { 
+                  type: "spring", 
+                  stiffness: 300,
+                  damping: 20 
+                }
+              }}
+              className="perspective-1000"
             >
-              <Card className="card-glass hover:shadow-hover transition-all duration-300 h-full">
-                <CardContent className="p-8">
+              <Card className="card-glass hover:shadow-hover transition-all duration-300 h-full group relative overflow-hidden">
+                {/* Shine effect on hover */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                </div>
+                
+                <CardContent className="p-8 relative z-10">
                   <div className="mb-6">
                     <motion.div 
-                      className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mb-4"
+                      className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center mb-4 shadow-soft"
                       whileHover={{ 
                         scale: 1.1, 
                         rotate: 5,
@@ -167,7 +178,7 @@ const ServicesSection = () => {
                     >
                       <service.icon className="w-8 h-8 text-primary-foreground" />
                     </motion.div>
-                    <h3 className="text-xl font-semibold text-foreground mb-3">
+                    <h3 className="text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors duration-300">
                       {service.title}
                     </h3>
                     <p className="text-muted-foreground leading-relaxed mb-4">
@@ -182,7 +193,7 @@ const ServicesSection = () => {
                         className="flex items-center space-x-2 text-sm"
                         initial={{ opacity: 0, x: -10 }}
                         whileInView={{ opacity: 1, x: 0 }}
-                        transition={{ delay: idx * 0.1 }}
+                        transition={{ delay: 0.3 + idx * 0.1 }}
                         viewport={{ once: true }}
                       >
                         <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
@@ -194,7 +205,7 @@ const ServicesSection = () => {
               </Card>
             </motion.div>
           ))}
-        </motion.div>
+        </div>
 
         {/* Differentials */}
         <motion.div
@@ -209,19 +220,26 @@ const ServicesSection = () => {
             Nossos Diferenciais
           </motion.h3>
           
-          <motion.div 
-            className="grid md:grid-cols-3 gap-8"
-            variants={containerVariants}
-          >
-            {differentials.map((differential) => (
+          <div className="grid md:grid-cols-3 gap-8">
+            {differentials.map((differential, index) => (
               <motion.div 
                 key={differential.title}
-                className="text-center"
-                variants={cardVariants}
+                className="text-center group"
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ 
+                  opacity: 1, 
+                  y: 0,
+                  transition: {
+                    duration: 0.6,
+                    delay: index * 0.15,
+                    ease: "easeOut"
+                  }
+                }}
+                viewport={{ once: true }}
                 whileHover={{ scale: 1.05 }}
               >
                 <motion.div 
-                  className="w-20 h-20 bg-gradient-secondary rounded-full flex items-center justify-center mx-auto mb-4"
+                  className="w-20 h-20 bg-gradient-secondary rounded-full flex items-center justify-center mx-auto mb-4 shadow-soft"
                   whileHover={{ 
                     rotate: 360,
                     transition: { duration: 0.8 }
@@ -229,7 +247,7 @@ const ServicesSection = () => {
                 >
                   <differential.icon className="w-10 h-10 text-secondary-foreground" />
                 </motion.div>
-                <h4 className="text-xl font-semibold text-foreground mb-3">
+                <h4 className="text-xl font-semibold text-foreground mb-3 group-hover:text-primary transition-colors duration-300">
                   {differential.title}
                 </h4>
                 <p className="text-muted-foreground leading-relaxed">
@@ -237,7 +255,7 @@ const ServicesSection = () => {
                 </p>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </motion.div>
       </div>
     </section>
