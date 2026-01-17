@@ -21,7 +21,12 @@ import {
   Users as UsersIcon,
   Trash2,
   Loader2,
+  Link2,
+  CheckCircle2,
+  XCircle,
+  Calendar,
 } from "lucide-react";
+import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useAdminAuth } from "@/context/AdminAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminPreferences, type AdminPreferences } from "@/hooks/useAdminPreferences";
@@ -75,6 +80,16 @@ const Configuracoes = () => {
   const { user, updateUser } = useAdminAuth();
   const { toast } = useToast();
   const { preferences, loading: prefsLoading, saving: prefsSaving, savePreferences, refreshPreferences } = useAdminPreferences();
+  const { 
+    isConnected: calendarConnected, 
+    syncEnabled: calendarSyncEnabled, 
+    lastSync: calendarLastSync,
+    isLoading: calendarLoading,
+    isConnecting: calendarConnecting,
+    connect: connectCalendar, 
+    disconnect: disconnectCalendar, 
+    toggleSync: toggleCalendarSync 
+  } = useGoogleCalendar();
 
   const [profileForm, setProfileForm] = useState({ ...emptyProfile });
   const [passwordForm, setPasswordForm] = useState({ ...emptyPassword });
@@ -288,6 +303,7 @@ const Configuracoes = () => {
               <TabsTrigger value="profile">Perfil</TabsTrigger>
               <TabsTrigger value="security">Segurança</TabsTrigger>
               <TabsTrigger value="schedule">Agenda</TabsTrigger>
+              <TabsTrigger value="integrations">Integrações</TabsTrigger>
               <TabsTrigger value="users">Usuários</TabsTrigger>
               <TabsTrigger value="insurance">Convênios</TabsTrigger>
             </TabsList>
@@ -665,6 +681,116 @@ const Configuracoes = () => {
                   </form>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="integrations">
+              <div className="space-y-6">
+                <Card className="card-glass">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <Link2 className="w-5 h-5 text-primary" />
+                      <CardTitle className="text-xl">Integrações</CardTitle>
+                    </div>
+                    <CardDescription>Conecte serviços externos para sincronização automática.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Google Calendar Integration */}
+                    <div className="rounded-lg border border-border/60 p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Calendar className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">Google Calendar</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Sincronize agendamentos automaticamente
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {calendarLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          ) : calendarConnected ? (
+                            <Badge variant="default" className="gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Conectado
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <XCircle className="w-3 h-3" />
+                              Desconectado
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {calendarConnected ? (
+                        <div className="space-y-4 pt-2 border-t border-border/40">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium">Sincronização automática</p>
+                              <p className="text-xs text-muted-foreground">
+                                Novos agendamentos são enviados ao Google Calendar
+                              </p>
+                            </div>
+                            <Switch
+                              checked={calendarSyncEnabled}
+                              onCheckedChange={toggleCalendarSync}
+                              disabled={calendarLoading}
+                            />
+                          </div>
+
+                          {calendarLastSync && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <RefreshCcw className="w-3 h-3" />
+                              Última sincronização: {new Date(calendarLastSync).toLocaleString('pt-BR')}
+                            </div>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={disconnectCalendar}
+                            disabled={calendarLoading}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            Desconectar
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="pt-2 border-t border-border/40">
+                          <Button
+                            onClick={connectCalendar}
+                            disabled={calendarConnecting || calendarLoading}
+                            className="btn-futuristic gap-2"
+                          >
+                            {calendarConnecting ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Conectando...
+                              </>
+                            ) : (
+                              <>
+                                <Calendar className="w-4 h-4" />
+                                Conectar Google Calendar
+                              </>
+                            )}
+                          </Button>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Você será redirecionado para autorizar o acesso ao Google Calendar.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Placeholder for future integrations */}
+                    <div className="rounded-lg border border-dashed border-border/60 p-4 text-center text-muted-foreground">
+                      <p className="text-sm">Mais integrações em breve...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="users">

@@ -35,7 +35,10 @@ const formatTimeForEmail = (dateString: string) => {
   }
 };
 
-export const useAppointments = () => {
+export type CalendarSyncAction = 'create' | 'update' | 'delete';
+export type CalendarSyncFn = (appointmentId: string, action: CalendarSyncAction) => Promise<void>;
+
+export const useAppointments = (syncCalendar?: CalendarSyncFn) => {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -79,6 +82,11 @@ export const useAppointments = () => {
       if (error) throw error;
       
       setAppointments((prev) => [...prev, data]);
+      
+      // Sync to Google Calendar if function provided
+      if (syncCalendar && data.appointment_type === 'session') {
+        syncCalendar(data.id, 'create').catch(console.error);
+      }
       
       // Send notification email
       if (sendNotification && data.date_time) {
@@ -128,9 +136,14 @@ export const useAppointments = () => {
         prev.map((appt) => (appt.id === id ? data : appt))
       );
       
+      // Sync to Google Calendar if function provided and date/time changed
+      const dateChanged = original?.date_time !== data.date_time;
+      if (syncCalendar && dateChanged && data.appointment_type === 'session') {
+        syncCalendar(data.id, 'update').catch(console.error);
+      }
+      
       // Send notification for significant changes
       if (sendNotification && data.date_time) {
-        const dateChanged = original?.date_time !== data.date_time;
         const statusChanged = original?.status !== data.status;
         
         if (data.status === "cancelled" && statusChanged) {
@@ -181,6 +194,11 @@ export const useAppointments = () => {
     try {
       // Get the appointment before deleting to send notification
       const appointment = appointments.find((a) => a.id === id);
+      
+      // Sync deletion to Google Calendar first
+      if (syncCalendar && appointment?.appointment_type === 'session') {
+        await syncCalendar(id, 'delete').catch(console.error);
+      }
       
       const { error } = await supabase
         .from("appointments")
