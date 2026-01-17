@@ -196,7 +196,36 @@ const BookingSection = () => {
         return;
       }
 
-      // Create appointment
+      // Check if patient already exists by email
+      const { data: existingPatient } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('email', formData.email.trim().toLowerCase())
+        .maybeSingle();
+
+      let patientId = existingPatient?.id;
+
+      // If patient doesn't exist, create a new one
+      if (!patientId) {
+        const { data: newPatient, error: patientError } = await supabase
+          .from('patients')
+          .insert({
+            name: formData.nome.trim(),
+            email: formData.email.trim().toLowerCase(),
+            phone: formData.telefone.trim(),
+            status: 'active'
+          })
+          .select('id')
+          .single();
+
+        if (patientError) {
+          console.error('Error creating patient:', patientError);
+          throw new Error('Erro ao cadastrar paciente');
+        }
+        patientId = newPatient?.id;
+      }
+
+      // Create appointment with patient_id
       const { error } = await supabase
         .from('appointments')
         .insert({
@@ -206,7 +235,8 @@ const BookingSection = () => {
           service: serviceTypes.find(s => s.id === selectedService)?.name,
           status: 'scheduled',
           appointment_type: 'session',
-          notes: `Agendamento online - Nome: ${formData.nome}, Email: ${formData.email}, Telefone: ${formData.telefone}`
+          patient_id: patientId,
+          notes: `Agendamento online`
         });
 
       if (error) throw error;

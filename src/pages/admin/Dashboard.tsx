@@ -1,5 +1,7 @@
 import AdminLayout from "./AdminLayout";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   Users,
   CalendarDays,
@@ -19,7 +21,8 @@ import PackageAlerts from "@/components/alerts/PackageAlerts";
 import { usePatients } from "@/hooks/usePatients";
 import { useAppointments } from "@/hooks/useAppointments";
 import { AppointmentMetricsCard } from "@/components/dashboard/AppointmentMetricsCard";
-import { addMonths, format, startOfMonth } from "date-fns";
+import { addMonths, format, startOfMonth, addDays, parseISO, getMonth, getDate } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) => (
   <Card className="card-glass">
@@ -89,6 +92,29 @@ const Dashboard = () => {
   const previsaoTotal = faturadoMes + pendenteMes; // sessões não canceladas
   const sessoesPagasMes = monthAppts.filter((a) => a.status === "done").length;
   const valorMedio = sessoesPagasMes ? faturadoMes / sessoesPagasMes : 0;
+
+  // Próximos aniversariantes (próximos 14 dias)
+  const upcomingBirthdays = useMemo(() => {
+    const today = new Date();
+    const in14Days = addDays(today, 14);
+    
+    return patients
+      .filter(p => p.birth_date && p.status === 'active')
+      .map(p => {
+        const birthDate = parseISO(p.birth_date!);
+        const thisYearBday = new Date(today.getFullYear(), getMonth(birthDate), getDate(birthDate));
+        
+        // Se o aniversário deste ano já passou, considera o próximo ano
+        if (thisYearBday < today) {
+          thisYearBday.setFullYear(today.getFullYear() + 1);
+        }
+        
+        return { ...p, nextBirthday: thisYearBday };
+      })
+      .filter(p => p.nextBirthday >= today && p.nextBirthday <= in14Days)
+      .sort((a, b) => a.nextBirthday.getTime() - b.nextBirthday.getTime())
+      .slice(0, 5);
+  }, [patients]);
 
   return (
     <AdminLayout>
@@ -250,17 +276,55 @@ const Dashboard = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Próximos Aniversariantes</h2>
+              <Badge variant="outline" className="text-xs">
+                {upcomingBirthdays.length} próximo(s)
+              </Badge>
             </div>
-            <div className="text-center p-8 rounded-xl border border-dashed border-border">
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <Cake className="w-6 h-6 text-primary" />
+            {upcomingBirthdays.length === 0 ? (
+              <div className="text-center p-8 rounded-xl border border-dashed border-border">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <Cake className="w-6 h-6 text-primary" />
+                </div>
+                <div className="font-medium mb-1">Nenhum aniversário próximo</div>
+                <p className="text-sm text-muted-foreground mb-4">Cadastre as datas de nascimento para receber lembretes</p>
+                <Button asChild variant="outline" className="btn-outline-futuristic">
+                  <Link to="/admin/pacientes">Gerenciar Pacientes</Link>
+                </Button>
               </div>
-              <div className="font-medium mb-1">Nenhum aniversário próximo</div>
-              <p className="text-sm text-muted-foreground mb-4">Cadastre as datas de nascimento para receber lembretes</p>
-              <Button asChild variant="outline" className="btn-outline-futuristic">
-                <Link to="/admin/pacientes">Gerenciar Pacientes</Link>
-              </Button>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {upcomingBirthdays.map((p) => {
+                  const isToday = format(p.nextBirthday, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+                  const daysUntil = Math.ceil((p.nextBirthday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                  
+                  return (
+                    <div key={p.id} className={cn(
+                      "flex items-center justify-between p-3 rounded-lg",
+                      isToday ? "bg-primary/20 border border-primary/30" : "bg-muted/40"
+                    )}>
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center text-primary-foreground font-semibold",
+                          isToday ? "bg-primary" : "bg-gradient-primary"
+                        )}>
+                          {isToday ? <Cake className="w-5 h-5" /> : p.name?.charAt(0) || "P"}
+                        </div>
+                        <div>
+                          <div className="font-medium flex items-center gap-2">
+                            {p.name}
+                            {isToday && <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">🎂 Hoje!</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(p.nextBirthday, "dd 'de' MMMM", { locale: ptBR })}
+                            {!isToday && ` • em ${daysUntil} dia${daysUntil > 1 ? 's' : ''}`}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
