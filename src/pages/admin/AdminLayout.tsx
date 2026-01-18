@@ -1,10 +1,12 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAdminAuth } from "@/context/AdminAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppointments } from "@/hooks/useAppointments";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 import {
   CalendarDays,
   Users,
@@ -25,6 +27,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const { logout, user, hasRole } = useAdminAuth();
   const navigate = useNavigate();
   const { appointments } = useAppointments();
+  const { playNotificationSound } = useNotificationSound();
+  const previousPendingCountRef = useRef<number | null>(null);
 
   // Query para contar prontuários pendentes
   const { data: pendingNotesCount = 0 } = useQuery({
@@ -50,6 +54,14 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     enabled: appointments.length > 0,
     staleTime: 30000, // Cache por 30 segundos
   });
+
+  // Tocar som quando houver novos prontuários pendentes
+  useEffect(() => {
+    if (previousPendingCountRef.current !== null && pendingNotesCount > previousPendingCountRef.current) {
+      playNotificationSound();
+    }
+    previousPendingCountRef.current = pendingNotesCount;
+  }, [pendingNotesCount, playNotificationSound]);
 
   const doLogout = () => {
     logout();
