@@ -245,7 +245,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <Button asChild className="btn-futuristic shrink-0">
-                <Link to="/admin/prontuarios">
+                <Link to="/admin/prontuarios?pendentes=true">
                   <FileText className="w-4 h-4 mr-2" />
                   Ver todos
                 </Link>
