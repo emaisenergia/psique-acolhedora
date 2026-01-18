@@ -1378,6 +1378,62 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist: {
+        Row: {
+          created_at: string
+          desired_date: string
+          desired_time: string | null
+          expires_at: string | null
+          id: string
+          notes: string | null
+          notified_at: string | null
+          patient_id: string
+          service: string | null
+          status: string
+          time_range_end: string | null
+          time_range_start: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          desired_date: string
+          desired_time?: string | null
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          notified_at?: string | null
+          patient_id: string
+          service?: string | null
+          status?: string
+          time_range_end?: string | null
+          time_range_start?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          desired_date?: string
+          desired_time?: string | null
+          expires_at?: string | null
+          id?: string
+          notes?: string | null
+          notified_at?: string | null
+          patient_id?: string
+          service?: string | null
+          status?: string
+          time_range_end?: string | null
+          time_range_start?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

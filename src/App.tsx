@@ -36,6 +36,7 @@ import TarefasCasa from "@/pages/admin/TarefasCasa";
 import ConfirmAppointment from "@/pages/appointment/ConfirmAppointment";
 import CancelAppointment from "@/pages/appointment/CancelAppointment";
 import RescheduleAppointment from "@/pages/appointment/RescheduleAppointment";
+import ReminderHistory from "@/pages/admin/ReminderHistory";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,7 @@ const App = () => (
               <Route path="/admin/agentes-ia" element={<ProtectedRoute><AgentesIA /></ProtectedRoute>} />
               <Route path="/admin/arquivos" element={<ProtectedRoute roles={["psychologist","admin"]}><Arquivos /></ProtectedRoute>} />
               <Route path="/admin/prontuarios" element={<ProtectedRoute roles={["psychologist","admin"]}><Prontuarios /></ProtectedRoute>} />
+              <Route path="/admin/lembretes" element={<ProtectedRoute roles={["psychologist","admin"]}><ReminderHistory /></ProtectedRoute>} />
               <Route path="/admin/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

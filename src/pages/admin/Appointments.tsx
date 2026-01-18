@@ -25,6 +25,7 @@ import { BlockTimeDialog, type BlockType } from "@/components/appointments/Block
 import { EditBlockDialog } from "@/components/appointments/EditBlockDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WhatsAppActionMenu } from "@/components/appointments/WhatsAppActionMenu";
+import WaitlistManager from "@/components/appointments/WaitlistManager";
 
 const weekOptions = { weekStartsOn: 0 as const };
 
@@ -108,7 +109,7 @@ const Appointments = () => {
   const [draggedAppointment, setDraggedAppointment] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<"calendar" | "grid">("calendar");
+  const [viewMode, setViewMode] = useState<"calendar" | "grid" | "waitlist">("calendar");
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockDialogInitialDate, setBlockDialogInitialDate] = useState<Date | undefined>();
   const [blockDialogInitialTime, setBlockDialogInitialTime] = useState<string | undefined>();
@@ -633,6 +634,14 @@ const Appointments = () => {
                 <Grid3X3 className="h-4 w-4 mr-2" />
                 Grade Horária
               </Button>
+              <Button 
+                variant={viewMode === "waitlist" ? "default" : "outline"} 
+                size="sm"
+                onClick={() => setViewMode("waitlist")}
+              >
+                <Clock className="h-4 w-4 mr-2" />
+                Lista de Espera
+              </Button>
             </div>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4" />
@@ -642,7 +651,9 @@ const Appointments = () => {
         </CardContent>
       </Card>
 
-      {viewMode === "grid" ? (
+      {viewMode === "waitlist" ? (
+        <WaitlistManager />
+      ) : viewMode === "grid" ? (
         /* Daily Time Grid View */
         <div className="space-y-6 mb-6">
           <DailyTimeGrid
