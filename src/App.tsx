@@ -20,6 +20,7 @@ import PortalNotes from "@/pages/patient/PortalNotes";
 import PortalMessages from "@/pages/patient/PortalMessages";
 import PortalTreatmentPlan from "@/pages/patient/PortalTreatmentPlan";
 import PortalMaterials from "@/pages/patient/PortalMaterials";
+import PortalSettings from "@/pages/patient/PortalSettings";
 import Login from "@/pages/admin/Login";
 import Dashboard from "@/pages/admin/Dashboard";
 import Patients from "@/pages/admin/Patients";
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/portal/anotacoes" element={<PatientProtectedRoute><PortalNotes /></PatientProtectedRoute>} />
               <Route path="/portal/mensagens" element={<PatientProtectedRoute><PortalMessages /></PatientProtectedRoute>} />
               <Route path="/portal/materiais" element={<PatientProtectedRoute><PortalMaterials /></PatientProtectedRoute>} />
+              <Route path="/portal/configuracoes" element={<PatientProtectedRoute><PortalSettings /></PatientProtectedRoute>} />
               {/* Public Appointment Action Routes */}
               <Route path="/agendamento/confirmar" element={<ConfirmAppointment />} />
               <Route path="/agendamento/cancelar" element={<CancelAppointment />} />
