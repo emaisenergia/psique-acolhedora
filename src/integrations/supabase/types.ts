@@ -826,6 +826,47 @@ export type Database = {
           },
         ]
       }
+      patient_consents: {
+        Row: {
+          accepted_at: string
+          consent_type: string
+          consent_version: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          patient_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          accepted_at?: string
+          consent_type?: string
+          consent_version?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          patient_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          accepted_at?: string
+          consent_type?: string
+          consent_version?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          patient_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_consents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           birth_date: string | null

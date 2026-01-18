@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppointments } from "@/hooks/useAppointments";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import {
   CalendarDays,
   Users,
@@ -29,6 +30,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const { appointments } = useAppointments();
   const { playNotificationSound } = useNotificationSound();
   const previousPendingCountRef = useRef<number | null>(null);
+
+  // Atalhos de teclado globais
+  useKeyboardShortcuts();
 
   // Query para contar prontuários pendentes
   const { data: pendingNotesCount = 0 } = useQuery({

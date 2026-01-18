@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck, ClipboardList, ChevronRight, FolderOpen } from "lucide-react";
+import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck, ClipboardList, ChevronRight, FolderOpen, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { usePatientAppointments, usePatientActivities } from "@/hooks/usePatientData";
 import { useNavigate } from "react-router-dom";
 import { useTreatmentPlan } from "@/hooks/useTreatmentPlan";
 import { Progress } from "@/components/ui/progress";
+import { ConsentDialog } from "@/components/patient/ConsentDialog";
+import { usePatientConsent } from "@/hooks/usePatientConsent";
 
 const PortalHome = () => {
   const { logout, patient, isLoading } = usePatientAuth();
@@ -15,6 +17,7 @@ const PortalHome = () => {
   const { appointments } = usePatientAppointments();
   const { activities } = usePatientActivities();
   const { plan, loading: planLoading } = useTreatmentPlan(patient?.id || "");
+  const { hasConsent, isLoading: consentLoading, refetch: refetchConsent } = usePatientConsent(patient?.id);
 
   const myAppointments = useMemo(() => {
     return [...appointments].sort((a, b) => 
@@ -94,6 +97,14 @@ const PortalHome = () => {
 
   return (
     <div className="min-h-screen section-gradient relative overflow-hidden">
+      {/* Modal de Consentimento LGPD */}
+      {patient?.id && !consentLoading && (
+        <ConsentDialog
+          open={!hasConsent}
+          patientId={patient.id}
+          onConsentAccepted={() => refetchConsent()}
+        />
+      )}
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
@@ -148,6 +159,9 @@ const PortalHome = () => {
             </button>
             <button onClick={() => navigate('/portal/materiais')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
               <FolderOpen className="w-4 h-4" /> Materiais
+            </button>
+            <button onClick={() => navigate('/portal/configuracoes')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
+              <Settings className="w-4 h-4" /> Configurações
             </button>
           </div>
         </div>
