@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,9 @@ const formatDateTime = (iso?: string) => {
 };
 
 const Prontuarios = () => {
+  const [searchParams] = useSearchParams();
+  const showPendingFromUrl = searchParams.get('pendentes') === 'true';
+  
   const [patients, setPatients] = useState<Patient[]>([]);
   const [allSessions, setAllSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +105,7 @@ const Prontuarios = () => {
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const [keywordFilter, setKeywordFilter] = useState("");
   const [datePreset, setDatePreset] = useState<string>("all");
-  const [pendingNotesFilter, setPendingNotesFilter] = useState(false);
+  const [pendingNotesFilter, setPendingNotesFilter] = useState(showPendingFromUrl);
 
   // Load patients
   const loadPatients = useCallback(async () => {
@@ -277,7 +280,15 @@ const Prontuarios = () => {
     const totalSessions = allSessions.length;
     const completedSessions = allSessions.filter((s) => s.status === "completed").length;
     const patientsWithRecords = patientsWithSessions.filter((p) => p.totalSessions > 0).length;
-    return { totalPatients, activePatients, totalSessions, completedSessions, patientsWithRecords };
+    
+    // Contador de sessões pendentes de anotação
+    const pendingNotesCount = allSessions.filter((s) => {
+      if (s.status !== "completed") return false;
+      const hasNotes = s.detailed_notes || s.summary || s.clinical_observations;
+      return !hasNotes;
+    }).length;
+    
+    return { totalPatients, activePatients, totalSessions, completedSessions, patientsWithRecords, pendingNotesCount };
   }, [patients, allSessions, patientsWithSessions]);
 
   const handleOpenPatientRecord = (patient: PatientWithSessions) => {
@@ -429,6 +440,29 @@ const Prontuarios = () => {
                 <p className="text-sm text-muted-foreground">Sessões registradas</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Card de sessões pendentes de anotação */}
+        <Card 
+          className={`card-glass cursor-pointer transition-all hover:shadow-md ${pendingNotesFilter ? 'ring-2 ring-amber-500' : ''}`}
+          onClick={() => setPendingNotesFilter(!pendingNotesFilter)}
+        >
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-semibold">{stats.pendingNotesCount}</p>
+                <p className="text-sm text-muted-foreground">Pendentes de anotação</p>
+              </div>
+            </div>
+            {stats.pendingNotesCount > 0 && (
+              <p className="text-xs text-amber-600 mt-2">
+                {pendingNotesFilter ? 'Clique para remover filtro' : 'Clique para filtrar'}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
