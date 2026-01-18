@@ -1,6 +1,10 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useAdminAuth } from "@/context/AdminAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAppointments } from "@/hooks/useAppointments";
 import {
   CalendarDays,
   Users,
@@ -14,11 +18,38 @@ import {
   FileEdit,
   ClipboardList,
   Bell,
+  AlertCircle,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const { logout, user, hasRole } = useAdminAuth();
   const navigate = useNavigate();
+  const { appointments } = useAppointments();
+
+  // Query para contar prontuários pendentes
+  const { data: pendingNotesCount = 0 } = useQuery({
+    queryKey: ['sidebar-pending-notes', appointments],
+    queryFn: async () => {
+      const agendamentosConcluidos = appointments.filter(a => a.status === 'done');
+      if (agendamentosConcluidos.length === 0) return 0;
+
+      const { data: sessions } = await supabase
+        .from('sessions')
+        .select('id, appointment_id, detailed_notes, summary, clinical_observations')
+        .in('appointment_id', agendamentosConcluidos.map(a => a.id));
+
+      const sessoesMap = new Map(sessions?.map(s => [s.appointment_id, s]) || []);
+      
+      return agendamentosConcluidos.filter(appt => {
+        const sessao = sessoesMap.get(appt.id);
+        if (!sessao) return true;
+        const temNotas = sessao.detailed_notes || sessao.summary || sessao.clinical_observations;
+        return !temNotas;
+      }).length;
+    },
+    enabled: appointments.length > 0,
+    staleTime: 30000, // Cache por 30 segundos
+  });
 
   const doLogout = () => {
     logout();
@@ -138,9 +169,24 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
               to="/admin/prontuarios"
               className={({ isActive }) => `${baseItem} ${isActive ? activeItem : inactiveItem} ${isActive ? 'active' : ''}`}
             >
-              <FileText className="w-5 h-5 text-muted-foreground" />
-              <div className="flex flex-col">
-                <span className="font-semibold">Prontuários</span>
+              <div className="relative">
+                <FileText className="w-5 h-5 text-muted-foreground" />
+                {pendingNotesCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 text-[10px] font-bold text-white rounded-full flex items-center justify-center animate-pulse">
+                    {pendingNotesCount > 9 ? '9+' : pendingNotesCount}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Prontuários</span>
+                  {pendingNotesCount > 0 && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700">
+                      <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
+                      {pendingNotesCount} pendente{pendingNotesCount > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground">Prontuários psicológicos</span>
               </div>
               <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
