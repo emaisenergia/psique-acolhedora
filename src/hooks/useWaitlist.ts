@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { notifyWaitlistAvailable } from '@/lib/notifications';
 
 export interface WaitlistEntry {
   id: string;
@@ -152,8 +153,30 @@ export const useWaitlist = () => {
   };
 
   const notifyPatient = async (entryId: string): Promise<boolean> => {
+    const entry = waitlist.find(w => w.id === entryId);
+    if (!entry || !entry.patient) {
+      toast({
+        title: 'Erro ao notificar',
+        description: 'Entrada não encontrada.',
+        variant: 'destructive'
+      });
+      return false;
+    }
+
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+    // Send email notification
+    try {
+      await notifyWaitlistAvailable(
+        entry.patient_id,
+        entry.patient.name,
+        entry.desired_date,
+        entry.desired_time || entry.time_range_start || '08:00'
+      );
+    } catch (error) {
+      console.error('Error sending waitlist notification email:', error);
+    }
 
     const success = await updateWaitlistEntry(entryId, {
       status: 'notified',
@@ -164,7 +187,7 @@ export const useWaitlist = () => {
     if (success) {
       toast({
         title: 'Paciente notificado',
-        description: 'O paciente foi notificado sobre a disponibilidade.'
+        description: `${entry.patient.name} foi notificado por email sobre a disponibilidade.`
       });
     }
 

@@ -19,7 +19,8 @@ type NotificationType =
   | "appointment_confirmation"
   | "appointment_created"
   | "appointment_updated"
-  | "appointment_cancelled";
+  | "appointment_cancelled"
+  | "waitlist_available";
 
 interface NotificationRequest {
   type: NotificationType;
@@ -34,6 +35,8 @@ interface NotificationRequest {
     appointmentMode?: string;
     previousDate?: string;
     previousTime?: string;
+    availableDate?: string;
+    availableTime?: string;
   };
 }
 
@@ -275,6 +278,36 @@ const getEmailContent = (type: NotificationType, patientName: string, data?: Not
             </a>
             <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
               Esta é uma notificação automática. Por favor, não responda este email.
+            </p>
+          </div>
+        `,
+      };
+
+    case "waitlist_available":
+      return {
+        subject: "🎉 Boas notícias! Um horário ficou disponível!",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb; margin-bottom: 20px;">Olá, ${patientName}!</h1>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Temos uma ótima notícia! Um horário que você estava aguardando ficou disponível.
+            </p>
+            <div style="background-color: #dcfce7; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #22c55e;">
+              <p style="font-size: 14px; color: #166534; margin: 0;">📅 Horário disponível:</p>
+              <p style="font-size: 18px; color: #166534; font-weight: 600; margin-top: 8px;">
+                ${data?.availableDate || data?.appointmentDate} às ${data?.availableTime || data?.appointmentTime}
+              </p>
+            </div>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              <strong>Atenção:</strong> Este horário está disponível por tempo limitado. 
+              Entre em contato o mais rápido possível para garantir sua sessão!
+            </p>
+            <a href="${siteUrl}/#agendamento" 
+               style="display: inline-block; background-color: #22c55e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 10px;">
+              Agendar agora
+            </a>
+            <p style="font-size: 14px; color: #9ca3af; margin-top: 30px;">
+              Esta é uma notificação automática. Este horário pode ser preenchido por outro paciente.
             </p>
           </div>
         `,

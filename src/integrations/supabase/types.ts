@@ -371,6 +371,7 @@ export type Database = {
         Row: {
           appointment_type: string | null
           block_reason: string | null
+          clinic_id: string | null
           created_at: string
           date_time: string
           duration_minutes: number
@@ -392,6 +393,7 @@ export type Database = {
         Insert: {
           appointment_type?: string | null
           block_reason?: string | null
+          clinic_id?: string | null
           created_at?: string
           date_time: string
           duration_minutes?: number
@@ -413,6 +415,7 @@ export type Database = {
         Update: {
           appointment_type?: string | null
           block_reason?: string | null
+          clinic_id?: string | null
           created_at?: string
           date_time?: string
           duration_minutes?: number
@@ -432,6 +435,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_package_id_fkey"
             columns: ["package_id"]
@@ -509,6 +519,45 @@ export type Database = {
           title?: string
           updated_at?: string
           views?: number | null
+        }
+        Relationships: []
+      }
+      clinics: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          phone: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          phone?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -983,6 +1032,57 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_prices: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          id: string
+          insurance_id: string | null
+          is_social: boolean | null
+          notes: string | null
+          price: number
+          service_type: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          insurance_id?: string | null
+          is_social?: boolean | null
+          notes?: string | null
+          price?: number
+          service_type: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          id?: string
+          insurance_id?: string | null
+          is_social?: boolean | null
+          notes?: string | null
+          price?: number
+          service_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_prices_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_prices_insurance_id_fkey"
+            columns: ["insurance_id"]
+            isOneToOne: false
+            referencedRelation: "insurances"
             referencedColumns: ["id"]
           },
         ]

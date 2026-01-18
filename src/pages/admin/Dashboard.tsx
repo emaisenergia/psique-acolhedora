@@ -21,6 +21,7 @@ import PackageAlerts from "@/components/alerts/PackageAlerts";
 import { usePatients } from "@/hooks/usePatients";
 import { useAppointments } from "@/hooks/useAppointments";
 import { AppointmentMetricsCard } from "@/components/dashboard/AppointmentMetricsCard";
+import { OccupancyMetricsCard } from "@/components/dashboard/OccupancyMetricsCard";
 import { addMonths, format, startOfMonth, addDays, parseISO, getMonth, getDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -171,6 +172,11 @@ const Dashboard = () => {
           monthPrefix={monthPrefix}
           previousMonthPrefix={previousMonthPrefix}
         />
+      </div>
+
+      {/* Métricas de Ocupação */}
+      <div className="mb-8">
+        <OccupancyMetricsCard appointments={appointments} />
       </div>
 
       {/* Alertas de Pacotes */}

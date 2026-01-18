@@ -33,6 +33,7 @@ import { useAdminPreferences, type AdminPreferences } from "@/hooks/useAdminPref
 import { useToast } from "@/hooks/use-toast";
 import { SessionPackagesManager } from "@/components/appointments/SessionPackagesManager";
 import { InsurancesManager } from "@/components/appointments/InsurancesManager";
+import { ClinicsManager } from "@/components/settings/ClinicsManager";
 
 const DAY_OPTIONS = [
   { value: "monday", label: "Segunda" },
@@ -303,6 +304,7 @@ const Configuracoes = () => {
               <TabsTrigger value="profile">Perfil</TabsTrigger>
               <TabsTrigger value="security">Segurança</TabsTrigger>
               <TabsTrigger value="schedule">Agenda</TabsTrigger>
+              <TabsTrigger value="clinics">Clínicas</TabsTrigger>
               <TabsTrigger value="integrations">Integrações</TabsTrigger>
               <TabsTrigger value="users">Usuários</TabsTrigger>
               <TabsTrigger value="insurance">Convênios</TabsTrigger>

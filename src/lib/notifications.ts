@@ -10,7 +10,8 @@ type NotificationType =
   | "appointment_confirmation"
   | "appointment_created"
   | "appointment_updated"
-  | "appointment_cancelled";
+  | "appointment_cancelled"
+  | "waitlist_available";
 
 interface NotificationData {
   content?: string;
@@ -21,6 +22,8 @@ interface NotificationData {
   appointmentMode?: string;
   previousDate?: string;
   previousTime?: string;
+  availableDate?: string;
+  availableTime?: string;
 }
 
 export const sendNotificationEmail = async (
@@ -179,3 +182,16 @@ export const notifyThreadCommentToPsychologist = async (
     return { success: false, error: err.message };
   }
 };
+
+// Waitlist notification when a slot becomes available
+export const notifyWaitlistAvailable = (
+  patientId: string,
+  patientName: string,
+  availableDate: string,
+  availableTime: string
+) =>
+  sendNotificationEmail("waitlist_available", patientId, {
+    patientName,
+    availableDate,
+    availableTime,
+  });
