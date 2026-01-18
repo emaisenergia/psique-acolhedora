@@ -11,6 +11,7 @@ import {
   UserPlus,
   Cake,
   TrendingUp,
+  FileText,
 } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -24,6 +25,8 @@ import { AppointmentMetricsCard } from "@/components/dashboard/AppointmentMetric
 import { OccupancyMetricsCard } from "@/components/dashboard/OccupancyMetricsCard";
 import { addMonths, format, startOfMonth, addDays, parseISO, getMonth, getDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) => (
   <Card className="card-glass">
@@ -117,39 +120,72 @@ const Dashboard = () => {
       .slice(0, 5);
   }, [patients]);
 
+  // Buscar sessões concluídas sem anotações
+  const { data: sessoesPendentes = [] } = useQuery({
+    queryKey: ['sessions-pending-notes'],
+    queryFn: async () => {
+      // Buscar agendamentos concluídos
+      const agendamentosConcluidos = appointments.filter(a => a.status === 'done');
+      if (agendamentosConcluidos.length === 0) return [];
+
+      // Buscar sessões correspondentes
+      const { data: sessions } = await supabase
+        .from('sessions')
+        .select('id, appointment_id, patient_id, detailed_notes, summary, clinical_observations')
+        .in('appointment_id', agendamentosConcluidos.map(a => a.id));
+
+      // Identificar sessões sem anotações ou agendamentos concluídos sem sessão
+      const sessoesMap = new Map(sessions?.map(s => [s.appointment_id, s]) || []);
+      
+      const pendentes = agendamentosConcluidos.filter(appt => {
+        const sessao = sessoesMap.get(appt.id);
+        // Pendente se não existe sessão ou se existe mas sem anotações
+        if (!sessao) return true;
+        const temNotas = sessao.detailed_notes || sessao.summary || sessao.clinical_observations;
+        return !temNotas;
+      });
+
+      return pendentes.map(a => ({
+        appointmentId: a.id,
+        patientId: a.patient_id,
+        patientName: patientMap[a.patient_id || ''] || 'Paciente',
+        dateTime: a.date_time
+      }));
+    },
+    enabled: appointments.length > 0
+  });
+
   return (
     <AdminLayout>
-      {/* Banner de atualização */}
-      <div className="mb-6">
-        <Card className="card-glass">
-          <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-primary-foreground" />
+      {/* Banner de prontuários pendentes - só aparece quando há sessões concluídas sem anotações */}
+      {sessoesPendentes.length > 0 && (
+        <div className="mb-6">
+          <Card className="card-glass border-primary/30 bg-primary/5">
+            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">
+                    {user?.name?.split(" ")[0] || "Profissional"}, você tem {sessoesPendentes.length} prontuário{sessoesPendentes.length > 1 ? 's' : ''} para atualizar
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {sessoesPendentes.slice(0, 3).map(s => s.patientName).join(', ')}
+                    {sessoesPendentes.length > 3 && ` e mais ${sessoesPendentes.length - 3}`}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Que bom, {user?.name?.split(" ")[0] || "profissional"}! Você tem prontuários que podem ser atualizados.</p>
-                <p className="text-xs text-muted-foreground/80">Última atualização {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center text-xs text-primary gap-1">
-                <CheckCircle2 className="w-4 h-4" /> Dados atualizados
-              </div>
-              <Button
-                onClick={() => {
-                  toast("Sincronização concluída", {
-                    description: "Todos os dados foram sincronizados com sucesso.",
-                  });
-                }}
-                className="btn-futuristic"
-              >
-                Atualizar prontuários
+              <Button asChild className="btn-futuristic">
+                <Link to="/admin/prontuarios">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Atualizar prontuários
+                </Link>
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Cabeçalho */}
       <div className="mb-6">
