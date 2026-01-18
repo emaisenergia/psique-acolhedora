@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
 import { type ActivityField, uid } from "@/lib/storage";
 import { Card, CardContent } from "@/components/ui/card";
@@ -119,6 +119,11 @@ const MOOD_BADGE_CLASSES: Record<JournalEntry["mood"], string> = {
 const PatientProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // URL parameters for direct navigation
+  const initialTab = searchParams.get('tab') || 'perfil';
+  const appointmentToOpen = searchParams.get('appointment');
   
   // Supabase hooks
   const { patients: supabasePatients, isLoading: patientsLoading, fetchPatients } = usePatients();
@@ -135,7 +140,7 @@ const PatientProfile = () => {
     return supabaseAppointments.filter((a) => a.patient_id === id);
   }, [supabaseAppointments, id]);
   
-  const [tab, setTab] = useState("perfil");
+  const [tab, setTab] = useState(initialTab);
   const [editOpen, setEditOpen] = useState(false);
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [medsOpen, setMedsOpen] = useState(false);
@@ -1286,7 +1291,7 @@ const PatientProfile = () => {
           />
         </TabsContent>
         <TabsContent value="sessoes" className="mt-6">
-          <SessionsModule patientId={patient.id} patientName={patient.name} />
+          <SessionsModule patientId={patient.id} patientName={patient.name} initialAppointmentId={appointmentToOpen || undefined} />
         </TabsContent>
         <TabsContent value="atividades" className="mt-6">
           <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">

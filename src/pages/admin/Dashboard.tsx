@@ -12,9 +12,11 @@ import {
   Cake,
   TrendingUp,
   FileText,
+  ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { useAdminAuth } from "@/context/AdminAuth";
@@ -46,6 +48,7 @@ const Dashboard = () => {
   const { user } = useAdminAuth();
   const { patients } = usePatients();
   const { appointments } = useAppointments();
+  const navigate = useNavigate();
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -145,15 +148,54 @@ const Dashboard = () => {
         return !temNotas;
       });
 
-      return pendentes.map(a => ({
-        appointmentId: a.id,
-        patientId: a.patient_id,
-        patientName: patientMap[a.patient_id || ''] || 'Paciente',
-        dateTime: a.date_time
-      }));
+      return pendentes.map(a => {
+        const sessao = sessoesMap.get(a.id);
+        return {
+          appointmentId: a.id,
+          patientId: a.patient_id,
+          patientName: patientMap[a.patient_id || ''] || 'Paciente',
+          dateTime: a.date_time,
+          sessionId: sessao?.id
+        };
+      });
     },
     enabled: appointments.length > 0
   });
+
+  // Filtrar sessões urgentes (mais de 24h sem anotações)
+  const sessoesUrgentes = useMemo(() => {
+    return sessoesPendentes.filter(s => {
+      const sessionTime = new Date(s.dateTime).getTime();
+      const horasDecorridas = (Date.now() - sessionTime) / (1000 * 60 * 60);
+      return horasDecorridas > 24;
+    });
+  }, [sessoesPendentes]);
+
+  // Pop-up de notificação para sessões urgentes (>24h)
+  useEffect(() => {
+    if (sessoesUrgentes.length === 0) return;
+    
+    // Usar sessionStorage para não repetir a notificação na mesma sessão
+    const notifiedKey = `prontuarios-notified-${new Date().toDateString()}`;
+    if (sessionStorage.getItem(notifiedKey)) return;
+    
+    // Marcar como notificado
+    sessionStorage.setItem(notifiedKey, 'true');
+    
+    // Exibir toast de alerta
+    toast.warning(
+      `Atenção! ${sessoesUrgentes.length} sessão(ões) estão há mais de 24h sem anotações.`,
+      {
+        description: `Pacientes: ${sessoesUrgentes.slice(0, 3).map(s => s.patientName).join(', ')}${sessoesUrgentes.length > 3 ? ` e mais ${sessoesUrgentes.length - 3}` : ''}`,
+        action: {
+          label: "Atualizar",
+          onClick: () => navigate('/admin/prontuarios')
+        },
+        duration: 10000,
+        icon: <AlertTriangle className="w-5 h-5 text-amber-500" />,
+      }
+    );
+  }, [sessoesUrgentes, navigate]);
 
   return (
     <AdminLayout>
@@ -166,20 +208,46 @@ const Dashboard = () => {
                 <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
                   <FileText className="w-5 h-5 text-primary-foreground" />
                 </div>
-                <div>
+              <div className="flex-1">
                   <p className="text-sm font-medium">
                     {user?.name?.split(" ")[0] || "Profissional"}, você tem {sessoesPendentes.length} prontuário{sessoesPendentes.length > 1 ? 's' : ''} para atualizar
+                    {sessoesUrgentes.length > 0 && (
+                      <Badge variant="destructive" className="ml-2 text-xs">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        {sessoesUrgentes.length} urgente{sessoesUrgentes.length > 1 ? 's' : ''}
+                      </Badge>
+                    )}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {sessoesPendentes.slice(0, 3).map(s => s.patientName).join(', ')}
-                    {sessoesPendentes.length > 3 && ` e mais ${sessoesPendentes.length - 3}`}
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    {sessoesPendentes.slice(0, 5).map((s) => {
+                      const isUrgent = sessoesUrgentes.some(u => u.appointmentId === s.appointmentId);
+                      return (
+                        <Link
+                          key={s.appointmentId}
+                          to={`/admin/paciente/${s.patientId}?tab=sessoes&appointment=${s.appointmentId}`}
+                          className={cn(
+                            "flex items-center gap-1 text-xs hover:underline transition-colors",
+                            isUrgent ? "text-destructive font-medium" : "text-muted-foreground hover:text-primary"
+                          )}
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                          {s.patientName} - {format(new Date(s.dateTime), "dd/MM 'às' HH:mm")}
+                          {isUrgent && <AlertTriangle className="w-3 h-3 ml-1" />}
+                        </Link>
+                      );
+                    })}
+                    {sessoesPendentes.length > 5 && (
+                      <p className="text-xs text-muted-foreground pl-4">
+                        e mais {sessoesPendentes.length - 5} prontuário(s)...
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-              <Button asChild className="btn-futuristic">
+              <Button asChild className="btn-futuristic shrink-0">
                 <Link to="/admin/prontuarios">
                   <FileText className="w-4 h-4 mr-2" />
-                  Atualizar prontuários
+                  Ver todos
                 </Link>
               </Button>
             </CardContent>

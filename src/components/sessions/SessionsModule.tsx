@@ -64,6 +64,7 @@ interface AnamnesisData {
 interface SessionsModuleProps {
   patientId: string;
   patientName: string;
+  initialAppointmentId?: string;
 }
 
 const formatDateTime = (iso?: string) => {
@@ -86,7 +87,7 @@ const formatDuration = (minutes?: number) => {
   return mins > 0 ? `${hrs}h ${mins}min` : `${hrs}h`;
 };
 
-export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) => {
+export const SessionsModule = ({ patientId, patientName, initialAppointmentId }: SessionsModuleProps) => {
   const { toast } = useToast();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,6 +207,7 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
     loadPayments();
   }, [loadSessions, loadAppointments, loadPayments]);
 
+
   // Agendamentos não vinculados a uma sessão
   const unlinkedAppointments = useMemo(() => {
     const linkedIds = new Set(sessions.map((s) => s.appointment_id).filter(Boolean));
@@ -247,6 +249,17 @@ export const SessionsModule = ({ patientId, patientName }: SessionsModuleProps) 
     },
     [loadSessionFiles]
   );
+
+  // Auto-abrir sessão específica quando vindo de link direto
+  useEffect(() => {
+    if (!initialAppointmentId || loading || sessions.length === 0) return;
+    
+    // Procurar sessão pelo appointment_id
+    const sessionToOpen = sessions.find(s => s.appointment_id === initialAppointmentId);
+    if (sessionToOpen) {
+      handleViewSession(sessionToOpen);
+    }
+  }, [initialAppointmentId, sessions, loading, handleViewSession]);
 
   const handleCreateSession = async () => {
     try {
