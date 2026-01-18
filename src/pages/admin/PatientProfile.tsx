@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import AdminLayout from "./AdminLayout";
-import { storage, type Patient, type Activity as ActivityType, type SecureMessage, type JournalEntry, type ActivityField, uid } from "@/lib/storage";
+import { type ActivityField, uid } from "@/lib/storage";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -12,7 +12,7 @@ import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2,
 import { notifyNewActivity, notifyThreadCommentToPatient } from "@/lib/notifications";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useMemo, useState, useEffect, type FormEvent } from "react";
+import { useMemo, useState, useEffect, useCallback, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -21,8 +21,58 @@ import { TreatmentPlanTab } from "@/components/treatment/TreatmentPlanTab";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { ActivityResponseViewer } from "@/components/activities/ActivityResponseViewer";
 import { ResourcesTab } from "@/components/resources/ResourcesTab";
+import { usePatients, type PatientRow } from "@/hooks/usePatients";
+import { useAppointments } from "@/hooks/useAppointments";
+import type { Tables } from "@/integrations/supabase/types";
 
-type Activity = ActivityType;
+type Patient = PatientRow & {
+  birthDate?: string;
+  gender?: string;
+  address?: string;
+  profession?: string;
+  cpf?: string;
+  cep?: string;
+  color?: string;
+};
+
+type Activity = {
+  id: string;
+  patientId: string;
+  title: string;
+  description?: string;
+  dueDate?: string;
+  status: "pending" | "completed";
+  assignedBy?: string;
+  createdAt: string;
+  completedAt?: string;
+  fields?: ActivityField[];
+  attachmentUrl?: string;
+  attachmentName?: string;
+  patientResponses?: Record<string, string | boolean>;
+  responseHistory?: { timestamp: string; responses: Record<string, string | boolean> }[];
+  psychologistFeedback?: string;
+  feedbackAt?: string;
+  feedbackThread?: { id: string; author: "patient" | "psychologist"; message: string; createdAt: string }[];
+};
+
+type SecureMessage = {
+  id: string;
+  patientId: string;
+  author: "patient" | "psychologist";
+  content: string;
+  createdAt: string;
+  urgent: boolean;
+  read: boolean;
+};
+
+type JournalEntry = {
+  id: string;
+  patientId: string;
+  mood: "muito_bem" | "bem" | "neutro" | "desafiador" | "dificil";
+  note: string;
+  tags?: string[];
+  createdAt: string;
+};
 
 const formatDayMonth = (iso?: string) => {
   if (!iso) return "—";
@@ -69,17 +119,36 @@ const MOOD_BADGE_CLASSES: Record<JournalEntry["mood"], string> = {
 const PatientProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState(storage.getPatients());
-  const patient = patients.find((p: Patient) => p.id === id) as Patient | undefined;
-  const appts = storage.getAppointments().filter((a) => a.patientId === id);
+  
+  // Supabase hooks
+  const { patients: supabasePatients, isLoading: patientsLoading, fetchPatients } = usePatients();
+  const { appointments: supabaseAppointments, isLoading: appointmentsLoading } = useAppointments();
+  
+  // Find patient by ID from Supabase
+  const patient = useMemo(() => {
+    return supabasePatients.find((p) => p.id === id) as Patient | undefined;
+  }, [supabasePatients, id]);
+  
+  // Filter appointments for this patient
+  const appts = useMemo(() => {
+    if (!id) return [];
+    return supabaseAppointments.filter((a) => a.patient_id === id);
+  }, [supabaseAppointments, id]);
+  
   const [tab, setTab] = useState("perfil");
   const [editOpen, setEditOpen] = useState(false);
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const [medsOpen, setMedsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
-  const [activities, setActivities] = useState<Activity[]>(storage.getActivities());
-  const [messages, setMessages] = useState<SecureMessage[]>(storage.getMessages());
-  const [journals, setJournals] = useState<JournalEntry[]>(storage.getJournalEntries());
+  
+  // Activities, messages, journals from Supabase
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [messages, setMessages] = useState<SecureMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [journals, setJournals] = useState<JournalEntry[]>([]);
+  const [journalsLoading, setJournalsLoading] = useState(true);
+  
   const [journalForm, setJournalForm] = useState<{ mood: JournalEntry["mood"]; note: string; tags: string }>({
     mood: "bem",
     note: "",
@@ -96,76 +165,113 @@ const PatientProfile = () => {
   const [patientHasAccount, setPatientHasAccount] = useState<boolean | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
-  // Supabase patient UUID (for database operations)
-  const [supabasePatientId, setSupabasePatientId] = useState<string | null>(null);
-  const [supabasePatientLoading, setSupabasePatientLoading] = useState(true);
 
   const patientId = patient?.id || null;
   
-  // Fetch or create the Supabase patient based on email
-  useEffect(() => {
-    const syncSupabasePatient = async () => {
-      if (!patient?.email || !patient?.name) {
-        setSupabasePatientLoading(false);
-        return;
-      }
-      
-      setSupabasePatientLoading(true);
-      
-      try {
-        // First try to fetch existing patient
-        const { data: existingPatient, error: fetchError } = await supabase
-          .from("patients")
-          .select("id")
-          .eq("email", patient.email)
-          .maybeSingle();
-        
-        if (fetchError) {
-          console.error("Error fetching Supabase patient:", fetchError);
-          setSupabasePatientLoading(false);
-          return;
-        }
-        
-        if (existingPatient) {
-          setSupabasePatientId(existingPatient.id);
-          setSupabasePatientLoading(false);
-          return;
-        }
-        
-        // Patient doesn't exist in Supabase, create it
-        const { data: newPatient, error: insertError } = await supabase
-          .from("patients")
-          .insert({
-            name: patient.name,
-            email: patient.email,
-            phone: patient.phone || null,
-            birth_date: patient.birthDate || null,
-            notes: patient.notes || null,
-            status: patient.status || "active",
-          })
-          .select("id")
-          .single();
-        
-        if (insertError) {
-          console.error("Error creating Supabase patient:", insertError);
-          setSupabasePatientLoading(false);
-          return;
-        }
-        
-        if (newPatient) {
-          setSupabasePatientId(newPatient.id);
-          toast.success("Paciente sincronizado com o banco de dados");
-        }
-      } catch (error) {
-        console.error("Error syncing Supabase patient:", error);
-      } finally {
-        setSupabasePatientLoading(false);
-      }
-    };
+  // Fetch activities from Supabase
+  const fetchActivities = useCallback(async () => {
+    if (!patientId) {
+      setActivities([]);
+      setActivitiesLoading(false);
+      return;
+    }
     
-    syncSupabasePatient();
-  }, [patient?.email, patient?.name, patient?.phone, patient?.birthDate, patient?.notes, patient?.status]);
+    setActivitiesLoading(true);
+    const { data, error } = await supabase
+      .from("activities")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
+    
+    if (!error && data) {
+      const mapped: Activity[] = data.map((item) => ({
+        id: item.id,
+        patientId: item.patient_id,
+        title: item.title,
+        description: item.description || undefined,
+        dueDate: item.due_date || undefined,
+        status: item.status as "pending" | "completed",
+        assignedBy: item.assigned_by || undefined,
+        createdAt: item.created_at,
+        completedAt: item.completed_at || undefined,
+        fields: (item.custom_fields as ActivityField[] | null) || undefined,
+        attachmentUrl: item.attachment_url || undefined,
+        attachmentName: item.attachment_name || undefined,
+        patientResponses: item.patient_responses as Record<string, string | boolean> | undefined,
+        responseHistory: item.response_history as Activity["responseHistory"],
+        psychologistFeedback: item.psychologist_feedback || undefined,
+        feedbackAt: item.feedback_at || undefined,
+        feedbackThread: item.feedback_thread as Activity["feedbackThread"],
+      }));
+      setActivities(mapped);
+    }
+    setActivitiesLoading(false);
+  }, [patientId]);
+  
+  // Fetch messages from Supabase
+  const fetchMessages = useCallback(async () => {
+    if (!patientId) {
+      setMessages([]);
+      setMessagesLoading(false);
+      return;
+    }
+    
+    setMessagesLoading(true);
+    const { data, error } = await supabase
+      .from("secure_messages")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: true });
+    
+    if (!error && data) {
+      const mapped: SecureMessage[] = data.map((item) => ({
+        id: item.id,
+        patientId: item.patient_id,
+        author: item.author as "patient" | "psychologist",
+        content: item.content,
+        createdAt: item.created_at,
+        urgent: item.urgent,
+        read: item.read,
+      }));
+      setMessages(mapped);
+    }
+    setMessagesLoading(false);
+  }, [patientId]);
+  
+  // Fetch journals from Supabase
+  const fetchJournals = useCallback(async () => {
+    if (!patientId) {
+      setJournals([]);
+      setJournalsLoading(false);
+      return;
+    }
+    
+    setJournalsLoading(true);
+    const { data, error } = await supabase
+      .from("journal_entries")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
+    
+    if (!error && data) {
+      const mapped: JournalEntry[] = data.map((item) => ({
+        id: item.id,
+        patientId: item.patient_id,
+        mood: item.mood as JournalEntry["mood"],
+        note: item.note,
+        createdAt: item.created_at,
+      }));
+      setJournals(mapped);
+    }
+    setJournalsLoading(false);
+  }, [patientId]);
+  
+  // Load data when patientId changes
+  useEffect(() => {
+    fetchActivities();
+    fetchMessages();
+    fetchJournals();
+  }, [fetchActivities, fetchMessages, fetchJournals]);
 
   const myActivities = useMemo(() => {
     if (!patientId) return [] as Activity[];
@@ -304,8 +410,8 @@ const PatientProfile = () => {
 
   const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
   const totalSessoes = appts.filter((a) => a.status !== "cancelled").length;
-  const totalRecebido = appts.filter((a) => a.paymentStatus === "paid").reduce((s, a) => s + (a.fee || 0), 0);
-  const pendentes = appts.filter((a) => a.paymentStatus === "pending").length;
+  const totalRecebido = appts.filter((a) => a.status === "done").reduce((s, a) => s + (a.payment_value || 0), 0);
+  const pendentes = appts.filter((a) => a.status === "scheduled" || a.status === "confirmed").length;
 
   const apptsSortedAsc = useMemo(
     () =>
@@ -313,8 +419,8 @@ const PatientProfile = () => {
         .slice()
         .sort(
           (a, b) =>
-            new Date(a.dateTime || 0).getTime() -
-            new Date(b.dateTime || 0).getTime()
+            new Date(a.date_time || 0).getTime() -
+            new Date(b.date_time || 0).getTime()
         ),
     [appts]
   );
@@ -327,7 +433,7 @@ const PatientProfile = () => {
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const monthAppointments = useMemo(
-    () => apptsSortedAsc.filter((a) => (a.dateTime || "").startsWith(monthKey)),
+    () => apptsSortedAsc.filter((a) => (a.date_time || "").startsWith(monthKey)),
     [apptsSortedAsc, monthKey]
   );
   const monthDone = monthAppointments.filter((a) => a.status === "done").length;
@@ -338,7 +444,7 @@ const PatientProfile = () => {
   const pastSessionsDesc = useMemo(
     () =>
       apptsSortedDesc.filter(
-        (a) => !!a.dateTime && new Date(a.dateTime).getTime() <= Date.now()
+        (a) => !!a.date_time && new Date(a.date_time).getTime() <= Date.now()
       ),
     [apptsSortedDesc]
   );
@@ -370,13 +476,13 @@ const PatientProfile = () => {
       .slice()
       .sort(
         (a, b) =>
-          new Date(a.dateTime || 0).getTime() -
-          new Date(b.dateTime || 0).getTime()
+          new Date(a.date_time || 0).getTime() -
+          new Date(b.date_time || 0).getTime()
       );
     let total = 0;
     for (let i = 1; i < ordered.length; i += 1) {
-      const prev = new Date(ordered[i - 1].dateTime || 0).getTime();
-      const curr = new Date(ordered[i].dateTime || 0).getTime();
+      const prev = new Date(ordered[i - 1].date_time || 0).getTime();
+      const curr = new Date(ordered[i].date_time || 0).getTime();
       total += curr - prev;
     }
     const avgMs = total / (ordered.length - 1);
@@ -387,8 +493,8 @@ const PatientProfile = () => {
     () =>
       apptsSortedAsc.find(
         (a) =>
-          !!a.dateTime &&
-          new Date(a.dateTime).getTime() > Date.now() &&
+          !!a.date_time &&
+          new Date(a.date_time).getTime() > Date.now() &&
           a.status !== "cancelled"
       ) || null,
     [apptsSortedAsc]
@@ -471,12 +577,12 @@ const PatientProfile = () => {
         title: "Próximo passo",
         description:
           nextAppointment
-            ? `Próxima sessão em ${formatDayMonth(nextAppointment.dateTime)}${
+            ? `Próxima sessão em ${formatDayMonth(nextAppointment.date_time)}${
                 nextAppointment.service ? ` · ${nextAppointment.service}` : ""
               }.`
             : "Nenhuma sessão futura agendada.",
         icon: Target,
-        highlight: nextAppointment ? formatDateTimeLong(nextAppointment.dateTime) : "Agende na aba Sessões",
+        highlight: nextAppointment ? formatDateTimeLong(nextAppointment.date_time) : "Agende na aba Sessões",
       },
     ],
     [attendanceRate, averageIntervalDays, doneHistory.length, nextAppointment, streak]
@@ -504,8 +610,8 @@ const PatientProfile = () => {
       },
       {
         label: "Próxima sessão",
-        value: nextAppointment ? formatDayMonth(nextAppointment.dateTime) : "Sem agendamento",
-        helper: nextAppointment ? formatDateTimeLong(nextAppointment.dateTime) : "Agende na aba Sessões",
+        value: nextAppointment ? formatDayMonth(nextAppointment.date_time) : "Sem agendamento",
+        helper: nextAppointment ? formatDateTimeLong(nextAppointment.date_time) : "Agende na aba Sessões",
         icon: CalendarDays,
       },
       {
@@ -518,11 +624,7 @@ const PatientProfile = () => {
     [attendanceRate, averageIntervalDays, apptsSortedAsc.length, cancellations, doneHistory.length, nextAppointment, streak]
   );
 
-  const persistActivities = (next: Activity[]) => {
-    setActivities(next);
-    storage.saveActivities(next);
-  };
-
+  // Create activity in Supabase
   const handleCreateActivity = async (data: {
     title: string;
     description?: string;
@@ -533,127 +635,217 @@ const PatientProfile = () => {
     attachmentName?: string;
   }) => {
     if (!patientId) return;
-    const activity: Activity = {
-      id: uid(),
-      patientId,
-      title: data.title,
-      description: data.description,
-      dueDate: data.dueDate,
-      status: "pending",
-      assignedBy: data.assignedBy,
-      createdAt: new Date().toISOString(),
-      fields: data.fields,
-      attachmentUrl: data.attachmentUrl,
-      attachmentName: data.attachmentName,
-    };
-    persistActivities([...activities, activity]);
-    setActivityDialogOpen(false);
     
-    // Send notification to patient
-    if (supabasePatientId) {
+    const { data: newActivity, error } = await supabase
+      .from("activities")
+      .insert({
+        patient_id: patientId,
+        title: data.title,
+        description: data.description || null,
+        due_date: data.dueDate || null,
+        status: "pending",
+        assigned_by: data.assignedBy || null,
+        custom_fields: data.fields || null,
+        attachment_url: data.attachmentUrl || null,
+        attachment_name: data.attachmentName || null,
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error("Error creating activity:", error);
+      toast.error("Erro ao criar atividade");
+      return;
+    }
+    
+    if (newActivity) {
+      const mapped: Activity = {
+        id: newActivity.id,
+        patientId: newActivity.patient_id,
+        title: newActivity.title,
+        description: newActivity.description || undefined,
+        dueDate: newActivity.due_date || undefined,
+        status: newActivity.status as "pending" | "completed",
+        assignedBy: newActivity.assigned_by || undefined,
+        createdAt: newActivity.created_at,
+        fields: (newActivity.custom_fields as ActivityField[] | null) || undefined,
+        attachmentUrl: newActivity.attachment_url || undefined,
+        attachmentName: newActivity.attachment_name || undefined,
+      };
+      setActivities((prev) => [mapped, ...prev]);
+      setActivityDialogOpen(false);
+      
       try {
-        await notifyNewActivity(supabasePatientId, data.title);
+        await notifyNewActivity(patientId, data.title);
         toast.success("Atividade criada e notificação enviada ao paciente");
-      } catch (error) {
-        console.error("Error sending activity notification:", error);
+      } catch (err) {
+        console.error("Error sending activity notification:", err);
         toast.success("Atividade criada (notificação não enviada)");
       }
-    } else {
-      toast.success("Atividade criada com sucesso");
     }
   };
 
-  const toggleActivityStatus = (activityId: string) => {
-    const next = activities.map((activity): Activity => {
-      if (activity.id !== activityId) return activity;
-      const nextStatus: "pending" | "completed" = activity.status === "completed" ? "pending" : "completed";
-      return {
-        ...activity,
-        status: nextStatus,
-        completedAt: nextStatus === "completed" ? new Date().toISOString() : undefined,
-      };
-    });
-    persistActivities(next);
+  const toggleActivityStatus = async (activityId: string) => {
+    const activity = activities.find((a) => a.id === activityId);
+    if (!activity) return;
+    
+    const newStatus = activity.status === "completed" ? "pending" : "completed";
+    const completedAt = newStatus === "completed" ? new Date().toISOString() : null;
+    
+    const { error } = await supabase
+      .from("activities")
+      .update({ status: newStatus, completed_at: completedAt })
+      .eq("id", activityId);
+    
+    if (!error) {
+      setActivities((prev) =>
+        prev.map((a) =>
+          a.id === activityId
+            ? { ...a, status: newStatus, completedAt: completedAt || undefined }
+            : a
+        )
+      );
+    }
   };
 
-  const deleteActivity = (activityId: string) => {
-    persistActivities(activities.filter((activity) => activity.id !== activityId));
+  const deleteActivity = async (activityId: string) => {
+    const { error } = await supabase
+      .from("activities")
+      .delete()
+      .eq("id", activityId);
+    
+    if (!error) {
+      setActivities((prev) => prev.filter((a) => a.id !== activityId));
+    }
   };
 
-  const persistMessages = (next: SecureMessage[]) => {
-    setMessages(next);
-    storage.saveMessages(next);
-  };
-
-  const persistJournals = (next: JournalEntry[]) => {
-    setJournals(next);
-    storage.saveJournalEntries(next);
-  };
-
-  const handleAddJournalEntry = (e: FormEvent<HTMLFormElement>) => {
+  const handleAddJournalEntry = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!patientId) return;
     const content = journalForm.note.trim();
     if (!content) return;
-    const tags = journalForm.tags
-      .split(",")
-      .map((tag) => tag.trim().replace(/^#/, ""))
-      .filter(Boolean);
-    const entry: JournalEntry = {
-      id: uid(),
-      patientId,
-      mood: journalForm.mood,
-      note: content,
-      tags: tags.length ? tags : undefined,
-      createdAt: new Date().toISOString(),
-    };
-    persistJournals([entry, ...journals]);
-    setJournalForm((prev) => ({ ...prev, note: "", tags: "" }));
+    
+    const { data: newEntry, error } = await supabase
+      .from("journal_entries")
+      .insert({
+        patient_id: patientId,
+        mood: journalForm.mood,
+        note: content,
+      })
+      .select()
+      .single();
+    
+    if (!error && newEntry) {
+      const mapped: JournalEntry = {
+        id: newEntry.id,
+        patientId: newEntry.patient_id,
+        mood: newEntry.mood as JournalEntry["mood"],
+        note: newEntry.note,
+        createdAt: newEntry.created_at,
+      };
+      setJournals((prev) => [mapped, ...prev]);
+      setJournalForm((prev) => ({ ...prev, note: "", tags: "" }));
+    }
   };
 
-  const handleDeleteJournalEntry = (entryId: string) => {
+  const handleDeleteJournalEntry = async (entryId: string) => {
     if (typeof window !== "undefined" && !window.confirm("Remover esta evolução do prontuário?")) return;
-    const next = journals.filter((entry) => entry.id !== entryId);
-    persistJournals(next);
+    
+    const { error } = await supabase
+      .from("journal_entries")
+      .delete()
+      .eq("id", entryId);
+    
+    if (!error) {
+      setJournals((prev) => prev.filter((e) => e.id !== entryId));
+    }
   };
 
-  const markMessageRead = (messageId: string) => {
-    const next = messages.map((message) =>
-      message.id === messageId ? { ...message, read: true } : message
-    );
-    persistMessages(next);
+  const markMessageRead = async (messageId: string) => {
+    const { error } = await supabase
+      .from("secure_messages")
+      .update({ read: true })
+      .eq("id", messageId);
+    
+    if (!error) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, read: true } : m))
+      );
+    }
   };
 
-  const handleSendReply = () => {
+  const handleSendReply = async () => {
     if (!patientId) return;
     const content = replyText.trim();
     if (!content) return;
-    const reply: SecureMessage = {
-      id: uid(),
-      patientId,
-      author: "psychologist",
-      content,
-      createdAt: new Date().toISOString(),
-      urgent: false,
-      read: true,
-    };
-    persistMessages([...messages, reply]);
-    setReplyText("");
+    
+    const { data: newMessage, error } = await supabase
+      .from("secure_messages")
+      .insert({
+        patient_id: patientId,
+        author: "psychologist",
+        content,
+        urgent: false,
+        read: true,
+      })
+      .select()
+      .single();
+    
+    if (!error && newMessage) {
+      const mapped: SecureMessage = {
+        id: newMessage.id,
+        patientId: newMessage.patient_id,
+        author: newMessage.author as "patient" | "psychologist",
+        content: newMessage.content,
+        createdAt: newMessage.created_at,
+        urgent: newMessage.urgent,
+        read: newMessage.read,
+      };
+      setMessages((prev) => [...prev, mapped]);
+      setReplyText("");
+    }
   };
 
-  const updatePatient = (patch: Partial<Patient>) => {
+  const updatePatient = async (patch: Partial<Patient>) => {
     if (!patient) return;
-    const next = patients.map((p: Patient) => (p.id === patient.id ? { ...p, ...patch } : p));
-    setPatients(next);
-    storage.savePatients(next);
+    
+    // Map local field names to Supabase column names
+    const supabasePatch: Record<string, unknown> = {};
+    if (patch.name !== undefined) supabasePatch.name = patch.name;
+    if (patch.email !== undefined) supabasePatch.email = patch.email;
+    if (patch.phone !== undefined) supabasePatch.phone = patch.phone;
+    if (patch.notes !== undefined) supabasePatch.notes = patch.notes;
+    if (patch.status !== undefined) supabasePatch.status = patch.status;
+    if (patch.birth_date !== undefined) supabasePatch.birth_date = patch.birth_date;
+    if (patch.birthDate !== undefined) supabasePatch.birth_date = patch.birthDate;
+    
+    const { error } = await supabase
+      .from("patients")
+      .update(supabasePatch)
+      .eq("id", patient.id);
+    
+    if (!error) {
+      fetchPatients();
+      toast.success("Paciente atualizado");
+    } else {
+      toast.error("Erro ao atualizar paciente");
+    }
   };
 
-  const removePatient = () => {
+  const removePatient = async () => {
     if (!patient) return;
-    const next = patients.filter((p: Patient) => p.id !== patient.id);
-    setPatients(next);
-    storage.savePatients(next);
-    navigate("/admin/pacientes");
+    
+    const { error } = await supabase
+      .from("patients")
+      .delete()
+      .eq("id", patient.id);
+    
+    if (!error) {
+      toast.success("Paciente removido");
+      navigate("/admin/pacientes");
+    } else {
+      toast.error("Erro ao remover paciente");
+    }
   };
 
   // Check if patient has a user account
@@ -1094,7 +1286,7 @@ const PatientProfile = () => {
           />
         </TabsContent>
         <TabsContent value="sessoes" className="mt-6">
-          <SessionsModule patientId={supabasePatientId || patient.id} patientName={patient.name} />
+          <SessionsModule patientId={patient.id} patientName={patient.name} />
         </TabsContent>
         <TabsContent value="atividades" className="mt-6">
           <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">
@@ -1279,7 +1471,7 @@ const PatientProfile = () => {
           </div>
         </TabsContent>
         <TabsContent value="recursos" className="mt-6">
-          <ResourcesTab patientId={supabasePatientId || patient.id} />
+          <ResourcesTab patientId={patient.id} />
         </TabsContent>
         <TabsContent value="mensagens" className="mt-6">
           <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">
@@ -1488,7 +1680,7 @@ const PatientProfile = () => {
                             <div>
                               <div className="text-sm font-medium text-foreground">{item.service || "Sessão de terapia"}</div>
                               <div className="text-xs text-muted-foreground">
-                                {formatDateTimeLong(item.dateTime)} · {item.mode === "online" ? "Online" : "Presencial"}
+                                {formatDateTimeLong(item.date_time)} · {item.mode === "online" ? "Online" : "Presencial"}
                               </div>
                             </div>
                             <span className={`text-xs font-semibold ${statusColor}`}>{statusLabel}</span>
@@ -1696,10 +1888,19 @@ const PatientProfile = () => {
                 psychologistFeedback: feedback,
                 feedbackAt: new Date().toISOString(),
               } as any;
+              
+              // Save to Supabase
+              await supabase
+                .from("activities")
+                .update({ 
+                  psychologist_feedback: feedback, 
+                  feedback_at: new Date().toISOString() 
+                })
+                .eq("id", activityId);
+              
               const updatedActivities = activities.map(a => 
                 a.id === activityId ? updatedActivity : a
               );
-              storage.saveActivities(updatedActivities);
               setActivities(updatedActivities);
               setSelectedActivityForView(updatedActivity);
               toast.success("Feedback salvo com sucesso!");
@@ -1715,22 +1916,29 @@ const PatientProfile = () => {
                 content: comment,
                 created_at: new Date().toISOString(),
               };
+              const updatedThread = [...currentThread, newComment];
               const updatedActivity = {
                 ...activityToUpdate,
-                feedbackThread: [...currentThread, newComment],
+                feedbackThread: updatedThread,
               } as any;
+              
+              // Save to Supabase
+              await supabase
+                .from("activities")
+                .update({ feedback_thread: updatedThread })
+                .eq("id", activityId);
+              
               const updatedActivities = activities.map(a => 
                 a.id === activityId ? updatedActivity : a
               );
-              storage.saveActivities(updatedActivities);
               setActivities(updatedActivities);
               setSelectedActivityForView(updatedActivity);
               
               // Send notification to patient about new comment
-              if (supabasePatientId && activityToUpdate.title) {
+              if (patientId && activityToUpdate.title) {
                 try {
                   await notifyThreadCommentToPatient(
-                    supabasePatientId,
+                    patientId,
                     activityToUpdate.title,
                     comment
                   );
@@ -1770,8 +1978,8 @@ const PatientProfile = () => {
             <DialogTitle>Contatos de Emergência</DialogTitle>
           </DialogHeader>
           <EmergencyForm
-            initial={patient.emergencyContacts || []}
-            onSubmit={(list) => { updatePatient({ emergencyContacts: list }); setEmergencyOpen(false); return true; }}
+            initial={[]}
+            onSubmit={() => { setEmergencyOpen(false); return true; }}
           />
         </DialogContent>
       </Dialog>
@@ -1783,8 +1991,8 @@ const PatientProfile = () => {
             <DialogTitle>Medicações</DialogTitle>
           </DialogHeader>
           <MedsForm
-            initial={patient.medications || []}
-            onSubmit={(list) => { updatePatient({ medications: list }); setMedsOpen(false); return true; }}
+            initial={[]}
+            onSubmit={() => { setMedsOpen(false); return true; }}
           />
         </DialogContent>
       </Dialog>
