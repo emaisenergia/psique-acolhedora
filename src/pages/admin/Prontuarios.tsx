@@ -102,6 +102,7 @@ const Prontuarios = () => {
   const [sessionStatusFilter, setSessionStatusFilter] = useState<string>("all");
   const [keywordFilter, setKeywordFilter] = useState("");
   const [datePreset, setDatePreset] = useState<string>("all");
+  const [pendingNotesFilter, setPendingNotesFilter] = useState(false);
 
   // Load patients
   const loadPatients = useCallback(async () => {
@@ -213,17 +214,24 @@ const Prontuarios = () => {
             (session.transcription?.toLowerCase().includes(keyword));
           if (!matchesKeyword) return false;
         }
+
+        // Pending notes filter - only show sessions without complete notes
+        if (pendingNotesFilter) {
+          const hasNotes = session.detailed_notes || session.summary || session.clinical_observations;
+          // Only consider completed sessions as pending
+          if (session.status !== "completed" || hasNotes) return false;
+        }
         
         return true;
       });
       
       // If no advanced filters are set, include patient
-      const hasAdvancedFilters = dateRange.from || dateRange.to || sessionStatusFilter !== "all" || keywordFilter.trim();
+      const hasAdvancedFilters = dateRange.from || dateRange.to || sessionStatusFilter !== "all" || keywordFilter.trim() || pendingNotesFilter;
       if (!hasAdvancedFilters) return true;
       
       return hasMatchingSessions;
     });
-  }, [patientsWithSessions, searchTerm, statusFilter, dateRange, sessionStatusFilter, keywordFilter]);
+  }, [patientsWithSessions, searchTerm, statusFilter, dateRange, sessionStatusFilter, keywordFilter, pendingNotesFilter]);
 
   // Handle date preset changes
   const handleDatePresetChange = (preset: string) => {
@@ -256,10 +264,11 @@ const Prontuarios = () => {
     setSessionStatusFilter("all");
     setKeywordFilter("");
     setDatePreset("all");
+    setPendingNotesFilter(false);
   };
 
   // Check if any advanced filters are active
-  const hasActiveFilters = dateRange.from || dateRange.to || sessionStatusFilter !== "all" || keywordFilter.trim();
+  const hasActiveFilters = dateRange.from || dateRange.to || sessionStatusFilter !== "all" || keywordFilter.trim() || pendingNotesFilter;
 
   // Statistics
   const stats = useMemo(() => {
@@ -567,6 +576,21 @@ const Prontuarios = () => {
                   </div>
                 </div>
 
+                {/* Pending notes filter */}
+                <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <input
+                    type="checkbox"
+                    id="pendingNotesFilter"
+                    checked={pendingNotesFilter}
+                    onChange={(e) => setPendingNotesFilter(e.target.checked)}
+                    className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <label htmlFor="pendingNotesFilter" className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 cursor-pointer">
+                    <AlertCircle className="w-4 h-4" />
+                    Mostrar apenas sessões pendentes de anotação
+                  </label>
+                </div>
+
                 {/* Keyword search */}
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-muted-foreground">
@@ -587,6 +611,18 @@ const Prontuarios = () => {
                 {hasActiveFilters && (
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
                     <span className="text-xs text-muted-foreground">Filtros ativos:</span>
+                    {pendingNotesFilter && (
+                      <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                        <AlertCircle className="w-3 h-3" />
+                        Pendentes de anotação
+                        <button
+                          onClick={() => setPendingNotesFilter(false)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    )}
                     {(dateRange.from || dateRange.to) && (
                       <Badge variant="secondary" className="gap-1">
                         <CalendarDays className="w-3 h-3" />
