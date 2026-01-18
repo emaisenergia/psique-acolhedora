@@ -13,6 +13,7 @@ import {
   Settings,
   FileEdit,
   ClipboardList,
+  Bell,
 } from "lucide-react";
 
 const AdminLayout = ({ children }: { children: React.ReactNode }) => {
@@ -141,6 +142,18 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
               <div className="flex flex-col">
                 <span className="font-semibold">Prontuários</span>
                 <span className="text-xs text-muted-foreground">Prontuários psicológicos</span>
+              </div>
+              <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
+            </NavLink>
+
+            <NavLink
+              to="/admin/lembretes"
+              className={({ isActive }) => `${baseItem} ${isActive ? activeItem : inactiveItem} ${isActive ? 'active' : ''}`}
+            >
+              <Bell className="w-5 h-5 text-muted-foreground" />
+              <div className="flex flex-col">
+                <span className="font-semibold">Lembretes</span>
+                <span className="text-xs text-muted-foreground">Histórico de notificações</span>
               </div>
               <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
             </NavLink>

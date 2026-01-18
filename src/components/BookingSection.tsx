@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   Video,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  ClipboardList
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { FadeIn, StaggerChildren, StaggerItem } from '@/components/animations';
@@ -27,6 +28,7 @@ import { useScheduleConfig } from '@/hooks/useScheduleConfig';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
+import WaitlistDialog from '@/components/appointments/WaitlistDialog';
 
 // Validation schema
 const bookingSchema = z.object({
@@ -62,6 +64,7 @@ const BookingSection = () => {
     telefone: ''
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [waitlistDialogOpen, setWaitlistDialogOpen] = useState(false);
 
   // Fetch appointments for the selected date to check availability
   const { data: existingAppointments = [], isLoading: appointmentsLoading } = useQuery({
@@ -466,7 +469,15 @@ const BookingSection = () => {
                       <div className="text-center py-12 text-muted-foreground">
                         <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50 text-destructive" />
                         <p>Não há horários disponíveis nesta data.</p>
-                        <p className="text-sm mt-2">Por favor, selecione outra data.</p>
+                        <p className="text-sm mt-2">Por favor, selecione outra data ou entre na lista de espera.</p>
+                        <Button
+                          variant="outline"
+                          className="mt-4 gap-2"
+                          onClick={() => setWaitlistDialogOpen(true)}
+                        >
+                          <ClipboardList className="w-4 h-4" />
+                          Entrar na Lista de Espera
+                        </Button>
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 gap-2">
@@ -654,6 +665,25 @@ const BookingSection = () => {
             </motion.div>
           )}
         </div>
+
+        {/* Waitlist Dialog */}
+        {selectedDate && (
+          <WaitlistDialog
+            open={waitlistDialogOpen}
+            onOpenChange={setWaitlistDialogOpen}
+            selectedDate={selectedDate}
+            selectedService={serviceTypes.find(s => s.id === selectedService)?.name || ''}
+            onSubmit={async (data) => {
+              // For public booking, we need to collect user info first
+              // Show a toast directing them to fill out contact info
+              toast({
+                title: "Preencha seus dados",
+                description: "Para entrar na lista de espera, primeiro preencha seus dados de contato.",
+              });
+              setStep(3);
+            }}
+          />
+        )}
       </div>
     </section>
   );
