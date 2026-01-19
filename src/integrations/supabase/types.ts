@@ -522,10 +522,52 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_schedule_config: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          day_of_week: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          work_end_time: string
+          work_start_time: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          day_of_week: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          work_end_time?: string
+          work_start_time?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          day_of_week?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          work_end_time?: string
+          work_start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_schedule_config_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           address: string | null
           city: string | null
+          color: string | null
           created_at: string
           email: string | null
           id: string
@@ -538,6 +580,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          color?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -550,6 +593,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          color?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -1035,6 +1079,44 @@ export type Database = {
             columns: ["resource_id"]
             isOneToOne: false
             referencedRelation: "therapeutic_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_breaks: {
+        Row: {
+          break_end_time: string
+          break_start_time: string
+          created_at: string
+          id: string
+          label: string | null
+          schedule_config_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          break_end_time: string
+          break_start_time: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          schedule_config_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          break_end_time?: string
+          break_start_time?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          schedule_config_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_breaks_schedule_config_id_fkey"
+            columns: ["schedule_config_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_schedule_config"
             referencedColumns: ["id"]
           },
         ]
