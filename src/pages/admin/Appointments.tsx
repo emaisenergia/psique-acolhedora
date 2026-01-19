@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, DragEvent } from "react";
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfDay, startOfMonth, startOfWeek, setHours, setMinutes, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertCircle, Briefcase, Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, Grid3X3, GripVertical, Lock, Package, Plus, Repeat, Search, Trash2 } from "lucide-react";
+import { AlertCircle, Briefcase, Calendar as CalendarIcon, CheckCircle, ChevronLeft, ChevronRight, Clock, CreditCard, DollarSign, Edit, Filter, Grid3X3, GripVertical, Lock, Package, Plus, Repeat, Search, Settings, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 
@@ -26,6 +26,7 @@ import { EditBlockDialog } from "@/components/appointments/EditBlockDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WhatsAppActionMenu } from "@/components/appointments/WhatsAppActionMenu";
 import WaitlistManager from "@/components/appointments/WaitlistManager";
+import { ScheduleConfigEditor } from "@/components/appointments/ScheduleConfigEditor";
 
 const weekOptions = { weekStartsOn: 0 as const };
 
@@ -642,6 +643,16 @@ const Appointments = () => {
                 <Clock className="h-4 w-4 mr-2" />
                 Lista de Espera
               </Button>
+              {viewMode === "grid" && (
+                <ScheduleConfigEditor
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Configurar
+                    </Button>
+                  }
+                />
+              )}
             </div>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4" />
