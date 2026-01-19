@@ -15,7 +15,7 @@ import {
   ChevronRight,
   AlertTriangle,
 } from "lucide-react";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
@@ -27,13 +27,30 @@ import { usePatients } from "@/hooks/usePatients";
 import { useAppointments } from "@/hooks/useAppointments";
 import { AppointmentMetricsCard } from "@/components/dashboard/AppointmentMetricsCard";
 import { OccupancyMetricsCard } from "@/components/dashboard/OccupancyMetricsCard";
+import { TodaySessionsDialog } from "@/components/dashboard/TodaySessionsDialog";
+import { ActivePatientsDialog } from "@/components/dashboard/ActivePatientsDialog";
+import { MonthlyRevenueDialog } from "@/components/dashboard/MonthlyRevenueDialog";
+import { CompletedSessionsDialog } from "@/components/dashboard/CompletedSessionsDialog";
 import { addMonths, format, startOfMonth, addDays, parseISO, getMonth, getDate } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) => (
-  <Card className="card-glass">
+interface StatProps {
+  icon: any;
+  label: string;
+  value: string | number;
+  onClick?: () => void;
+}
+
+const Stat = ({ icon: Icon, label, value, onClick }: StatProps) => (
+  <Card 
+    className={cn(
+      "card-glass transition-all duration-200",
+      onClick && "cursor-pointer hover:scale-[1.02] hover:shadow-lg hover:border-primary/50"
+    )}
+    onClick={onClick}
+  >
     <CardContent className="p-6 flex items-center gap-4">
       <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center">
         <Icon className="w-6 h-6 text-primary-foreground" />
@@ -42,6 +59,9 @@ const Stat = ({ icon: Icon, label, value }: { icon: any; label: string; value: s
         <div className="text-sm text-muted-foreground">{label}</div>
         <div className="text-2xl font-semibold">{value}</div>
       </div>
+      {onClick && (
+        <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+      )}
     </CardContent>
   </Card>
 );
@@ -51,6 +71,12 @@ const Dashboard = () => {
   const { patients } = usePatients();
   const { appointments } = useAppointments();
   const navigate = useNavigate();
+
+  // Dialog states
+  const [showTodaySessions, setShowTodaySessions] = useState(false);
+  const [showActivePatients, setShowActivePatients] = useState(false);
+  const [showMonthlyRevenue, setShowMonthlyRevenue] = useState(false);
+  const [showCompletedSessions, setShowCompletedSessions] = useState(false);
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -265,11 +291,58 @@ const Dashboard = () => {
 
       {/* KPIs */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Stat icon={CalendarDays} label="Sessões Hoje" value={sessoesHoje} />
-        <Stat icon={Users} label="Pacientes Ativos" value={pacientesAtivos} />
-        <Stat icon={Wallet} label="Receita Mensal" value={brl.format(receitaMensal)} />
-        <Stat icon={CheckCircle2} label="Sessões Concluídas" value={sessoesConcluidas} />
+        <Stat 
+          icon={CalendarDays} 
+          label="Sessões Hoje" 
+          value={sessoesHoje} 
+          onClick={() => setShowTodaySessions(true)}
+        />
+        <Stat 
+          icon={Users} 
+          label="Pacientes Ativos" 
+          value={pacientesAtivos} 
+          onClick={() => setShowActivePatients(true)}
+        />
+        <Stat 
+          icon={Wallet} 
+          label="Receita Mensal" 
+          value={brl.format(receitaMensal)} 
+          onClick={() => setShowMonthlyRevenue(true)}
+        />
+        <Stat 
+          icon={CheckCircle2} 
+          label="Sessões Concluídas" 
+          value={sessoesConcluidas} 
+          onClick={() => setShowCompletedSessions(true)}
+        />
       </div>
+
+      {/* Dialogs */}
+      <TodaySessionsDialog
+        open={showTodaySessions}
+        onOpenChange={setShowTodaySessions}
+        appointments={dayAppts}
+        patientMap={patientMap}
+      />
+      <ActivePatientsDialog
+        open={showActivePatients}
+        onOpenChange={setShowActivePatients}
+        appointments={monthAppts}
+        patients={patients}
+      />
+      <MonthlyRevenueDialog
+        open={showMonthlyRevenue}
+        onOpenChange={setShowMonthlyRevenue}
+        appointments={monthAppts}
+        patientMap={patientMap}
+      />
+      <CompletedSessionsDialog
+        open={showCompletedSessions}
+        onOpenChange={setShowCompletedSessions}
+        appointments={monthAppts}
+        patientMap={patientMap}
+        pendingSessions={sessoesPendentes}
+      />
 
       {/* Métricas de Agendamentos */}
       <div className="mb-8">
