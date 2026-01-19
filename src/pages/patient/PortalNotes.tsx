@@ -21,9 +21,11 @@ import {
   NotebookPen,
   Sparkles,
   LineChart,
+  TrendingUp,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, subDays, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 const formatDateTimeLong = (iso?: string) => {
   if (!iso) return "—";
@@ -133,6 +135,37 @@ const PortalNotes = () => {
         .slice(0, 3),
     [activities]
   );
+
+  // Mood evolution chart data (last 30 days)
+  const moodChartData = useMemo(() => {
+    const moodValues: Record<Mood, number> = {
+      muito_bem: 5,
+      bem: 4,
+      neutro: 3,
+      desafiador: 2,
+      dificil: 1,
+    };
+
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = subDays(new Date(), 29 - i);
+      const dayKey = format(date, "yyyy-MM-dd");
+      const entry = myEntries.find((e) => e.created_at.startsWith(dayKey));
+      
+      return {
+        date: format(date, "dd/MM"),
+        fullDate: format(date, "d 'de' MMM", { locale: ptBR }),
+        value: entry ? moodValues[entry.mood as Mood] || null : null,
+        mood: entry?.mood || null,
+        moodLabel: entry ? moodOptions.find((m) => m.value === entry.mood)?.label : null,
+      };
+    });
+
+    return last30Days;
+  }, [myEntries]);
+
+  const moodChartDataFiltered = useMemo(() => {
+    return moodChartData.filter((d) => d.value !== null);
+  }, [moodChartData]);
 
   const TabButton = ({
     label,
@@ -322,6 +355,90 @@ const PortalNotes = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Mood Evolution Chart */}
+        {moodChartDataFiltered.length >= 3 && (
+          <div className="mt-6">
+            <Card className="bg-white/90 border border-border/60">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    <div>
+                      <div className="text-sm font-medium">Evolução do Humor</div>
+                      <div className="text-xs text-muted-foreground">Últimos 30 dias</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-[200px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart
+                      data={moodChartData}
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        domain={[1, 5]}
+                        ticks={[1, 2, 3, 4, 5]}
+                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tickFormatter={(value) => {
+                          const labels: Record<number, string> = {
+                            1: "😔",
+                            2: "😕",
+                            3: "😐",
+                            4: "😊",
+                            5: "✨",
+                          };
+                          return labels[value] || "";
+                        }}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            if (!data.value) return null;
+                            return (
+                              <div className="bg-white shadow-lg rounded-lg p-3 border border-border">
+                                <div className="text-sm font-medium">{data.fullDate}</div>
+                                <div className="text-xs text-muted-foreground">{data.moodLabel}</div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        dot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 3 }}
+                        activeDot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 5 }}
+                        connectNulls
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                  <span>😔 Difícil</span>
+                  <span>→</span>
+                  <span>✨ Muito bem</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="mt-6">
           <Card className="bg-white/90 border border-border/60">

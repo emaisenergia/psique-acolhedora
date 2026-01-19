@@ -43,7 +43,7 @@ import {
   Shield,
   DollarSign,
 } from "lucide-react";
-import { sessionsService, SESSION_STATUS_CONFIG, type Session, type SessionFile, type SessionStatus } from "@/lib/sessions";
+import { sessionsService, SESSION_STATUS_CONFIG, PATIENT_MOOD_CONFIG, type Session, type SessionFile, type SessionStatus, type PatientMood } from "@/lib/sessions";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { storage, type Appointment } from "@/lib/storage";
 import { supabase } from "@/integrations/supabase/client";
@@ -931,6 +931,11 @@ ${anamnesis.observacoes || "Nenhuma"}
                               <Badge className={`text-xs ${config.bgColor} ${config.color}`}>
                                 {config.label}
                               </Badge>
+                              {session.patient_mood && PATIENT_MOOD_CONFIG[session.patient_mood] && (
+                                <span className={`text-xs ${PATIENT_MOOD_CONFIG[session.patient_mood].bgColor} ${PATIENT_MOOD_CONFIG[session.patient_mood].color} px-2 py-0.5 rounded-full flex items-center gap-1`}>
+                                  {PATIENT_MOOD_CONFIG[session.patient_mood].emoji} {PATIENT_MOOD_CONFIG[session.patient_mood].label}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                               {session.duration_minutes && (
@@ -1282,6 +1287,43 @@ ${anamnesis.observacoes || "Nenhuma"}
                       />
                     </div>
                   )}
+
+                  {/* Patient Mood Selector */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-primary" />
+                      Humor do Paciente na Sessão
+                    </Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {Object.entries(PATIENT_MOOD_CONFIG).map(([key, config]) => {
+                        const isSelected = selectedSession.patient_mood === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => handleUpdateSession({ patient_mood: key as PatientMood })}
+                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                              isSelected 
+                                ? `${config.bgColor} ${config.color} border-current shadow-md scale-105` 
+                                : "border-border/50 hover:border-primary/30 hover:bg-muted/50"
+                            }`}
+                          >
+                            <span className="text-2xl mb-1">{config.emoji}</span>
+                            <span className="text-xs font-medium">{config.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selectedSession.patient_mood && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateSession({ patient_mood: undefined })}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Limpar seleção
+                      </button>
+                    )}
+                  </div>
 
                   <div>
                     <Label>Notas detalhadas</Label>

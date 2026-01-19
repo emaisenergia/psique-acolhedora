@@ -63,10 +63,55 @@ export const usePatients = () => {
     }
   };
 
+  const updatePatient = async (id: string, updates: Partial<PatientRow>) => {
+    try {
+      const { data, error } = await supabase
+        .from("patients")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setPatients((prev) => prev.map((p) => (p.id === id ? data : p)));
+      return data;
+    } catch (error) {
+      console.error("Error updating patient:", error);
+      toast({
+        title: "Erro ao atualizar paciente",
+        description: "Não foi possível atualizar o paciente.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const toggleFavorite = async (id: string) => {
+    const patient = patients.find((p) => p.id === id);
+    if (!patient) return null;
+
+    const newValue = !patient.is_favorite;
+    const result = await updatePatient(id, { is_favorite: newValue });
+    
+    if (result) {
+      toast({
+        title: newValue ? "Paciente favoritado" : "Favorito removido",
+        description: newValue 
+          ? `${patient.name} foi adicionado aos favoritos.`
+          : `${patient.name} foi removido dos favoritos.`,
+      });
+    }
+    
+    return result;
+  };
+
   return {
     patients,
     isLoading,
     fetchPatients,
     createPatient,
+    updatePatient,
+    toggleFavorite,
   };
 };

@@ -7,13 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { storage, type Patient, uid } from "@/lib/storage";
 import { useMemo, useState } from "react";
-import { UserPlus, Users, Search, Link as LinkIcon, Clock, CheckCircle2, Eye, Pencil, Trash2, Handshake } from "lucide-react";
+import { UserPlus, Users, Search, Link as LinkIcon, Clock, CheckCircle2, Eye, Pencil, Trash2, Handshake, Star } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { useInsurances } from "@/hooks/useInsurances";
+import { usePatients } from "@/hooks/usePatients";
 
 const Stat = ({ label, value, accent = "primary" as "primary" | "emerald" | "amber" }) => (
   <Card className="card-glass">
@@ -223,7 +224,20 @@ const Patients = () => {
                           </TableCell>
                           <TableCell className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  // Toggle favorite - visual only for localStorage version
+                                  const isFav = (p as any).isFavorite;
+                                  updatePatient(p.id, { isFavorite: !isFav } as any);
+                                }}
+                                className={`h-8 w-8 p-0 ${(p as any).isFavorite ? 'text-amber-500' : 'text-muted-foreground hover:text-amber-500'}`}
+                                title={(p as any).isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                              >
+                                <Star className={`w-4 h-4 ${(p as any).isFavorite ? 'fill-current' : ''}`} />
+                              </Button>
                               <Link className="text-primary text-sm flex items-center gap-1" to={`/admin/pacientes/${p.id}`}>
                                 <Eye className="w-4 h-4" /> Ver perfil
                               </Link>
