@@ -874,6 +874,7 @@ export type Database = {
           email: string
           id: string
           insurance_id: string | null
+          is_favorite: boolean | null
           name: string
           notes: string | null
           phone: string | null
@@ -887,6 +888,7 @@ export type Database = {
           email: string
           id?: string
           insurance_id?: string | null
+          is_favorite?: boolean | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -900,6 +902,7 @@ export type Database = {
           email?: string
           id?: string
           insurance_id?: string | null
+          is_favorite?: boolean | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -1273,6 +1276,7 @@ export type Database = {
           duration_minutes: number | null
           id: string
           patient_id: string
+          patient_mood: string | null
           psychologist_id: string | null
           recurring_themes: Json | null
           session_date: string
@@ -1295,6 +1299,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           patient_id: string
+          patient_mood?: string | null
           psychologist_id?: string | null
           recurring_themes?: Json | null
           session_date?: string
@@ -1317,6 +1322,7 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           patient_id?: string
+          patient_mood?: string | null
           psychologist_id?: string | null
           recurring_themes?: Json | null
           session_date?: string

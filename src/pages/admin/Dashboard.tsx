@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { useAdminAuth } from "@/context/AdminAuth";
 import PackageAlerts from "@/components/alerts/PackageAlerts";
+import { FavoritePatientsCard } from "@/components/dashboard/FavoritePatientsCard";
+import { NoShowAlerts } from "@/components/alerts/NoShowAlerts";
 import { usePatients } from "@/hooks/usePatients";
 import { useAppointments } from "@/hooks/useAppointments";
 import { AppointmentMetricsCard } from "@/components/dashboard/AppointmentMetricsCard";
@@ -286,6 +288,12 @@ const Dashboard = () => {
       {/* Alertas de Pacotes */}
       <div className="mb-8">
         <PackageAlerts maxAlerts={5} />
+      </div>
+
+      {/* Favoritos + Alertas No-Show */}
+      <div className="grid lg:grid-cols-2 gap-6 mb-8">
+        <FavoritePatientsCard patients={patients} />
+        <NoShowAlerts appointments={appointments} patients={patients} maxAlerts={3} />
       </div>
 
       {/* Agenda de Hoje + Pacientes Recentes */}

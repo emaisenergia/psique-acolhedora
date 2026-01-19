@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type SessionStatus = "scheduled" | "completed" | "cancelled" | "rescheduled" | "no_show";
+export type PatientMood = "muito_bem" | "bem" | "neutro" | "desafiador" | "dificil";
 
 export interface Session {
   id: string;
@@ -10,6 +11,7 @@ export interface Session {
   session_date: string;
   duration_minutes?: number;
   status: SessionStatus;
+  patient_mood?: PatientMood;
   cancellation_reason?: string;
   detailed_notes?: string;
   summary?: string;
@@ -30,6 +32,17 @@ export interface Session {
   created_by?: string;
   updated_by?: string;
 }
+
+export const PATIENT_MOOD_CONFIG: Record<
+  PatientMood,
+  { label: string; emoji: string; color: string; bgColor: string }
+> = {
+  muito_bem: { label: "Muito bem", emoji: "✨", color: "text-emerald-700", bgColor: "bg-emerald-100" },
+  bem: { label: "Bem", emoji: "😊", color: "text-green-700", bgColor: "bg-green-100" },
+  neutro: { label: "Neutro", emoji: "😐", color: "text-gray-700", bgColor: "bg-gray-100" },
+  desafiador: { label: "Desafiador", emoji: "😔", color: "text-amber-700", bgColor: "bg-amber-100" },
+  dificil: { label: "Difícil", emoji: "🌧️", color: "text-rose-700", bgColor: "bg-rose-100" },
+};
 
 export interface SessionFile {
   id: string;
