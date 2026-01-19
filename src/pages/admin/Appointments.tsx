@@ -26,7 +26,8 @@ import { EditBlockDialog } from "@/components/appointments/EditBlockDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WhatsAppActionMenu } from "@/components/appointments/WhatsAppActionMenu";
 import WaitlistManager from "@/components/appointments/WaitlistManager";
-import { ScheduleConfigEditor } from "@/components/appointments/ScheduleConfigEditor";
+import { AdvancedScheduleConfigEditor } from "@/components/appointments/AdvancedScheduleConfigEditor";
+import { WeeklyScheduleCalendar } from "@/components/appointments/WeeklyScheduleCalendar";
 
 const weekOptions = { weekStartsOn: 0 as const };
 
@@ -110,7 +111,7 @@ const Appointments = () => {
   const [draggedAppointment, setDraggedAppointment] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [viewMode, setViewMode] = useState<"calendar" | "grid" | "waitlist">("calendar");
+  const [viewMode, setViewMode] = useState<"calendar" | "grid" | "waitlist" | "schedule">("calendar");
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockDialogInitialDate, setBlockDialogInitialDate] = useState<Date | undefined>();
   const [blockDialogInitialTime, setBlockDialogInitialTime] = useState<string | undefined>();
@@ -643,16 +644,22 @@ const Appointments = () => {
                 <Clock className="h-4 w-4 mr-2" />
                 Lista de Espera
               </Button>
-              {viewMode === "grid" && (
-                <ScheduleConfigEditor
-                  trigger={
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Configurar
-                    </Button>
-                  }
-                />
-              )}
+              <AdvancedScheduleConfigEditor
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Configurar
+                  </Button>
+                }
+              />
+              <Button 
+                variant={viewMode === "schedule" ? "default" : "outline"} 
+                size="sm"
+                onClick={() => setViewMode("schedule")}
+              >
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Horários
+              </Button>
             </div>
             <Button variant="outline" className="gap-2">
               <Filter className="h-4 w-4" />
@@ -664,6 +671,10 @@ const Appointments = () => {
 
       {viewMode === "waitlist" ? (
         <WaitlistManager />
+      ) : viewMode === "schedule" ? (
+        <div className="mb-6">
+          <WeeklyScheduleCalendar selectedDate={selectedDate} />
+        </div>
       ) : viewMode === "grid" ? (
         /* Daily Time Grid View */
         <div className="space-y-6 mb-6">
