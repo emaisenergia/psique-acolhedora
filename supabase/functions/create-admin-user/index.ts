@@ -6,20 +6,53 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Input validation helpers
+const isValidEmail = (email: string): boolean => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 255;
+};
+
+const isValidPassword = (password: string): boolean => {
+  return typeof password === "string" && password.length >= 8 && password.length <= 128;
+};
+
+const sanitizeString = (str: string, maxLength = 200): string => {
+  return String(str).trim().slice(0, maxLength);
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email, password, name } = await req.json();
+    const body = await req.json();
+    const { email, password, name } = body;
 
+    // Validate required fields
     if (!email || !password) {
       return new Response(
         JSON.stringify({ error: "Email and password are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Validate email format
+    if (!isValidEmail(email)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid email format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate password strength
+    if (!isValidPassword(password)) {
+      return new Response(
+        JSON.stringify({ error: "Password must be between 8 and 128 characters" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const sanitizedName = name ? sanitizeString(name, 100) : email.split("@")[0];
 
     // Use service role key to create users
     const supabaseAdmin = createClient(
@@ -33,7 +66,7 @@ serve(async (req) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { name: name || email.split("@")[0] },
+      user_metadata: { name: sanitizedName },
     });
 
     if (userError) {
@@ -65,7 +98,7 @@ serve(async (req) => {
       .from("admin_profiles")
       .insert({
         user_id: userId,
-        name: name || email.split("@")[0],
+        name: sanitizedName,
         phone: null,
         credential: null,
         bio: null,
@@ -75,6 +108,8 @@ serve(async (req) => {
     if (profileError) {
       console.error("Error creating profile:", profileError);
     }
+
+    console.log(`Admin user created successfully: ${userId}`);
 
     return new Response(
       JSON.stringify({ 
