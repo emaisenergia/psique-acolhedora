@@ -227,4 +227,13 @@ Animations: Fade-in, hover effects, transições suaves
     @apply after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-primary;
     @apply after:transition-all after:duration-300 hover:after:w-full;
   }
+
+  /* Scrollbar oculta */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
