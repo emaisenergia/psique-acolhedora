@@ -260,7 +260,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="min-h-screen bg-background">
       <div className="flex">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:flex flex-col w-60 h-screen sticky top-0 border-r border-border/50 p-4">
+        <aside className="hidden md:flex flex-col w-72 h-screen sticky top-0 border-r border-border/50 p-4">
           <Link to="/admin" className="flex items-center gap-2 mb-4">
             <div className="w-9 h-9 bg-gradient-primary rounded-full flex items-center justify-center">
               <span className="text-primary-foreground font-bold">E</span>
