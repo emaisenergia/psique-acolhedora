@@ -2,15 +2,8 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Calendar,
-  FileText,
-  BookOpen,
-  MessageSquare,
-  LogOut,
   Clock,
   CheckCircle2,
-  Shield,
-  UserCircle,
   Video,
   MapPin,
   Plus,
@@ -18,7 +11,7 @@ import {
 } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
 import { usePatientAppointments } from "@/hooks/usePatientData";
-import { useNavigate } from "react-router-dom";
+import PortalLayout from "@/components/patient/PortalLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,8 +34,7 @@ const formatTime = (iso?: string) => {
 };
 
 const PortalSessions = () => {
-  const { logout, patient, isLoading } = usePatientAuth();
-  const navigate = useNavigate();
+  const { patient, isLoading } = usePatientAuth();
   const { toast } = useToast();
   const { appointments, createAppointment, updateAppointment } = usePatientAppointments();
   const [selected, setSelected] = useState<string | null>(null);
@@ -143,25 +135,6 @@ const PortalSessions = () => {
     w.document.close();
   };
 
-  const TabButton = ({
-    label,
-    icon: Icon,
-    active,
-    onClick,
-  }: { label: string; icon: any; active?: boolean; onClick: () => void }) => (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 ${
-        active
-          ? "bg-primary/20 border-primary/50 text-foreground"
-          : "bg-transparent text-muted-foreground border-border"
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
-  );
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -171,277 +144,226 @@ const PortalSessions = () => {
   }
 
   return (
-    <div className="min-h-screen section-gradient relative overflow-hidden">
-      <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
-
-      {/* Top bar */}
-      <div className="bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/60">
-        <div className="container mx-auto px-4 max-w-6xl py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Equanimité Psychology</div>
-                <div className="text-lg font-semibold">Portal do Paciente</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <UserCircle className="w-5 h-5 text-primary" />
-                </div>
-                <span>{patient?.name || "Paciente"}</span>
-              </div>
-              <Button
-                variant="outline"
-                className="btn-outline-futuristic inline-flex items-center gap-2"
-                onClick={() => {
-                  logout();
-                  navigate("/portal");
-                }}
-              >
-                <LogOut className="w-4 h-4" /> Sair
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 max-w-6xl">
-        {/* Tabs */}
-        <div className="mt-4 border-b border-border/60">
-          <div className="flex items-center gap-4 overflow-x-auto pb-3">
-            <TabButton label="Visão Geral" icon={Shield} onClick={() => navigate("/portal/app")} />
-            <TabButton label="Sessões" icon={Calendar} active onClick={() => {}} />
-            <TabButton label="Atividades" icon={BookOpen} onClick={() => navigate("/portal/atividades")} />
-            <TabButton label="Anotações" icon={FileText} onClick={() => navigate("/portal/anotacoes")} />
-            <TabButton label="Mensagens" icon={MessageSquare} onClick={() => navigate("/portal/mensagens")} />
-          </div>
-        </div>
-
-        {/* Header row */}
-        <div className="mt-8 flex items-center justify-between">
-          <h2 className="text-xl font-display font-light">Próximas Sessões</h2>
-          <Dialog open={newSessionOpen} onOpenChange={setNewSessionOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="rounded-full inline-flex items-center gap-2">
-                <Plus className="w-4 h-4" /> Nova Sessão
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Solicitar Nova Sessão</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Data</label>
-                    <Input
-                      type="date"
-                      value={newSession.date}
-                      onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
-                      min={new Date().toISOString().split("T")[0]}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Horário</label>
-                    <Input
-                      type="time"
-                      value={newSession.time}
-                      onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
-                    />
-                  </div>
-                </div>
+    <PortalLayout>
+      {/* Header row */}
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="text-xl font-display font-light">Próximas Sessões</h2>
+        <Dialog open={newSessionOpen} onOpenChange={setNewSessionOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="rounded-full inline-flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Nova Sessão
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Solicitar Nova Sessão</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">Modalidade</label>
-                  <Select
-                    value={newSession.mode}
-                    onValueChange={(v) => setNewSession({ ...newSession, mode: v as "online" | "presencial" })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="presencial">Presencial</SelectItem>
-                      <SelectItem value="online">Online</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Serviço</label>
-                  <Select
-                    value={newSession.service}
-                    onValueChange={(v) => setNewSession({ ...newSession, service: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Terapia Individual">Terapia Individual</SelectItem>
-                      <SelectItem value="Terapia de Casal">Terapia de Casal</SelectItem>
-                      <SelectItem value="Orientação Familiar">Orientação Familiar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Observações (opcional)</label>
-                  <Textarea
-                    placeholder="Alguma preferência ou observação?"
-                    value={newSession.notes}
-                    onChange={(e) => setNewSession({ ...newSession, notes: e.target.value })}
+                  <label className="text-sm font-medium">Data</label>
+                  <Input
+                    type="date"
+                    value={newSession.date}
+                    onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
+                    min={new Date().toISOString().split("T")[0]}
                   />
                 </div>
-                <Button
-                  className="w-full"
-                  onClick={handleCreateSession}
-                  disabled={submitting || !newSession.date || !newSession.time}
-                >
-                  {submitting ? "Agendando..." : "Solicitar Agendamento"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="mt-4 grid lg:grid-cols-2 gap-6 items-start">
-          {/* Left list */}
-          <div className="space-y-6">
-            {upcoming.length === 0 && (
-              <Card className="card-glass">
-                <CardContent className="p-6 text-muted-foreground">Nenhuma sessão futura agendada.</CardContent>
-              </Card>
-            )}
-            {upcoming.map((a) => {
-              const dateStr = formatLongDate(a.date_time);
-              const timeStr = formatTime(a.date_time);
-              const isOnline = a.mode === "online";
-              const isCancelled = a.status === "cancelled";
-              return (
-                <Card
-                  key={a.id}
-                  className={`bg-card/90 border ${selected === a.id ? 'border-primary/60' : 'border-border/60'} shadow-card rounded-2xl cursor-pointer`}
-                  onClick={() => setSelected(a.id)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-sm text-muted-foreground">{dateStr}</div>
-                        <div className="mt-1 text-sm text-muted-foreground inline-flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-primary" /> {timeStr} • {a.duration_minutes} min • {isOnline ? "Online" : "Presencial"}
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="font-semibold">{a.service || "Terapia Individual"}</div>
-                          {a.notes && <div className="text-sm text-muted-foreground">Observações: {a.notes}</div>}
-                        </div>
-                      </div>
-                      <div>
-                        <span className={`px-3 py-1 rounded-full text-xs ${
-                          isCancelled ? 'bg-rose-100 text-rose-700' : 
-                          a.status === 'confirmed' ? 'bg-green-100 text-green-700' : 
-                          'bg-amber-100 text-amber-700'
-                        }`}>
-                          {isCancelled ? 'Cancelada' : a.status === 'confirmed' ? 'Confirmada' : 'Aguardando'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-border/60 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {isOnline && a.meeting_url ? (
-                          <a href={a.meeting_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" className="btn-futuristic rounded-full inline-flex items-center gap-2">
-                              <Video className="w-4 h-4" /> Entrar
-                            </Button>
-                          </a>
-                        ) : isOnline ? (
-                          <Button size="sm" disabled className="rounded-full inline-flex items-center gap-2">
-                            <Video className="w-4 h-4" /> Link em breve
-                          </Button>
-                        ) : null}
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-muted-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCancelAppointment(a.id);
-                          }}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                      <div className="text-muted-foreground">
-                        <span className="inline-flex items-center gap-1 text-xs">
-                          {isOnline ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />} 
-                          {isOnline ? "Videochamada" : "Consultório"}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Right column: History */}
-          <div>
-            <Card className="bg-card/90 border border-border/60 rounded-2xl shadow-card">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-lg font-medium">Histórico de Sessões</div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-muted rounded-full p-1">
-                      <div className="flex items-center">
-                        {([
-                          { k: "30", label: "30d" },
-                          { k: "90", label: "90d" },
-                          { k: "all", label: "Tudo" },
-                        ] as const).map((opt) => (
-                          <button
-                            key={opt.k}
-                            onClick={() => setHistoryRange(opt.k)}
-                            className={`px-3 py-1 text-xs rounded-full ${
-                              historyRange === opt.k ? "bg-card shadow-sm" : "text-muted-foreground"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <Button variant="outline" size="sm" className="rounded-full inline-flex items-center gap-2" onClick={exportHistoryPdf}>
-                      <FileDown className="w-4 h-4" /> Exportar PDF
-                    </Button>
-                  </div>
+                <div>
+                  <label className="text-sm font-medium">Horário</label>
+                  <Input
+                    type="time"
+                    value={newSession.time}
+                    onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
+                  />
                 </div>
-                {filteredHistory.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground">Nenhuma sessão realizada ainda.</div>
-                ) : (
-                  <div className="space-y-3 max-h-[560px] overflow-auto pr-2">
-                    {filteredHistory.map((a) => (
-                      <div key={a.id} className="flex items-start justify-between p-3 border border-border/60 rounded-xl bg-card/80">
-                        <div className="text-sm">
-                          <div className="font-medium">{formatLongDate(a.date_time)}</div>
-                          <div className="text-muted-foreground">{formatTime(a.date_time)} • {a.service || 'Sessão'} • {a.mode === 'online' ? 'Online' : 'Presencial'}</div>
-                        </div>
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">
-                          <CheckCircle2 className="w-4 h-4" /> Concluída
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-        <div className="h-16" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Modalidade</label>
+                <Select
+                  value={newSession.mode}
+                  onValueChange={(v) => setNewSession({ ...newSession, mode: v as "online" | "presencial" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="presencial">Presencial</SelectItem>
+                    <SelectItem value="online">Online</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Serviço</label>
+                <Select
+                  value={newSession.service}
+                  onValueChange={(v) => setNewSession({ ...newSession, service: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Terapia Individual">Terapia Individual</SelectItem>
+                    <SelectItem value="Terapia de Casal">Terapia de Casal</SelectItem>
+                    <SelectItem value="Orientação Familiar">Orientação Familiar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Observações (opcional)</label>
+                <Textarea
+                  placeholder="Alguma preferência ou observação?"
+                  value={newSession.notes}
+                  onChange={(e) => setNewSession({ ...newSession, notes: e.target.value })}
+                />
+              </div>
+              <Button
+                className="w-full"
+                onClick={handleCreateSession}
+                disabled={submitting || !newSession.date || !newSession.time}
+              >
+                {submitting ? "Agendando..." : "Solicitar Agendamento"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-    </div>
+
+      <div className="mt-4 grid lg:grid-cols-2 gap-6 items-start">
+        {/* Left list */}
+        <div className="space-y-6">
+          {upcoming.length === 0 && (
+            <Card className="card-glass">
+              <CardContent className="p-6 text-muted-foreground">Nenhuma sessão futura agendada.</CardContent>
+            </Card>
+          )}
+          {upcoming.map((a) => {
+            const dateStr = formatLongDate(a.date_time);
+            const timeStr = formatTime(a.date_time);
+            const isOnline = a.mode === "online";
+            const isCancelled = a.status === "cancelled";
+            return (
+              <Card
+                key={a.id}
+                className={`bg-card/90 border ${selected === a.id ? 'border-primary/60' : 'border-border/60'} shadow-card rounded-2xl cursor-pointer`}
+                onClick={() => setSelected(a.id)}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground">{dateStr}</div>
+                      <div className="mt-1 text-sm text-muted-foreground inline-flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-primary" /> {timeStr} • {a.duration_minutes} min • {isOnline ? "Online" : "Presencial"}
+                      </div>
+
+                      <div className="mt-4">
+                        <div className="font-semibold">{a.service || "Terapia Individual"}</div>
+                        {a.notes && <div className="text-sm text-muted-foreground">Observações: {a.notes}</div>}
+                      </div>
+                    </div>
+                    <div>
+                      <span className={`px-3 py-1 rounded-full text-xs ${
+                        isCancelled ? 'bg-rose-100 text-rose-700' : 
+                        a.status === 'confirmed' ? 'bg-green-100 text-green-700' : 
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {isCancelled ? 'Cancelada' : a.status === 'confirmed' ? 'Confirmada' : 'Aguardando'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-border/60 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {isOnline && a.meeting_url ? (
+                        <a href={a.meeting_url} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" className="btn-futuristic rounded-full inline-flex items-center gap-2">
+                            <Video className="w-4 h-4" /> Entrar
+                          </Button>
+                        </a>
+                      ) : isOnline ? (
+                        <Button size="sm" disabled className="rounded-full inline-flex items-center gap-2">
+                          <Video className="w-4 h-4" /> Link em breve
+                        </Button>
+                      ) : null}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-muted-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelAppointment(a.id);
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                    <div className="text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 text-xs">
+                        {isOnline ? <Video className="w-3 h-3" /> : <MapPin className="w-3 h-3" />} 
+                        {isOnline ? "Videochamada" : "Consultório"}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Right column: History */}
+        <div>
+          <Card className="bg-card/90 border border-border/60 rounded-2xl shadow-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-lg font-medium">Histórico de Sessões</div>
+                <div className="flex items-center gap-2">
+                  <div className="bg-muted rounded-full p-1">
+                    <div className="flex items-center">
+                      {([
+                        { k: "30", label: "30d" },
+                        { k: "90", label: "90d" },
+                        { k: "all", label: "Tudo" },
+                      ] as const).map((opt) => (
+                        <button
+                          key={opt.k}
+                          onClick={() => setHistoryRange(opt.k)}
+                          className={`px-3 py-1 text-xs rounded-full ${
+                            historyRange === opt.k ? "bg-card shadow-sm" : "text-muted-foreground"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" className="rounded-full inline-flex items-center gap-2" onClick={exportHistoryPdf}>
+                    <FileDown className="w-4 h-4" /> Exportar PDF
+                  </Button>
+                </div>
+              </div>
+              {filteredHistory.length === 0 ? (
+                <div className="p-6 text-center text-muted-foreground">Nenhuma sessão realizada ainda.</div>
+              ) : (
+                <div className="space-y-3 max-h-[560px] overflow-auto pr-2">
+                  {filteredHistory.map((a) => (
+                    <div key={a.id} className="flex items-start justify-between p-3 border border-border/60 rounded-xl bg-card/80">
+                      <div className="text-sm">
+                        <div className="font-medium">{formatLongDate(a.date_time)}</div>
+                        <div className="text-muted-foreground">{formatTime(a.date_time)} • {a.service || 'Sessão'} • {a.mode === 'online' ? 'Online' : 'Presencial'}</div>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">
+                        <CheckCircle2 className="w-4 h-4" /> Concluída
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      <div className="h-16" />
+    </PortalLayout>
   );
 };
 
