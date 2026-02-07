@@ -207,6 +207,10 @@ const HeroSection = () => {
                 alt="Ambiente acolhedor da Clínica Equanimité - espaço moderno e tranquilo para psicoterapia"
                 className="w-full h-auto rounded-3xl shadow-hover object-cover"
                 loading="eager"
+                fetchPriority="high"
+                width={600}
+                height={400}
+                decoding="async"
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.4 }}
               />

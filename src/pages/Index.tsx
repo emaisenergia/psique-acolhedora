@@ -1,18 +1,20 @@
 import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
-import AboutSection from '@/components/AboutSection';
-import ServicesSection from '@/components/ServicesSection';
-import TherapyProcessSection from '@/components/TherapyProcessSection';
-import TestimonialsSection from '@/components/TestimonialsSection';
-import BookingSection from '@/components/BookingSection';
-import FAQSection from '@/components/FAQSection';
-import BlogSection from '@/components/BlogSection';
-import ContactSection from '@/components/ContactSection';
-import Footer from '@/components/Footer';
 import ScrollToTop from '@/components/ScrollToTop';
 import WhatsAppWidget from '@/components/WhatsAppWidget';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
+
+// Lazy load below-fold sections
+const AboutSection = lazy(() => import('@/components/AboutSection'));
+const ServicesSection = lazy(() => import('@/components/ServicesSection'));
+const TherapyProcessSection = lazy(() => import('@/components/TherapyProcessSection'));
+const TestimonialsSection = lazy(() => import('@/components/TestimonialsSection'));
+const BookingSection = lazy(() => import('@/components/BookingSection'));
+const FAQSection = lazy(() => import('@/components/FAQSection'));
+const BlogSection = lazy(() => import('@/components/BlogSection'));
+const ContactSection = lazy(() => import('@/components/ContactSection'));
+const Footer = lazy(() => import('@/components/Footer'));
 
 const Index = () => {
   const location = useLocation();
@@ -21,7 +23,6 @@ const Index = () => {
     if (location.hash) {
       const el = document.querySelector(location.hash);
       if (el) {
-        // Slight delay to ensure layout is ready
         setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 50);
       }
     }
@@ -32,16 +33,20 @@ const Index = () => {
       <Header />
       <main>
         <HeroSection />
-        <AboutSection />
-        <ServicesSection />
-        <TherapyProcessSection />
-        <TestimonialsSection />
-        <BookingSection />
-        <FAQSection />
-        <BlogSection />
-        <ContactSection />
+        <Suspense fallback={<div className="min-h-[50vh]" />}>
+          <AboutSection />
+          <ServicesSection />
+          <TherapyProcessSection />
+          <TestimonialsSection />
+          <BookingSection />
+          <FAQSection />
+          <BlogSection />
+          <ContactSection />
+        </Suspense>
       </main>
-      <Footer />
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
       <ScrollToTop />
       <WhatsAppWidget />
     </div>
