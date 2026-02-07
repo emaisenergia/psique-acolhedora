@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import PortalLayout from "@/components/patient/PortalLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, FileText, MessageSquare, LogOut, CheckCircle2, Shield, ShieldCheck, TrendingUp, Target, UserCircle, PhoneCall, MessageCircle, BookOpen, BadgeCheck, ClipboardList, ChevronRight, FolderOpen, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -96,8 +97,7 @@ const PortalHome = () => {
   }
 
   return (
-    <div className="min-h-screen section-gradient relative overflow-hidden">
-      {/* Modal de Consentimento LGPD */}
+    <PortalLayout>
       {patient?.id && !consentLoading && (
         <ConsentDialog
           open={!hasConsent}
@@ -105,70 +105,11 @@ const PortalHome = () => {
           onConsentAccepted={() => refetchConsent()}
         />
       )}
-      <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
-      {/* Top bar */}
-      <div className="bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-border/60">
-        <div className="container mx-auto px-4 max-w-6xl py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center">
-                <Shield className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Equanimité Psychology</div>
-                <div className="text-lg font-semibold">Portal do Paciente</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <UserCircle className="w-5 h-5 text-primary" />
-                </div>
-                <span>{patient?.name || 'Paciente'}</span>
-              </div>
-              <Button variant="outline" className="btn-outline-futuristic inline-flex items-center gap-2" onClick={() => { logout(); navigate('/portal'); }}>
-                <LogOut className="w-4 h-4" /> Sair
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="container mx-auto px-4 max-w-6xl">
-        {/* Tabs */}
-        <div className="mt-4 border-b border-border/60">
-          <div className="flex items-center gap-4 overflow-x-auto pb-3">
-            <button className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-primary/20 border-primary/50 text-foreground">
-              <Shield className="w-4 h-4" /> Visão Geral
-            </button>
-            <button onClick={() => navigate('/portal/sessoes')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
-              <Calendar className="w-4 h-4" /> Sessões
-            </button>
-            <button onClick={() => navigate('/portal/atividades')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
-              <BookOpen className="w-4 h-4" /> Atividades
-            </button>
-            <button onClick={() => navigate('/portal/anotacoes')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
-              <FileText className="w-4 h-4" /> Anotações
-            </button>
-            <button onClick={() => navigate('/portal/mensagens')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
-              <MessageSquare className="w-4 h-4" /> Mensagens
-            </button>
-            <button onClick={() => navigate('/portal/plano')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
-              <ClipboardList className="w-4 h-4" /> Plano
-            </button>
-            <button onClick={() => navigate('/portal/materiais')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
-              <FolderOpen className="w-4 h-4" /> Materiais
-            </button>
-            <button onClick={() => navigate('/portal/configuracoes')} className="px-4 py-2 rounded-full text-sm border inline-flex items-center gap-2 bg-transparent text-muted-foreground border-border">
-              <Settings className="w-4 h-4" /> Configurações
-            </button>
-          </div>
-        </div>
 
         {/* Welcome Card */}
         <div className="mt-6">
-          <Card className="bg-white/95 border border-border/60 shadow-card rounded-2xl">
+          <Card className="bg-card/95 border border-border/60 shadow-card rounded-2xl">
             <CardContent className="p-6 md:p-8">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
@@ -184,10 +125,10 @@ const PortalHome = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button variant="outline" className="rounded-full border-amber-300 text-foreground bg-white shadow-sm">
+                  <Button variant="outline" className="rounded-full border-amber-300 text-foreground bg-card shadow-sm">
                     <ShieldCheck className="w-4 h-4 mr-2" /> Dados Protegidos
                   </Button>
-                  <Button variant="outline" className="rounded-full border-amber-300 text-foreground bg-white shadow-sm">
+                  <Button variant="outline" className="rounded-full border-amber-300 text-foreground bg-card shadow-sm">
                     <BadgeCheck className="w-4 h-4 mr-2" /> LGPD
                   </Button>
                 </div>
@@ -195,7 +136,7 @@ const PortalHome = () => {
 
               {/* Info row */}
               <div className="mt-6 grid md:grid-cols-3 gap-4">
-                <div className="border rounded-xl p-4 bg-white">
+                <div className="border rounded-xl p-4 bg-card">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="w-4 h-4 text-primary" /> Próxima Sessão
                   </div>
@@ -203,13 +144,13 @@ const PortalHome = () => {
                     {nextAppointment ? formatDateTime(nextAppointment.date_time) : 'Nenhuma agendada'}
                   </div>
                 </div>
-                <div className="border rounded-xl p-4 bg-white">
+                <div className="border rounded-xl p-4 bg-card">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <TrendingUp className="w-4 h-4 text-primary" /> Progresso
                   </div>
                   <div className="mt-1 font-medium">{progressPct}% este mês</div>
                 </div>
-                <div className="border rounded-xl p-4 bg-white">
+                <div className="border rounded-xl p-4 bg-card">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Target className="w-4 h-4 text-primary" /> Atividades
                   </div>
@@ -238,7 +179,7 @@ const PortalHome = () => {
           </div>
 
           {planLoading ? (
-            <Card className="bg-white/95 border border-border/60 rounded-2xl">
+            <Card className="bg-card/95 border border-border/60 rounded-2xl">
               <CardContent className="p-6">
                 <div className="animate-pulse space-y-4">
                   <div className="h-4 bg-muted rounded w-1/3"></div>
@@ -248,7 +189,7 @@ const PortalHome = () => {
               </CardContent>
             </Card>
           ) : plan ? (
-            <Card className="bg-white/95 border border-border/60 rounded-2xl overflow-hidden">
+            <Card className="bg-card/95 border border-border/60 rounded-2xl overflow-hidden">
               <CardContent className="p-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   {/* Progress Section */}
@@ -308,7 +249,7 @@ const PortalHome = () => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-white/95 border border-border/60 rounded-2xl">
+            <Card className="bg-card/95 border border-border/60 rounded-2xl">
               <CardContent className="p-6 text-center">
                 <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
                 <p className="text-muted-foreground">Nenhum plano de tratamento disponível</p>
@@ -336,10 +277,10 @@ const PortalHome = () => {
                     qa.onSelect();
                   }
                 }}
-                className="bg-white/90 border border-border/60 rounded-2xl hover:shadow-soft transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="bg-card/90 border border-border/60 rounded-2xl hover:shadow-soft transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <CardContent className="p-6">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-3 shadow-card border border-border/50">
+                  <div className="w-12 h-12 bg-card rounded-xl flex items-center justify-center mb-3 shadow-card border border-border/50">
                     <qa.icon className="w-6 h-6 text-primary" />
                   </div>
                   <div className="font-medium">{qa.title}</div>
@@ -371,8 +312,7 @@ const PortalHome = () => {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </PortalLayout>
   );
 };
 
