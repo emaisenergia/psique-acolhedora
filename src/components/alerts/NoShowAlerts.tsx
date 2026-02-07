@@ -108,7 +108,7 @@ export const NoShowAlerts = ({ appointments, patients, maxAlerts = 5 }: NoShowAl
           {noShowStats.slice(0, maxAlerts).map((stat) => (
             <div
               key={stat.patient.id}
-              className="flex items-center justify-between p-3 rounded-lg bg-white/80 border border-rose-100"
+              className="flex items-center justify-between p-3 rounded-lg bg-card/80 border border-rose-100"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-gradient-to-br from-rose-400 to-red-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm">

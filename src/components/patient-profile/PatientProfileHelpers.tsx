@@ -66,7 +66,7 @@ export const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: 
 );
 
 export const ActivitySummaryRow = ({ label, value, helper }: { label: string; value: React.ReactNode; helper?: React.ReactNode }) => (
-  <div className="rounded-xl border border-border/60 bg-white px-4 py-3">
+  <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
     <div className="text-lg font-semibold text-foreground">{value}</div>
     {helper && <div className="text-xs text-muted-foreground">{helper}</div>}

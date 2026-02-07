@@ -204,7 +204,7 @@ const PortalNotes = () => {
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
-      <div className="bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-border/60">
+      <div className="bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/60">
         <div className="container mx-auto px-4 max-w-6xl py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -276,7 +276,7 @@ const PortalNotes = () => {
                       className={`rounded-xl border p-3 text-left transition-all ${
                         isActive
                           ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border bg-white text-muted-foreground hover:border-primary/40"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/40"
                       }`}
                     >
                       <Icon className={`w-5 h-5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
@@ -314,17 +314,17 @@ const PortalNotes = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-4">
               <div className="text-sm font-medium text-muted-foreground">Seu painel emocional</div>
-              <div className="rounded-xl border border-border/60 bg-white p-4 space-y-2">
+              <div className="rounded-xl border border-border/60 bg-card p-4 space-y-2">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estado atual</div>
                 <div className="text-sm text-foreground flex items-center gap-2">
                   <NotebookPen className="w-4 h-4 text-primary" />
                   {todayEntry ? `Hoje foi um dia "${moodOptions.find((m) => m.value === todayEntry.mood)?.label || "—"}"` : "Registre como está se sentindo hoje."}
                 </div>
               </div>
-              <div className="rounded-xl border border-border/60 bg-white p-4">
+              <div className="rounded-xl border border-border/60 bg-card p-4">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Visão rápida</div>
                 <div className="mt-2 space-y-2 text-sm text-muted-foreground">
                   {moodOptions.map((option) => (
@@ -340,7 +340,7 @@ const PortalNotes = () => {
                   ))}
                 </div>
               </div>
-              <div className="rounded-xl border border-border/60 bg-white p-4">
+              <div className="rounded-xl border border-border/60 bg-card p-4">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Últimas conquistas</div>
                 <div className="mt-2 space-y-2 text-xs text-muted-foreground">
                   {recentActivities.length === 0 && <div>Nenhuma atividade concluída recentemente.</div>}
@@ -359,7 +359,7 @@ const PortalNotes = () => {
         {/* Mood Evolution Chart */}
         {moodChartDataFiltered.length >= 3 && (
           <div className="mt-6">
-            <Card className="bg-white/90 border border-border/60">
+            <Card className="bg-card/90 border border-border/60">
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -408,7 +408,7 @@ const PortalNotes = () => {
                             const data = payload[0].payload;
                             if (!data.value) return null;
                             return (
-                              <div className="bg-white shadow-lg rounded-lg p-3 border border-border">
+                              <div className="bg-card shadow-lg rounded-lg p-3 border border-border">
                                 <div className="text-sm font-medium">{data.fullDate}</div>
                                 <div className="text-xs text-muted-foreground">{data.moodLabel}</div>
                               </div>
@@ -441,7 +441,7 @@ const PortalNotes = () => {
         )}
 
         <div className="mt-6">
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -455,7 +455,7 @@ const PortalNotes = () => {
               </div>
 
               {myEntries.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-6 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-6 text-sm text-muted-foreground">
                   Seus registros aparecerão aqui assim que você salvar a primeira anotação.
                 </div>
               ) : (
@@ -464,7 +464,7 @@ const PortalNotes = () => {
                     const option = moodOptions.find((mood) => mood.value === entry.mood);
                     const Icon = option?.icon || Smile;
                     return (
-                      <div key={entry.id} className="rounded-xl border border-border/60 bg-white p-4">
+                      <div key={entry.id} className="rounded-xl border border-border/60 bg-card p-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                             <Icon className="w-4 h-4 text-primary" />

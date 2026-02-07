@@ -1160,13 +1160,13 @@ const PatientProfile = () => {
                     )}
                   </div>
                   {patientJournals.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-6 text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-6 text-sm text-muted-foreground">
                       Ainda não existem registros clínicos para este paciente. Utilize o formulário acima para iniciar o prontuário.
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {patientJournals.map((entry) => (
-                        <div key={entry.id} className="rounded-xl border border-border/60 bg-white p-4 space-y-3">
+                        <div key={entry.id} className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex flex-col gap-1">
                               <div className="flex items-center gap-2">
@@ -1206,7 +1206,7 @@ const PatientProfile = () => {
             </Card>
 
             <div className="space-y-4">
-              <Card className="bg-white/90 border border-border/60">
+              <Card className="bg-card/90 border border-border/60">
                 <CardContent className="p-6 space-y-4">
                   <div className="text-sm font-medium text-muted-foreground">Resumo do prontuário</div>
                   <ActivitySummaryRow
@@ -1251,7 +1251,7 @@ const PatientProfile = () => {
               </Card>
 
               {journalTags.length > 0 && (
-                <Card className="bg-white/90 border border-border/60">
+                <Card className="bg-card/90 border border-border/60">
                   <CardContent className="p-6 space-y-3">
                     <div className="text-sm font-medium text-muted-foreground">Temas recorrentes</div>
                     <div className="flex flex-wrap gap-2">
@@ -1265,7 +1265,7 @@ const PatientProfile = () => {
                 </Card>
               )}
 
-              <Card className="bg-white/90 border border-border/60">
+              <Card className="bg-card/90 border border-border/60">
                 <CardContent className="p-6 space-y-3 text-sm text-muted-foreground">
                   <div className="font-medium text-foreground">Boas práticas</div>
                   <ul className="list-disc pl-4 space-y-1">
@@ -1313,13 +1313,13 @@ const PatientProfile = () => {
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Pendentes ({pendingActivities.length})</div>
                   {pendingActivities.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-5 text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
                       Nenhuma atividade pendente no momento.
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {pendingActivities.map((activity) => (
-                        <div key={activity.id} className="rounded-xl border border-border/60 bg-white p-4">
+                        <div key={activity.id} className="rounded-xl border border-border/60 bg-card p-4">
                           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                             <div className="flex-1">
                               <div className="text-sm font-semibold text-foreground">{activity.title}</div>
@@ -1405,13 +1405,13 @@ const PatientProfile = () => {
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Concluídas ({completedActivities.length})</div>
                   {completedActivities.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-5 text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-5 text-sm text-muted-foreground">
                       Ainda não há atividades concluídas para este paciente.
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {completedActivities.map((activity) => (
-                        <div key={activity.id} className="rounded-xl border border-border/60 bg-white p-4">
+                        <div key={activity.id} className="rounded-xl border border-border/60 bg-card p-4">
                           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                             <div>
                               <div className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -1458,7 +1458,7 @@ const PatientProfile = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-white/90 border border-border/60">
+            <Card className="bg-card/90 border border-border/60">
               <CardContent className="p-6 space-y-4">
                 <div className="text-sm font-medium text-muted-foreground">Resumo</div>
                 <div className="space-y-3">
@@ -1500,7 +1500,7 @@ const PatientProfile = () => {
                 </div>
 
                 {patientMessages.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-6 text-sm text-muted-foreground">
+                  <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-6 text-sm text-muted-foreground">
                     Nenhuma mensagem registrada ainda.
                   </div>
                 ) : (
@@ -1556,10 +1556,10 @@ const PatientProfile = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-white/90 border border-border/60">
+            <Card className="bg-card/90 border border-border/60">
               <CardContent className="p-6 space-y-4">
                 <div className="text-sm font-medium text-muted-foreground">Responder paciente</div>
-                <div className="rounded-xl border border-border/60 bg-white p-4">
+                <div className="rounded-xl border border-border/60 bg-card p-4">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mensagem</label>
                   <Textarea
                     className="mt-2 min-h-[120px]"
@@ -1579,7 +1579,7 @@ const PatientProfile = () => {
                     </Button>
                   </div>
                 </div>
-                <div className="rounded-xl border border-border/60 bg-white p-4 text-xs text-muted-foreground space-y-1">
+                <div className="rounded-xl border border-border/60 bg-card p-4 text-xs text-muted-foreground space-y-1">
                   <div><strong>{patientMessages.filter((m) => m.author === "patient").length}</strong> mensagem(ns) enviadas pelo paciente.</div>
                   <div><strong>{patientMessages.filter((m) => m.author === "psychologist").length}</strong> resposta(s) da equipe.</div>
                   <div className="flex items-center gap-1 text-rose-600">
@@ -1621,7 +1621,7 @@ const PatientProfile = () => {
                     </div>
                     <div className="grid md:grid-cols-3 gap-4">
                       {focusAreas.map((area) => (
-                        <div key={area.title} className="rounded-xl border border-border/60 bg-white/90 p-4">
+                        <div key={area.title} className="rounded-xl border border-border/60 bg-card/90 p-4">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <area.icon className="w-4 h-4 text-primary" />
                             {area.title}
@@ -1631,7 +1631,7 @@ const PatientProfile = () => {
                         </div>
                       ))}
                     </div>
-                    <div className="rounded-2xl border border-border/60 bg-white/90 p-6">
+                    <div className="rounded-2xl border border-border/60 bg-card/90 p-6">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Award className="w-4 h-4 text-primary" /> Marco atual
                       </div>
@@ -1640,10 +1640,10 @@ const PatientProfile = () => {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white/90 border border-border/60">
+                <Card className="bg-card/90 border border-border/60">
                   <CardContent className="p-6 space-y-4">
                     {quickStats.map((stat) => (
-                      <div key={stat.label} className="flex gap-3 rounded-xl border border-border/60 bg-white p-4">
+                      <div key={stat.label} className="flex gap-3 rounded-xl border border-border/60 bg-card p-4">
                         <div className="mt-0.5">
                           <stat.icon className="w-5 h-5 text-primary" />
                         </div>
@@ -1659,11 +1659,11 @@ const PatientProfile = () => {
               </div>
 
               <div className="grid xl:grid-cols-[2fr,1fr] gap-6 items-start">
-                <Card className="bg-white/90 border border-border/60">
+                <Card className="bg-card/90 border border-border/60">
                   <CardContent className="p-6 space-y-3">
                     <div className="text-sm font-medium text-muted-foreground">Linha do tempo recente</div>
                     {timelineItems.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-6 text-sm text-muted-foreground">
+                      <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-6 text-sm text-muted-foreground">
                         Sem registros anteriores para exibir.
                       </div>
                     ) : (
@@ -1681,7 +1681,7 @@ const PatientProfile = () => {
                             ? "text-rose-600"
                             : "text-amber-600";
                         return (
-                          <div key={item.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-white px-4 py-3">
+                          <div key={item.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
                             <div>
                               <div className="text-sm font-medium text-foreground">{item.service || "Sessão de terapia"}</div>
                               <div className="text-xs text-muted-foreground">
@@ -1696,12 +1696,12 @@ const PatientProfile = () => {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white/90 border border-border/60">
+                <Card className="bg-card/90 border border-border/60">
                   <CardContent className="p-6 space-y-4">
                     <div className="text-sm font-medium text-muted-foreground">Metas e combinados</div>
                     <div className="space-y-3 text-sm text-muted-foreground/90">
                       {objectives.map((goal) => (
-                        <div key={goal} className="rounded-xl border border-border/60 bg-white px-4 py-3">
+                        <div key={goal} className="rounded-xl border border-border/60 bg-card px-4 py-3">
                           • {goal}
                         </div>
                       ))}
@@ -2036,7 +2036,7 @@ const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string;
 );
 
 const ActivitySummaryRow = ({ label, value, helper }: { label: string; value: React.ReactNode; helper?: React.ReactNode }) => (
-  <div className="rounded-xl border border-border/60 bg-white px-4 py-3">
+  <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</div>
     <div className="text-lg font-semibold text-foreground">{value}</div>
     {helper && <div className="text-xs text-muted-foreground">{helper}</div>}

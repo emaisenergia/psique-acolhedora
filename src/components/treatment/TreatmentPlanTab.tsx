@@ -944,7 +944,7 @@ export function TreatmentPlanTab({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-card/50">
                     Nenhum objetivo definido. Use a IA ou adicione manualmente.
                   </div>
                 )}
@@ -966,7 +966,7 @@ export function TreatmentPlanTab({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-card/50">
                     Defina critérios claros para o encerramento do tratamento.
                   </div>
                 )}
@@ -1019,7 +1019,7 @@ export function TreatmentPlanTab({
                     })}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-card/50">
                     Adicione metas de curto prazo para acompanhar.
                   </div>
                 )}
@@ -1072,7 +1072,7 @@ export function TreatmentPlanTab({
                     })}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-white/50">
+                  <div className="text-sm text-muted-foreground p-4 rounded-lg border border-dashed border-border/70 bg-card/50">
                     Adicione metas de longo prazo para acompanhar.
                   </div>
                 )}
@@ -1120,7 +1120,7 @@ export function TreatmentPlanTab({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="text-xs bg-white">
+                            <Badge variant="outline" className="text-xs bg-card">
                               {imp.category}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
@@ -1135,7 +1135,7 @@ export function TreatmentPlanTab({
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-muted-foreground p-6 rounded-lg border border-dashed border-border/70 bg-white/50 text-center">
+                <div className="text-sm text-muted-foreground p-6 rounded-lg border border-dashed border-border/70 bg-card/50 text-center">
                   Nenhuma melhora registrada ainda. Use o botão acima para documentar progressos.
                 </div>
               )}
@@ -1234,7 +1234,7 @@ export function TreatmentPlanTab({
 
         {/* Sidebar */}
         <div className="space-y-4">
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-4">
               <div className="text-sm font-medium text-muted-foreground">Resumo do Plano</div>
               <div className="space-y-3">
@@ -1263,7 +1263,7 @@ export function TreatmentPlanTab({
           </Card>
 
           {plan?.notes && (
-            <Card className="bg-white/90 border border-border/60">
+            <Card className="bg-card/90 border border-border/60">
               <CardContent className="p-6 space-y-3">
                 <div className="font-medium text-foreground text-sm">Observações</div>
                 <div className="text-sm text-muted-foreground">{plan.notes}</div>
@@ -1278,7 +1278,7 @@ export function TreatmentPlanTab({
             onRestoreVersion={handleRestoreVersion}
           />
 
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-3 text-sm text-muted-foreground">
               <div className="font-medium text-foreground">Dicas para o plano</div>
               <ul className="list-disc pl-4 space-y-1">

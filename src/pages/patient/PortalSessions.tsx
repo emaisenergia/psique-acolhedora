@@ -176,7 +176,7 @@ const PortalSessions = () => {
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
       {/* Top bar */}
-      <div className="bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-border/60">
+      <div className="bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/60">
         <div className="container mx-auto px-4 max-w-6xl py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -322,7 +322,7 @@ const PortalSessions = () => {
               return (
                 <Card
                   key={a.id}
-                  className={`bg-white/90 border ${selected === a.id ? 'border-primary/60' : 'border-border/60'} shadow-card rounded-2xl cursor-pointer`}
+                  className={`bg-card/90 border ${selected === a.id ? 'border-primary/60' : 'border-border/60'} shadow-card rounded-2xl cursor-pointer`}
                   onClick={() => setSelected(a.id)}
                 >
                   <CardContent className="p-6">
@@ -389,7 +389,7 @@ const PortalSessions = () => {
 
           {/* Right column: History */}
           <div>
-            <Card className="bg-white/90 border border-border/60 rounded-2xl shadow-card">
+            <Card className="bg-card/90 border border-border/60 rounded-2xl shadow-card">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-lg font-medium">Histórico de Sessões</div>
@@ -405,7 +405,7 @@ const PortalSessions = () => {
                             key={opt.k}
                             onClick={() => setHistoryRange(opt.k)}
                             className={`px-3 py-1 text-xs rounded-full ${
-                              historyRange === opt.k ? "bg-white shadow-sm" : "text-muted-foreground"
+                              historyRange === opt.k ? "bg-card shadow-sm" : "text-muted-foreground"
                             }`}
                           >
                             {opt.label}
@@ -423,7 +423,7 @@ const PortalSessions = () => {
                 ) : (
                   <div className="space-y-3 max-h-[560px] overflow-auto pr-2">
                     {filteredHistory.map((a) => (
-                      <div key={a.id} className="flex items-start justify-between p-3 border border-border/60 rounded-xl bg-white/80">
+                      <div key={a.id} className="flex items-start justify-between p-3 border border-border/60 rounded-xl bg-card/80">
                         <div className="text-sm">
                           <div className="font-medium">{formatLongDate(a.date_time)}</div>
                           <div className="text-muted-foreground">{formatTime(a.date_time)} • {a.service || 'Sessão'} • {a.mode === 'online' ? 'Online' : 'Presencial'}</div>
