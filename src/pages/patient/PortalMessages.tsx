@@ -129,7 +129,7 @@ const PortalMessages = () => {
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
-      <div className="bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-border/60">
+      <div className="bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/60">
         <div className="container mx-auto px-4 max-w-6xl py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -235,10 +235,10 @@ const PortalMessages = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-4">
               <div className="text-sm font-medium text-muted-foreground">Acompanhamento</div>
-              <div className="rounded-xl border border-border/60 bg-white p-4">
+              <div className="rounded-xl border border-border/60 bg-card p-4">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Último retorno</div>
                 <div className="mt-2 text-sm text-foreground">
                   {lastPsychologistMessage
@@ -246,13 +246,13 @@ const PortalMessages = () => {
                     : "Ainda não há respostas registradas."}
                 </div>
               </div>
-              <div className="rounded-xl border border-border/60 bg-white p-4">
+              <div className="rounded-xl border border-border/60 bg-card p-4">
                 <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mensagens enviadas</div>
                 <div className="mt-2 text-sm text-muted-foreground">
                   {myMessages.filter((message) => message.author === "patient").length} no total
                 </div>
               </div>
-              <div className="rounded-xl border border-border/60 bg-white p-4 text-xs text-muted-foreground">
+              <div className="rounded-xl border border-border/60 bg-card p-4 text-xs text-muted-foreground">
                 Envie updates sempre que sentir necessidade. Seu psicólogo verá alertas para mensagens urgentes.
               </div>
             </CardContent>
@@ -260,11 +260,11 @@ const PortalMessages = () => {
         </div>
 
         <div className="mt-6">
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-4">
               <div className="text-sm font-medium text-muted-foreground">Histórico de conversas</div>
               {myMessages.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-6 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-6 text-sm text-muted-foreground">
                   Você ainda não enviou mensagens. Use o formulário acima para iniciar uma conversa.
                 </div>
               ) : (
@@ -277,7 +277,7 @@ const PortalMessages = () => {
                         className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${
                           isPatient
                             ? "border-primary/40 bg-primary/5"
-                            : "border-muted bg-white"
+                            : "border-muted bg-card"
                         }`}
                       >
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">

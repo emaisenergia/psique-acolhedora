@@ -127,7 +127,7 @@ const PortalSettings = () => {
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
       {/* Top bar */}
-      <div className="bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-border/60">
+      <div className="bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/60">
         <div className="container mx-auto px-4 max-w-6xl py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -190,7 +190,7 @@ const PortalSettings = () => {
           <h1 className="text-2xl font-display font-light">Configurações</h1>
 
           {/* Exportação de Dados */}
-          <Card className="bg-white/95 border border-border/60 shadow-card rounded-2xl">
+          <Card className="bg-card/95 border border-border/60 shadow-card rounded-2xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-primary" />
@@ -252,7 +252,7 @@ const PortalSettings = () => {
           </Card>
 
           {/* Informações de Privacidade */}
-          <Card className="bg-white/95 border border-border/60 shadow-card rounded-2xl">
+          <Card className="bg-card/95 border border-border/60 shadow-card rounded-2xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" />

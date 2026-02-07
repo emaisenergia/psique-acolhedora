@@ -37,7 +37,7 @@ export const FavoritePatientsCard = ({ patients, onToggleFavorite }: FavoritePat
             <Link
               key={patient.id}
               to={`/admin/paciente/${patient.id}`}
-              className="flex items-center justify-between p-3 rounded-lg bg-white/80 hover:bg-white transition-colors border border-amber-100"
+              className="flex items-center justify-between p-3 rounded-lg bg-card/80 hover:bg-card transition-colors border border-amber-100"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm">

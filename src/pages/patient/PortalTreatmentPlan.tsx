@@ -125,7 +125,7 @@ const PortalTreatmentPlan = () => {
       <div className="absolute -left-24 top-56 w-56 h-56 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
-      <div className="bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-border/60">
+      <div className="bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/60">
         <div className="container mx-auto px-4 max-w-6xl py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -212,7 +212,7 @@ const PortalTreatmentPlan = () => {
                           <span className="font-semibold text-primary">{goalsProgress}%</span>
                         </div>
                       </div>
-                      <div className="rounded-xl border border-border/60 bg-white p-4">
+                      <div className="rounded-xl border border-border/60 bg-card p-4">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
                           <Clock className="w-4 h-4" /> Sessões Estimadas
                         </div>
@@ -233,7 +233,7 @@ const PortalTreatmentPlan = () => {
                         </div>
                         <div className="space-y-2">
                           {plan.objectives.map((obj, idx) => (
-                            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-white">
+                            <div key={idx} className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-card">
                               <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                                 <span className="text-xs font-semibold text-primary">{idx + 1}</span>
                               </div>
@@ -259,7 +259,7 @@ const PortalTreatmentPlan = () => {
                                 className={`flex items-start gap-3 p-3 rounded-lg border ${
                                   result?.completed
                                     ? "border-emerald-200 bg-emerald-50"
-                                    : "border-border/60 bg-white"
+                                    : "border-border/60 bg-card"
                                 }`}
                               >
                                 {result?.completed ? (
@@ -301,7 +301,7 @@ const PortalTreatmentPlan = () => {
                                 className={`flex items-start gap-3 p-3 rounded-lg border ${
                                   result?.completed
                                     ? "border-emerald-200 bg-emerald-50"
-                                    : "border-border/60 bg-white"
+                                    : "border-border/60 bg-card"
                                 }`}
                               >
                                 {result?.completed ? (
@@ -393,11 +393,11 @@ const PortalTreatmentPlan = () => {
               </div>
 
               {/* Sidebar */}
-              <Card className="bg-white/90 border border-border/60">
+              <Card className="bg-card/90 border border-border/60">
                 <CardContent className="p-6 space-y-4">
                   <div className="text-sm font-medium text-muted-foreground">Resumo</div>
 
-                  <div className="rounded-xl border border-border/60 bg-white p-4">
+                  <div className="rounded-xl border border-border/60 bg-card p-4">
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Abordagens</div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {plan.approaches.length > 0 ? (
@@ -412,7 +412,7 @@ const PortalTreatmentPlan = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-border/60 bg-white p-4">
+                  <div className="rounded-xl border border-border/60 bg-card p-4">
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Melhoras Registradas</div>
                     <div className="mt-2 text-2xl font-bold text-emerald-600">{plan.improvements.length}</div>
                     <div className="text-xs text-muted-foreground">ao longo do tratamento</div>
@@ -436,7 +436,7 @@ const PortalTreatmentPlan = () => {
                   )}
 
                   {plan.discharge_objectives.length > 0 && (
-                    <div className="rounded-xl border border-border/60 bg-white p-4">
+                    <div className="rounded-xl border border-border/60 bg-card p-4">
                       <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                         Critérios para Alta
                       </div>

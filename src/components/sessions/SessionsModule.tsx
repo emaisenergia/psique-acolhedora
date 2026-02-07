@@ -802,7 +802,7 @@ ${anamnesis.observacoes || "Nenhuma"}
                       return (
                         <div
                           key={appt.id}
-                          className={`flex items-center justify-between gap-3 p-3 bg-white rounded-lg border ${hasPayment ? "border-emerald-300 bg-emerald-50/30" : "border-border/50"}`}
+                          className={`flex items-center justify-between gap-3 p-3 bg-card rounded-lg border ${hasPayment ? "border-emerald-300 bg-emerald-50/30" : "border-border/50"}`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`w-2 h-2 rounded-full flex-shrink-0 ${appt.status === "done" ? "bg-green-500" : appt.status === "cancelled" ? "bg-red-500" : isPast ? "bg-amber-500" : "bg-blue-500"}`} />
@@ -885,7 +885,7 @@ ${anamnesis.observacoes || "Nenhuma"}
             )}
 
             {sessions.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-8 text-center">
+              <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-8 text-center">
                 <ClipboardList className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
                 <div className="text-sm text-muted-foreground mb-1">
                   Nenhuma sessão registrada ainda.
@@ -917,7 +917,7 @@ ${anamnesis.observacoes || "Nenhuma"}
                   return (
                     <div
                       key={session.id}
-                      className="rounded-xl border border-border/60 bg-white p-4 hover:border-primary/30 transition-colors cursor-pointer"
+                      className="rounded-xl border border-border/60 bg-card p-4 hover:border-primary/30 transition-colors cursor-pointer"
                       onClick={() => handleViewSession(session)}
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -978,7 +978,7 @@ ${anamnesis.observacoes || "Nenhuma"}
         </Card>
 
         <div className="space-y-4">
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-4">
               <div className="text-sm font-medium text-muted-foreground">Resumo</div>
               <div className="space-y-3">
@@ -1034,7 +1034,7 @@ ${anamnesis.observacoes || "Nenhuma"}
                   {unlinkedAppointments.slice(0, 5).map((appt) => (
                     <div
                       key={appt.id}
-                      className="flex items-center justify-between text-sm bg-white rounded-lg p-2 border border-amber-200"
+                      className="flex items-center justify-between text-sm bg-card rounded-lg p-2 border border-amber-200"
                     >
                       <span className="text-muted-foreground">
                         {new Date(appt.dateTime).toLocaleDateString("pt-BR")}
@@ -1059,7 +1059,7 @@ ${anamnesis.observacoes || "Nenhuma"}
             </Card>
           )}
 
-          <Card className="bg-white/90 border border-border/60">
+          <Card className="bg-card/90 border border-border/60">
             <CardContent className="p-6 space-y-3">
               <div className="text-sm font-medium text-muted-foreground">Recursos IA</div>
               <ul className="text-xs text-muted-foreground space-y-2">
@@ -1595,7 +1595,7 @@ ${anamnesis.observacoes || "Nenhuma"}
                   </div>
 
                   {sessionFiles.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/70 bg-white/70 p-6 text-center text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-dashed border-border/70 bg-card/70 p-6 text-center text-sm text-muted-foreground">
                       Nenhum arquivo anexado a esta sessão.
                     </div>
                   ) : (
@@ -1603,7 +1603,7 @@ ${anamnesis.observacoes || "Nenhuma"}
                       {sessionFiles.map((file) => (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between rounded-xl border border-border/60 bg-white p-3"
+                          className="flex items-center justify-between rounded-xl border border-border/60 bg-card p-3"
                         >
                           <div className="flex items-center gap-3">
                             {file.is_recording ? (

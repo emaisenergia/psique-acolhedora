@@ -84,7 +84,7 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
   const isYouTubeEmbed = resource.resource_url?.includes('youtube.com') || resource.resource_url?.includes('youtu.be');
 
   return (
-    <Card className="bg-white/95 border border-border/60 rounded-2xl hover:shadow-soft transition-all">
+    <Card className="bg-card/95 border border-border/60 rounded-2xl hover:shadow-soft transition-all">
       <CardContent className="p-5">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -263,7 +263,7 @@ const PortalMaterials = () => {
       <div className="absolute -right-10 top-80 w-24 h-24 rounded-full bg-primary/10 blur-2xl" />
 
       {/* Top bar */}
-      <div className="bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 border-b border-border/60">
+      <div className="bg-card/90 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border/60">
         <div className="container mx-auto px-4 max-w-6xl py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -377,7 +377,7 @@ const PortalMaterials = () => {
           {resourcesLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3].map((i) => (
-                <Card key={i} className="bg-white/95 rounded-2xl">
+                <Card key={i} className="bg-card/95 rounded-2xl">
                   <CardContent className="p-5">
                     <div className="animate-pulse space-y-3">
                       <div className="flex items-start gap-4">
@@ -404,7 +404,7 @@ const PortalMaterials = () => {
               ))}
             </div>
           ) : (
-            <Card className="bg-white/95 border border-border/60 rounded-2xl">
+            <Card className="bg-card/95 border border-border/60 rounded-2xl">
               <CardContent className="p-12 text-center">
                 <FolderOpen className="w-16 h-16 mx-auto text-muted-foreground/40 mb-4" />
                 <h3 className="text-lg font-medium text-muted-foreground">
