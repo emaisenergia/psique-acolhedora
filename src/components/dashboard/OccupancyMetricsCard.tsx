@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Calendar, XCircle, Clock, Users } from "lucide-react";
 import { format, subDays, startOfDay, parseISO, eachDayOfInterval, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -28,34 +28,26 @@ export function OccupancyMetricsCard({
     const startDate = startOfDay(subDays(now, days));
     const dateRange = eachDayOfInterval({ start: startDate, end: now });
     
-    // Filter appointments in the period
     const periodAppts = appointments.filter(a => {
       if (!a.date_time) return false;
       const date = parseISO(a.date_time);
       return date >= startDate && date <= now;
     });
     
-    // Calculate slots per day (excluding blocked time, assume ~8 working hours)
     const slotsPerDay = Math.floor((workingHoursPerDay * 60) / sessionDuration);
     const totalPossibleSlots = dateRange.length * slotsPerDay;
     
-    // Count by status
-    const scheduled = periodAppts.filter(a => a.status === "scheduled").length;
-    const confirmed = periodAppts.filter(a => a.status === "confirmed").length;
     const done = periodAppts.filter(a => a.status === "done").length;
     const cancelled = periodAppts.filter(a => a.status === "cancelled").length;
-    const totalBooked = scheduled + confirmed + done;
+    const totalBooked = periodAppts.filter(a => a.status !== "cancelled").length;
     
-    // Calculate rates
     const occupancyRate = totalPossibleSlots > 0 ? (totalBooked / totalPossibleSlots) * 100 : 0;
     const cancellationRate = (totalBooked + cancelled) > 0 ? (cancelled / (totalBooked + cancelled)) * 100 : 0;
     const completionRate = totalBooked > 0 ? (done / totalBooked) * 100 : 0;
     
-    // Average sessions per week
     const weeks = days / 7;
     const avgSessionsPerWeek = weeks > 0 ? totalBooked / weeks : 0;
     
-    // Calculate trend data for chart
     const chartData = dateRange.map(day => {
       const dayAppts = periodAppts.filter(a => {
         if (!a.date_time) return false;
@@ -74,7 +66,6 @@ export function OccupancyMetricsCard({
       };
     });
     
-    // Calculate previous period for comparison
     const prevStart = subDays(startDate, days);
     const prevAppts = appointments.filter(a => {
       if (!a.date_time) return false;
@@ -89,9 +80,6 @@ export function OccupancyMetricsCard({
       ? (prevCancelled / (prevTotalBooked + prevCancelled)) * 100 
       : 0;
     
-    const occupancyTrend = occupancyRate - prevOccupancy;
-    const cancellationTrend = cancellationRate - prevCancellationRate;
-    
     return {
       occupancyRate,
       cancellationRate,
@@ -100,8 +88,8 @@ export function OccupancyMetricsCard({
       totalBooked,
       cancelled,
       chartData,
-      occupancyTrend,
-      cancellationTrend,
+      occupancyTrend: occupancyRate - prevOccupancy,
+      cancellationTrend: cancellationRate - prevCancellationRate,
     };
   }, [appointments, period, workingHoursPerDay, sessionDuration]);
 
@@ -123,61 +111,65 @@ export function OccupancyMetricsCard({
 
   return (
     <Card className="card-glass">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">Métricas de Ocupação</CardTitle>
+      <CardContent className="p-6">
+        {/* Header — same pattern as Stat cards */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">Métricas de Ocupação</div>
+              <div className="text-2xl font-semibold">{metrics.occupancyRate.toFixed(1)}%</div>
+            </div>
+          </div>
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[130px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">Últimos 7 dias</SelectItem>
-              <SelectItem value="30">Últimos 30 dias</SelectItem>
-              <SelectItem value="90">Últimos 90 dias</SelectItem>
+              <SelectItem value="7">7 dias</SelectItem>
+              <SelectItem value="30">30 dias</SelectItem>
+              <SelectItem value="90">90 dias</SelectItem>
             </SelectContent>
           </Select>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
+
         {/* Key Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
-            <div className="flex items-center gap-2 text-sm text-primary mb-1">
-              <Calendar className="w-4 h-4" />
-              Taxa de Ocupação
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="p-3 rounded-xl bg-muted/40">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <Calendar className="w-3.5 h-3.5" /> Ocupação
             </div>
-            <div className="text-2xl font-bold">{metrics.occupancyRate.toFixed(1)}%</div>
+            <div className="text-xl font-bold">{metrics.occupancyRate.toFixed(1)}%</div>
             <TrendIndicator value={metrics.occupancyTrend} />
           </div>
           
-          <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900">
-            <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 mb-1">
-              <XCircle className="w-4 h-4" />
-              Cancelamentos
+          <div className="p-3 rounded-xl bg-muted/40">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <XCircle className="w-3.5 h-3.5" /> Cancelamentos
             </div>
-            <div className="text-2xl font-bold">{metrics.cancellationRate.toFixed(1)}%</div>
+            <div className="text-xl font-bold">{metrics.cancellationRate.toFixed(1)}%</div>
             <TrendIndicator value={metrics.cancellationTrend} inverted />
           </div>
           
-          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900">
-            <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mb-1">
-              <Clock className="w-4 h-4" />
-              Taxa de Conclusão
+          <div className="p-3 rounded-xl bg-muted/40">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <Clock className="w-3.5 h-3.5" /> Conclusão
             </div>
-            <div className="text-2xl font-bold">{metrics.completionRate.toFixed(1)}%</div>
+            <div className="text-xl font-bold">{metrics.completionRate.toFixed(1)}%</div>
           </div>
           
-          <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
-            <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 mb-1">
-              <Users className="w-4 h-4" />
-              Sessões/Semana
+          <div className="p-3 rounded-xl bg-muted/40">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <Users className="w-3.5 h-3.5" /> Sessões/Semana
             </div>
-            <div className="text-2xl font-bold">{metrics.avgSessionsPerWeek.toFixed(1)}</div>
+            <div className="text-xl font-bold">{metrics.avgSessionsPerWeek.toFixed(1)}</div>
           </div>
         </div>
         
         {/* Chart */}
-        <div className="h-[200px] w-full">
+        <div className="h-[180px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={metrics.chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -195,7 +187,6 @@ export function OccupancyMetricsCard({
                   borderRadius: "8px",
                 }}
               />
-              <Legend />
               <Line 
                 type="monotone" 
                 dataKey="ocupacao" 
@@ -223,10 +214,23 @@ export function OccupancyMetricsCard({
             </LineChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap justify-center gap-4 mt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-primary" /> Ocupação
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "hsl(142, 76%, 36%)" }} /> Sessões
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "hsl(0, 84%, 60%)" }} /> Cancelamentos
+          </div>
+        </div>
         
         {/* Summary */}
-        <div className="flex justify-between text-sm text-muted-foreground border-t pt-4">
-          <span>Total de sessões agendadas: <strong className="text-foreground">{metrics.totalBooked}</strong></span>
+        <div className="flex justify-between text-sm text-muted-foreground border-t border-border/50 pt-4 mt-4">
+          <span>Total agendadas: <strong className="text-foreground">{metrics.totalBooked}</strong></span>
           <span>Cancelamentos: <strong className="text-foreground">{metrics.cancelled}</strong></span>
         </div>
       </CardContent>
