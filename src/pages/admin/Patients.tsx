@@ -384,10 +384,10 @@ const PatientForm = ({ onSubmit, initial, submitLabel = "Criar Paciente" }: Pati
           <label className="text-sm flex items-center gap-2">
             <Handshake className="h-4 w-4" /> Convênio
           </label>
-          <Select value={form.insurance_id || ''} onValueChange={(v) => setForm({ ...form, insurance_id: v || null })}>
+          <Select value={form.insurance_id || 'none'} onValueChange={(v) => setForm({ ...form, insurance_id: v === 'none' ? null : v })}>
             <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum (Particular)</SelectItem>
+              <SelectItem value="none">Nenhum (Particular)</SelectItem>
               {insurances.map((ins) => (
                 <SelectItem key={ins.id} value={ins.id}>
                   {ins.name}{ins.coverage_percentage > 0 && ` (${ins.coverage_percentage}%)`}
