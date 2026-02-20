@@ -226,7 +226,7 @@ serve(async (req) => {
             .eq("user_id", user.id)
             .eq("is_active", true)
             .order("created_at", { ascending: false })
-            .limit(10);
+            .limit(5);
 
           if (docs && docs.length > 0) {
             knowledgeContent = "\n\n## BASE DE CONHECIMENTO PERSONALIZADA\nOs seguintes documentos foram adicionados pelo profissional para enriquecer as respostas:\n\n";
@@ -281,9 +281,10 @@ serve(async (req) => {
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          ...messages.slice(-10),
         ],
         stream: true,
+        max_tokens: 4096,
       }),
     });
 
