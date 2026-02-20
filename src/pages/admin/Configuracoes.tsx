@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useAdminAuth } from "@/context/AdminAuth";
+import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminPreferences, type AdminPreferences } from "@/hooks/useAdminPreferences";
 import { useToast } from "@/hooks/use-toast";
@@ -92,6 +93,8 @@ const Configuracoes = () => {
     toggleSync: toggleCalendarSync 
   } = useGoogleCalendar();
 
+  const { setTheme } = useTheme();
+
   const [profileForm, setProfileForm] = useState({ ...emptyProfile });
   const [passwordForm, setPasswordForm] = useState({ ...emptyPassword });
   const [userForm, setUserForm] = useState<NewUserForm>({ ...emptyUserForm });
@@ -120,8 +123,11 @@ const Configuracoes = () => {
   useEffect(() => {
     if (!prefsLoading) {
       setPrefsForm(preferences);
+      if (preferences.theme) {
+        setTheme(preferences.theme);
+      }
     }
-  }, [preferences, prefsLoading]);
+  }, [preferences, prefsLoading, setTheme]);
 
   useEffect(() => {
     if (user) {
@@ -326,7 +332,10 @@ const Configuracoes = () => {
                         <Label>Tema do painel</Label>
                         <Select
                           value={prefsForm.theme}
-                          onValueChange={(value) => setPrefsForm(prev => ({ ...prev, theme: value }))}
+                          onValueChange={(value) => {
+                            setPrefsForm(prev => ({ ...prev, theme: value }));
+                            setTheme(value);
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Escolha o tema" />
