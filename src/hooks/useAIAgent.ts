@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { loadPatientAIHistory, savePatientAIHistory } from "@/lib/aiHistory";
+import { AIAction, parseActionsFromContent } from "@/lib/aiActions";
 
 type MessageRole = "user" | "assistant";
 
@@ -10,6 +11,7 @@ interface Message {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  actions?: AIAction[];
 }
 
 interface UseAIAgentOptions {
@@ -253,9 +255,11 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
               patientHistory: patientHistoryRef.current
                 ? `${context?.patientHistory || ""}\n\n## HISTÓRICO DE CONVERSAS ANTERIORES COM IA:\n${patientHistoryRef.current}`
                 : context?.patientHistory,
-              attachedContent: clinicalContent
-                ? `${context?.attachedContent || ""}\n\n## PRONTUÁRIO E REGISTRO DE SESSÕES\n${clinicalContent}`
-                : context?.attachedContent,
+              attachedContent: [
+                patientId ? `[PATIENT_ID: ${patientId}]` : "",
+                clinicalContent ? `## PRONTUÁRIO E REGISTRO DE SESSÕES\n${clinicalContent}` : "",
+                context?.attachedContent || "",
+              ].filter(Boolean).join("\n\n") || undefined,
             };
           })(),
         }),
@@ -324,6 +328,18 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
         }
       }
 
+      // Parse actions from final content and update the message
+      if (assistantContent) {
+        const { cleanContent, actions } = parseActionsFromContent(assistantContent);
+        if (actions.length > 0) {
+          setMessages(prev => prev.map((m, i) =>
+            i === prev.length - 1 && m.role === "assistant"
+              ? { ...m, content: cleanContent, actions }
+              : m
+          ));
+        }
+      }
+
       // Save assistant response and update patient history file
       if (currentConversationId && assistantContent) {
         await saveMessage(currentConversationId, "assistant", assistantContent);
@@ -387,6 +403,16 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
     }
   }, [conversationId, loadConversations, toast]);
 
+  const updateMessageActions = useCallback((messageId: string, actionId: string, status: "confirmed" | "rejected") => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== messageId || !m.actions) return m;
+      return {
+        ...m,
+        actions: m.actions.map(a => a.id === actionId ? { ...a, status } : a),
+      };
+    }));
+  }, []);
+
   return {
     messages,
     isLoading,
@@ -399,5 +425,6 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
     deleteConversation,
     includeClinicalRecords,
     setIncludeClinicalRecords,
+    updateMessageActions,
   };
 };

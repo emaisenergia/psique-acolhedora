@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2, Plus, History, Download, Copy, Check, Star, FileText } from "lucide-react";
+import { Send, Bot, User, Loader2, Plus, History, Download, Copy, Check, Star, FileText, CheckCircle2, XCircle } from "lucide-react";
 import { useAIAgent } from "@/hooks/useAIAgent";
+import { executeAIAction, AIAction } from "@/lib/aiActions";
 import { cn } from "@/lib/utils";
 import { ConversationHistory } from "./ConversationHistory";
 import { useToast } from "@/hooks/use-toast";
@@ -52,6 +53,7 @@ export const AIChat = ({
 }: AIChatProps) => {
   const [input, setInput] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [executingAction, setExecutingAction] = useState<string | null>(null);
   const { toast } = useToast();
   const { 
     messages, 
@@ -65,6 +67,7 @@ export const AIChat = ({
     deleteConversation,
     includeClinicalRecords,
     setIncludeClinicalRecords,
+    updateMessageActions,
   } = useAIAgent({ type, context, patientId });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +99,23 @@ export const AIChat = ({
     setCopiedId(id);
     toast({ title: "Copiado!", description: "Mensagem copiada para a área de transferência." });
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleActionConfirm = async (messageId: string, action: AIAction) => {
+    setExecutingAction(action.id);
+    const result = await executeAIAction(action);
+    if (result.success) {
+      updateMessageActions(messageId, action.id, "confirmed");
+      toast({ title: "✅ Ação executada", description: action.label });
+    } else {
+      toast({ title: "Erro", description: result.error || "Falha ao executar ação", variant: "destructive" });
+    }
+    setExecutingAction(null);
+  };
+
+  const handleActionReject = (messageId: string, actionId: string) => {
+    updateMessageActions(messageId, actionId, "rejected");
+    toast({ title: "Ação rejeitada", description: "A ação foi descartada." });
   };
 
   const handleExportConversation = (format: "txt" | "md") => {
@@ -247,11 +267,74 @@ export const AIChat = ({
                     )}
                   >
                     {message.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
+                      <>
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                        {message.actions && message.actions.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {message.actions.map((action) => (
+                              <div
+                                key={action.id}
+                                className={cn(
+                                  "border rounded-lg p-3 text-sm",
+                                  action.status === "confirmed" && "border-primary/50 bg-primary/5",
+                                  action.status === "rejected" && "border-muted opacity-50",
+                                  action.status === "pending" && "border-accent bg-accent/5"
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-foreground">{action.label}</p>
+                                    {action.description && (
+                                      <p className="text-xs text-muted-foreground mt-0.5">{action.description}</p>
+                                    )}
+                                  </div>
+                                  {action.status === "pending" && (
+                                    <div className="flex gap-1">
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-7 text-xs"
+                                        disabled={executingAction === action.id}
+                                        onClick={() => handleActionConfirm(message.id, action)}
+                                      >
+                                        {executingAction === action.id ? (
+                                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                        ) : (
+                                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                                        )}
+                                        Aplicar
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs"
+                                        onClick={() => handleActionReject(message.id, action.id)}
+                                      >
+                                        <XCircle className="h-3 w-3 mr-1" />
+                                        Rejeitar
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {action.status === "confirmed" && (
+                                    <span className="text-xs text-primary flex items-center gap-1">
+                                      <CheckCircle2 className="h-3 w-3" /> Aplicado
+                                    </span>
+                                  )}
+                                  {action.status === "rejected" && (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <XCircle className="h-3 w-3" /> Rejeitado
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <p className="whitespace-pre-wrap text-sm">{message.content}</p>
                     )}
