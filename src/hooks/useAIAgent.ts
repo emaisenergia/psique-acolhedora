@@ -166,17 +166,23 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
         await saveMessage(currentConversationId, "user", input);
       }
 
+      // Send only last 10 messages for speed
+      const recentMessages = [...messages, userMessage].slice(-10).map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const authToken = sessionData?.session?.access_token;
+
       const response = await fetch(AI_AGENT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${authToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: recentMessages,
           type,
           context,
         }),
