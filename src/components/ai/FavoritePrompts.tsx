@@ -134,7 +134,7 @@ export const FavoritePrompts = ({ onSelectPrompt }: FavoritePromptsProps) => {
 
   return (
     <>
-      <Card className="card-glass">
+      <Card className="card-glass overflow-hidden">
         <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
             <span className="flex items-center gap-2">

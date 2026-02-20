@@ -110,7 +110,7 @@ export function OccupancyMetricsCard({
   };
 
   return (
-    <Card className="card-glass">
+    <Card className="card-glass overflow-hidden">
       <CardContent className="p-6">
         {/* Header — same pattern as Stat cards */}
         <div className="flex items-center justify-between mb-6">

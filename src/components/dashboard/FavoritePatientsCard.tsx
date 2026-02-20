@@ -18,7 +18,7 @@ export const FavoritePatientsCard = ({ patients, onToggleFavorite }: FavoritePat
   }
 
   return (
-    <Card className="card-glass border-amber-200/50 bg-gradient-to-br from-amber-50/30 to-orange-50/20">
+    <Card className="card-glass border-amber-200/50 bg-gradient-to-br from-amber-50/30 to-orange-50/20 overflow-hidden">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -43,9 +43,9 @@ export const FavoritePatientsCard = ({ patients, onToggleFavorite }: FavoritePat
                 <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
                   {patient.name?.charAt(0) || "P"}
                 </div>
-                <div>
-                  <div className="font-medium text-sm">{patient.name}</div>
-                  <div className="text-xs text-muted-foreground">
+                <div className="min-w-0">
+                  <div className="font-medium text-sm truncate">{patient.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">
                     {patient.phone || patient.email || "Sem contato"}
                   </div>
                 </div>
