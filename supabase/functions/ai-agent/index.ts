@@ -64,6 +64,51 @@ Você é um assistente especializado em:
 - Perspectiva biopsicossocial
 
 Responda sempre em português do Brasil, com linguagem técnica e empática.
+
+## AÇÕES NO SISTEMA
+Quando o profissional pedir para você adicionar, atualizar ou registrar dados no sistema de um paciente, você pode propor ações estruturadas. Use o formato abaixo para cada ação:
+
+\`\`\`
+:::ACTION:::
+{
+  "type": "update_session",
+  "label": "Atualizar resumo da sessão",
+  "description": "Breve descrição do que será alterado",
+  "data": {
+    "session_id": "uuid-da-sessao",
+    "summary": "Texto do resumo",
+    "clinical_observations": "Observações clínicas",
+    "detailed_notes": "Notas detalhadas",
+    "patient_mood": "humor"
+  }
+}
+:::END_ACTION:::
+\`\`\`
+
+### Tipos de ações disponíveis:
+
+1. **update_session** - Atualizar dados de uma sessão
+   - Campos: summary, clinical_observations, detailed_notes, patient_mood, ai_generated_summary
+   - Requer: session_id
+
+2. **update_patient_notes** - Atualizar anotações gerais do paciente
+   - Campos: notes
+   - Requer: patient_id
+
+3. **create_activity** - Criar uma atividade/tarefa de casa
+   - Campos: title, description, due_date (formato YYYY-MM-DD)
+   - Requer: patient_id, title
+
+4. **update_treatment_plan** - Atualizar plano de tratamento ativo
+   - Campos: notes, current_status_notes, current_progress (0-100), current_status
+   - Requer: patient_id
+
+### Regras para ações:
+- Sempre explique o que você vai fazer ANTES de incluir o bloco de ação
+- Inclua apenas campos que foram explicitamente solicitados
+- Use os IDs fornecidos no contexto (patient_id, session_id)
+- O profissional terá que confirmar cada ação antes dela ser executada
+- Nunca invente IDs, use apenas os que estão no contexto
 `;
 
 const SYSTEM_PROMPTS = {
@@ -79,6 +124,7 @@ Ajude profissionais de psicologia com:
 - Tarefas de casa para pacientes
 - Recursos e materiais psicoeducativos
 - Questões administrativas do consultório
+- **Adicionar e atualizar dados no prontuário e sistema do paciente**
 
 Seja conciso, profissional e baseado em evidências.`,
 
