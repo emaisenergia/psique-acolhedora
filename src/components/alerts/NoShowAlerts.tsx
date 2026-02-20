@@ -87,7 +87,7 @@ export const NoShowAlerts = ({ appointments, patients, maxAlerts = 5 }: NoShowAl
   }
 
   return (
-    <Card className="card-glass border-rose-200/50 bg-gradient-to-br from-rose-50/30 to-red-50/20">
+    <Card className="card-glass border-rose-200/50 bg-gradient-to-br from-rose-50/30 to-red-50/20 overflow-hidden">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -114,10 +114,10 @@ export const NoShowAlerts = ({ appointments, patients, maxAlerts = 5 }: NoShowAl
                 <div className="w-9 h-9 bg-gradient-to-br from-rose-400 to-red-500 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
                   {stat.patient.name?.charAt(0) || "P"}
                 </div>
-                <div>
-                  <div className="font-medium text-sm">{stat.patient.name}</div>
+                 <div className="min-w-0">
+                  <div className="font-medium text-sm truncate">{stat.patient.name}</div>
                   <div className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span className="text-rose-600 font-medium">
+                    <span className="text-rose-600 font-medium truncate">
                       {stat.noShowCount}/{stat.totalAppointments} faltas ({Math.round(stat.noShowRate)}%)
                     </span>
                   </div>

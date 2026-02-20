@@ -74,7 +74,7 @@ export const FinancialGoalsCard = ({ currentRevenue, currentSessions, selectedDa
   };
 
   return (
-    <Card className="card-glass">
+    <Card className="card-glass overflow-hidden">
       <CardHeader>
         <CardTitle className="text-lg font-medium flex items-center justify-between">
           <span className="flex items-center gap-2">

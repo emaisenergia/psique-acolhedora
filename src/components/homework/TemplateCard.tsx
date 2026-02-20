@@ -30,17 +30,17 @@ export function TemplateCard({
   const categoryLabel = HOMEWORK_CATEGORIES.find(c => c.value === category)?.label || category;
 
   return (
-    <Card className="group hover:shadow-md transition-shadow">
+     <Card className="group hover:shadow-md transition-shadow overflow-hidden">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <ClipboardList className="w-5 h-5 text-primary" />
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-base font-semibold line-clamp-1">{title}</CardTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className="text-xs">
+              <CardTitle className="text-base font-semibold line-clamp-2 break-words whitespace-normal">{title}</CardTitle>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <Badge variant="secondary" className="text-xs truncate max-w-[200px]">
                   {categoryLabel}
                 </Badge>
                 {isAiEnriched && (
@@ -79,9 +79,9 @@ export function TemplateCard({
         </div>
       </CardHeader>
 
-      <CardContent>
+       <CardContent className="min-w-0">
         {description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{description}</p>
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-3 break-words">{description}</p>
         )}
         <p className="text-xs text-muted-foreground">
           {fields.length} campo{fields.length !== 1 ? 's' : ''}

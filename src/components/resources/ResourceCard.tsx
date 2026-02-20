@@ -32,7 +32,7 @@ export function ResourceCard({ resource, onEdit, onDelete, onToggleVisibility }:
   const Icon = TYPE_ICONS[resource.resource_type] || Link2;
 
   return (
-    <Card className="card-glass hover:shadow-md transition-shadow">
+    <Card className="card-glass hover:shadow-md transition-shadow overflow-hidden">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -41,7 +41,7 @@ export function ResourceCard({ resource, onEdit, onDelete, onToggleVisibility }:
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-medium text-foreground truncate">{resource.title}</h4>
+                <h4 className="font-medium text-foreground truncate max-w-full">{resource.title}</h4>
                 {!resource.is_visible && (
                   <Badge variant="secondary" className="text-xs gap-1">
                     <EyeOff className="w-3 h-3" />

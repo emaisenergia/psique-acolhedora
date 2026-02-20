@@ -195,26 +195,26 @@ const BlogAdmin = () => {
           <p className="text-muted-foreground">Nenhum artigo criado.</p>
         ) : (
           posts.map((p) => (
-            <Card key={p.id} className="card-glass">
+             <Card key={p.id} className="card-glass overflow-hidden">
               <CardContent className="p-5 flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold">{p.title}</span>
-                    <Badge variant={p.is_published ? "default" : "secondary"}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="font-semibold truncate">{p.title}</span>
+                    <Badge variant={p.is_published ? "default" : "secondary"} className="shrink-0">
                       {p.is_published ? "Publicado" : "Rascunho"}
                     </Badge>
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground truncate">
                     {p.category} • {p.views} visualizações
                   </div>
-                  <p className="text-sm mt-2">{p.excerpt}</p>
+                  <p className="text-sm mt-2 line-clamp-2 break-words">{p.excerpt}</p>
                   {p.is_published && (
                     <Link to={`/blog/${p.slug}`} className="text-primary text-sm mt-2 inline-block">
                       Ver no site
                     </Link>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <Button
                     variant="outline"
                     size="icon"

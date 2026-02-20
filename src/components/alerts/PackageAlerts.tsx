@@ -166,7 +166,7 @@ const PackageAlerts = ({ showCard = true, maxAlerts }: PackageAlertsProps) => {
   }
 
   return (
-    <Card className="card-glass border-yellow-500/20">
+    <Card className="card-glass border-yellow-500/20 overflow-hidden">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg font-medium flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-yellow-500" />

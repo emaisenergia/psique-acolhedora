@@ -103,7 +103,7 @@ export const AppointmentMetricsCard = ({
   };
 
   return (
-    <Card className="card-glass">
+    <Card className="card-glass overflow-hidden">
       <CardContent className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-12 h-12 bg-gradient-primary rounded-xl flex items-center justify-center">
