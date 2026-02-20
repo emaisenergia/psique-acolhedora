@@ -19,9 +19,55 @@ interface UseAIAgentOptions {
     sessionNotes?: string;
     patientHistory?: string;
     reportType?: string;
+    attachedContent?: string;
   };
   patientId?: string;
   conversationId?: string;
+}
+
+async function fetchPatientClinicalContext(patientId: string): Promise<string> {
+  try {
+    // Fetch patient name only (no sensitive data)
+    const { data: patient } = await supabase
+      .from("patients")
+      .select("name")
+      .eq("id", patientId)
+      .single();
+
+    // Fetch recent sessions (clinical data only, no PII)
+    const { data: sessions } = await supabase
+      .from("sessions")
+      .select("session_date, status, summary, clinical_observations, detailed_notes, patient_mood, ai_generated_summary, duration_minutes")
+      .eq("patient_id", patientId)
+      .order("session_date", { ascending: false })
+      .limit(10);
+
+    let content = "";
+
+    if (patient) {
+      content += `**Paciente:** ${patient.name}\n\n`;
+    }
+
+    if (sessions && sessions.length > 0) {
+      content += `## Registro de Sessões (${sessions.length} mais recentes)\n\n`;
+      sessions.forEach((s, i) => {
+        const date = new Date(s.session_date).toLocaleDateString("pt-BR");
+        content += `### Sessão ${i + 1} — ${date} (${s.status})\n`;
+        if (s.duration_minutes) content += `- Duração: ${s.duration_minutes} min\n`;
+        if (s.patient_mood) content += `- Humor: ${s.patient_mood}\n`;
+        if (s.summary) content += `- Resumo: ${s.summary}\n`;
+        if (s.clinical_observations) content += `- Observações clínicas: ${s.clinical_observations}\n`;
+        if (s.detailed_notes) content += `- Notas detalhadas: ${s.detailed_notes}\n`;
+        if (s.ai_generated_summary) content += `- Resumo IA: ${s.ai_generated_summary}\n`;
+        content += "\n";
+      });
+    }
+
+    return content.trim();
+  } catch (error) {
+    console.error("Error fetching clinical context:", error);
+    return "";
+  }
 }
 
 interface Conversation {
@@ -152,6 +198,8 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
     }
   }, []);
 
+  const [includeClinicalRecords, setIncludeClinicalRecords] = useState(false);
+
   const sendMessage = useCallback(async (input: string) => {
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -195,12 +243,21 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
         body: JSON.stringify({
           messages: recentMessages,
           type,
-          context: {
-            ...context,
-            patientHistory: patientHistoryRef.current
-              ? `${context?.patientHistory || ""}\n\n## HISTÓRICO DE CONVERSAS ANTERIORES COM IA:\n${patientHistoryRef.current}`
-              : context?.patientHistory,
-          },
+          context: await (async () => {
+            let clinicalContent = "";
+            if (includeClinicalRecords && patientId) {
+              clinicalContent = await fetchPatientClinicalContext(patientId);
+            }
+            return {
+              ...context,
+              patientHistory: patientHistoryRef.current
+                ? `${context?.patientHistory || ""}\n\n## HISTÓRICO DE CONVERSAS ANTERIORES COM IA:\n${patientHistoryRef.current}`
+                : context?.patientHistory,
+              attachedContent: clinicalContent
+                ? `${context?.attachedContent || ""}\n\n## PRONTUÁRIO E REGISTRO DE SESSÕES\n${clinicalContent}`
+                : context?.attachedContent,
+            };
+          })(),
         }),
       });
 
@@ -289,7 +346,7 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
     } finally {
       setIsLoading(false);
     }
-  }, [messages, type, context, toast, conversationId, createConversation, saveMessage, loadConversations]);
+  }, [messages, type, context, toast, conversationId, createConversation, saveMessage, loadConversations, includeClinicalRecords, patientId]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -340,5 +397,7 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
     loadConversation,
     startNewConversation,
     deleteConversation,
+    includeClinicalRecords,
+    setIncludeClinicalRecords,
   };
 };

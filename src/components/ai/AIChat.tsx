@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Bot, User, Loader2, Plus, History, Download, Copy, Check, Star } from "lucide-react";
+import { Send, Bot, User, Loader2, Plus, History, Download, Copy, Check, Star, FileText } from "lucide-react";
 import { useAIAgent } from "@/hooks/useAIAgent";
 import { cn } from "@/lib/utils";
 import { ConversationHistory } from "./ConversationHistory";
@@ -22,6 +22,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AIChatProps {
   type?: "chat" | "session_summary" | "patient_analysis" | "report_generation";
@@ -30,6 +32,7 @@ interface AIChatProps {
     sessionNotes?: string;
     patientHistory?: string;
     reportType?: string;
+    attachedContent?: string;
   };
   patientId?: string;
   placeholder?: string;
@@ -60,6 +63,8 @@ export const AIChat = ({
     loadConversation,
     startNewConversation,
     deleteConversation,
+    includeClinicalRecords,
+    setIncludeClinicalRecords,
   } = useAIAgent({ type, context, patientId });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -293,7 +298,28 @@ export const AIChat = ({
           )}
         </ScrollArea>
         
-        <form onSubmit={handleSubmit} className="flex gap-2 mt-4 flex-shrink-0">
+        {patientId && (
+          <div className="flex items-center gap-2 mb-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Acesso ao prontuário</span>
+                  <Switch
+                    checked={includeClinicalRecords}
+                    onCheckedChange={setIncludeClinicalRecords}
+                    className="scale-75"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Permite que a IA acesse resumos de sessões e observações clínicas (sem dados sensíveis)</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex gap-2 flex-shrink-0">
           <Input
             ref={inputRef}
             value={input}
