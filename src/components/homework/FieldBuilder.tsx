@@ -72,18 +72,18 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
       ) : (
         <div className="space-y-2">
           {fields.map((field, index) => (
-            <Card key={field.id} className="relative">
+             <Card key={field.id} className="relative overflow-hidden">
               <CardContent className="p-3">
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 min-w-0">
                   <button
                     type="button"
-                    className="mt-2 cursor-move text-muted-foreground hover:text-foreground"
+                    className="mt-2 shrink-0 cursor-move text-muted-foreground hover:text-foreground"
                     onMouseDown={(e) => e.preventDefault()}
                   >
                     <GripVertical className="w-4 h-4" />
                   </button>
 
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 min-w-0 space-y-2">
                     {editingIndex === index ? (
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-2">
@@ -200,25 +200,25 @@ export function FieldBuilder({ fields, onChange }: FieldBuilderProps) {
                       </div>
                     ) : (
                       <div 
-                        className="cursor-pointer"
+                        className="cursor-pointer min-w-0"
                         onClick={() => setEditingIndex(index)}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-muted-foreground uppercase">
+                          <span className="text-xs font-medium text-muted-foreground uppercase truncate">
                             {FIELD_TYPES.find(t => t.value === field.type)?.label}
                           </span>
                           {field.required && (
-                            <span className="text-xs text-red-500">*</span>
+                            <span className="text-xs text-red-500 shrink-0">*</span>
                           )}
                         </div>
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium truncate">
                           {field.label || <span className="text-muted-foreground italic">Sem rótulo</span>}
                         </p>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <Button
                       type="button"
                       variant="ghost"
