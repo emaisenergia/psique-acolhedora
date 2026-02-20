@@ -26,7 +26,8 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, password, name } = body;
+    const { email, password, name, role } = body;
+    const targetRole = role || "admin";
 
     // Validate required fields
     if (!email || !password) {
@@ -79,43 +80,56 @@ serve(async (req) => {
 
     const userId = userData.user.id;
 
-    // Add admin role
-    const { error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: userId, role: "admin" });
+    if (targetRole === "patient") {
+      // Add patient role only
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: userId, role: "patient" });
 
-    if (roleError) {
-      console.error("Error adding role:", roleError);
+      if (roleError) {
+        console.error("Error adding patient role:", roleError);
+      }
+
+      console.log(`Patient user created successfully: ${userId}`);
+    } else {
+      // Add admin role
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: userId, role: "admin" });
+
+      if (roleError) {
+        console.error("Error adding role:", roleError);
+      }
+
+      // Also add psychologist role for full access
+      await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: userId, role: "psychologist" });
+
+      // Create admin profile
+      const { error: profileError } = await supabaseAdmin
+        .from("admin_profiles")
+        .insert({
+          user_id: userId,
+          name: sanitizedName,
+          phone: null,
+          credential: null,
+          bio: null,
+          timezone: "America/Sao_Paulo",
+        });
+
+      if (profileError) {
+        console.error("Error creating profile:", profileError);
+      }
+
+      console.log(`Admin user created successfully: ${userId}`);
     }
-
-    // Also add psychologist role for full access
-    await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: userId, role: "psychologist" });
-
-    // Create admin profile
-    const { error: profileError } = await supabaseAdmin
-      .from("admin_profiles")
-      .insert({
-        user_id: userId,
-        name: sanitizedName,
-        phone: null,
-        credential: null,
-        bio: null,
-        timezone: "America/Sao_Paulo",
-      });
-
-    if (profileError) {
-      console.error("Error creating profile:", profileError);
-    }
-
-    console.log(`Admin user created successfully: ${userId}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "Admin user created successfully",
-        user_id: userId 
+        message: `${targetRole} user created successfully`,
+        user: { id: userId },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

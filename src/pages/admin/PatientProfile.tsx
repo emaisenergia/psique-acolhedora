@@ -792,11 +792,13 @@ const PatientProfile = () => {
     const content = replyText.trim();
     if (!content) return;
     
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
     const { data: newMessage, error } = await supabase
       .from("secure_messages")
       .insert({
         patient_id: patientId,
         author: "psychologist",
+        author_user_id: currentUser?.id || null,
         content,
         urgent: false,
         read: true,
@@ -902,37 +904,29 @@ const PatientProfile = () => {
 
     setUserAccountCreating(true);
     try {
-      // Create user in auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: patient.email,
-        password: newPassword,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            name: patient.name,
-          }
-        }
+      // Use edge function to create user without affecting admin session
+      const { data, error } = await supabase.functions.invoke('create-admin-user', {
+        body: {
+          email: patient.email,
+          password: newPassword,
+          name: patient.name,
+          role: 'patient',
+        },
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Falha ao criar usuário");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const userId = data?.user?.id;
+      if (!userId) throw new Error("Falha ao criar usuário");
 
       // Update patient with user_id
       const { error: updateError } = await supabase
         .from('patients')
-        .update({ user_id: authData.user.id })
+        .update({ user_id: userId })
         .eq('email', patient.email);
 
       if (updateError) throw updateError;
-
-      // Add patient role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({ user_id: authData.user.id, role: 'patient' });
-
-      if (roleError) {
-        console.error('Error adding role:', roleError);
-      }
 
       toast.success("Conta do paciente criada com sucesso!");
       setPatientHasAccount(true);
@@ -948,7 +942,7 @@ const PatientProfile = () => {
   };
 
   // Check account status when tab changes to access
-  useMemo(() => {
+  useEffect(() => {
     if (tab === 'acesso' && patientHasAccount === null) {
       checkPatientAccount();
     }
