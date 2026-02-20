@@ -1,6 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { loadPatientAIHistory, savePatientAIHistory } from "@/lib/aiHistory";
 
 type MessageRole = "user" | "assistant";
 
@@ -38,7 +39,17 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(initialConversationId || null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const patientHistoryRef = useRef<string>("");
   const { toast } = useToast();
+
+  // Load patient AI history file on mount
+  useEffect(() => {
+    if (patientId) {
+      loadPatientAIHistory(patientId).then(history => {
+        patientHistoryRef.current = history;
+      });
+    }
+  }, [patientId]);
 
   // Load conversations history
   const loadConversations = useCallback(async () => {
@@ -184,7 +195,12 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
         body: JSON.stringify({
           messages: recentMessages,
           type,
-          context,
+          context: {
+            ...context,
+            patientHistory: patientHistoryRef.current
+              ? `${context?.patientHistory || ""}\n\n## HISTÓRICO DE CONVERSAS ANTERIORES COM IA:\n${patientHistoryRef.current}`
+              : context?.patientHistory,
+          },
         }),
       });
 
@@ -251,10 +267,17 @@ export const useAIAgent = ({ type, context, patientId, conversationId: initialCo
         }
       }
 
-      // Save assistant response
+      // Save assistant response and update patient history file
       if (currentConversationId && assistantContent) {
         await saveMessage(currentConversationId, "assistant", assistantContent);
-        loadConversations(); // Refresh conversations list
+        
+        // Save to patient history file for future context
+        if (patientId) {
+          await savePatientAIHistory(patientId, input, assistantContent);
+          patientHistoryRef.current = await loadPatientAIHistory(patientId);
+        }
+        
+        loadConversations();
       }
     } catch (error) {
       console.error("AI Agent error:", error);
