@@ -230,7 +230,7 @@ const HeroSection = () => {
             >
               <div className="text-center">
                 <div className="text-lg font-bold text-primary">Atendimento online</div>
-                <div className="text-xs text-muted-foreground">07:00 as 22:00</div>
+                <div className="text-xs text-muted-foreground">07:00 às 19:00</div>
               </div>
             </motion.div>
             
