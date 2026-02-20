@@ -94,6 +94,8 @@ export const SessionsModule = ({ patientId, patientName, initialAppointmentId }:
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [sessionFiles, setSessionFiles] = useState<SessionFile[]>([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateRecording, setIsCreateRecording] = useState(false);
+  const [isCreateTranscribing, setIsCreateTranscribing] = useState(false);
   const [isAnamnesisOpen, setIsAnamnesisOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedAppointmentForPayment, setSelectedAppointmentForPayment] = useState<Appointment | null>(null);
@@ -112,6 +114,7 @@ export const SessionsModule = ({ patientId, patientName, initialAppointmentId }:
   const [registeredPayments, setRegisteredPayments] = useState<Set<string>>(new Set());
 
   const audioRecorder = useAudioRecorder();
+  const createAudioRecorder = useAudioRecorder();
 
   // Anamnesis data
   const [anamnesis, setAnamnesis] = useState<AnamnesisData>({
@@ -1165,6 +1168,107 @@ ${anamnesis.observacoes || "Nenhuma"}
                 Sessão será vinculada ao agendamento selecionado
               </div>
             )}
+
+            {/* Record & Transcribe Section */}
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-3">
+              <Label className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-primary" />
+                Gravar e transcrever
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Grave o áudio da sessão e a transcrição será adicionada às notas automaticamente.
+              </p>
+              <div className="flex items-center gap-3">
+                {!createAudioRecorder.isRecording && !createAudioRecorder.audioBlob && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={async () => {
+                      try {
+                        await createAudioRecorder.startRecording();
+                        setIsCreateRecording(true);
+                      } catch {
+                        toast({
+                          title: "Erro ao iniciar gravação",
+                          description: "Verifique as permissões do microfone.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    <Mic className="w-4 h-4 mr-1" /> Iniciar Gravação
+                  </Button>
+                )}
+                {createAudioRecorder.isRecording && (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <span className="font-mono">{createAudioRecorder.formatDuration(createAudioRecorder.duration)}</span>
+                    </div>
+                    {createAudioRecorder.isPaused ? (
+                      <Button type="button" variant="outline" size="sm" onClick={createAudioRecorder.resumeRecording}>
+                        <Play className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={createAudioRecorder.pauseRecording}>
+                        <Pause className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={async () => {
+                        createAudioRecorder.stopRecording();
+                        setIsCreateRecording(false);
+                        // Wait for blob to be ready then transcribe
+                        setTimeout(async () => {
+                          if (createAudioRecorder.audioBlob) {
+                            setIsCreateTranscribing(true);
+                            try {
+                              const transcription = await sessionsService.transcribeAudio(createAudioRecorder.audioBlob);
+                              setNewSession(prev => ({
+                                ...prev,
+                                detailed_notes: prev.detailed_notes
+                                  ? `${prev.detailed_notes}\n\n--- Transcrição ---\n${transcription}`
+                                  : transcription,
+                              }));
+                              toast({ title: "Transcrição concluída!", description: "O texto foi adicionado às notas." });
+                              createAudioRecorder.resetRecording();
+                            } catch (error) {
+                              console.error("Transcription error:", error);
+                              toast({ title: "Erro na transcrição", variant: "destructive" });
+                            } finally {
+                              setIsCreateTranscribing(false);
+                            }
+                          }
+                        }, 600);
+                      }}
+                    >
+                      <Square className="w-4 h-4 mr-1" /> Parar e Transcrever
+                    </Button>
+                  </>
+                )}
+                {isCreateTranscribing && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Transcrevendo áudio...
+                  </div>
+                )}
+                {createAudioRecorder.audioBlob && !isCreateTranscribing && !createAudioRecorder.isRecording && (
+                  <div className="flex items-center gap-2 text-sm text-emerald-600">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Áudio gravado
+                    <Button type="button" variant="ghost" size="sm" onClick={createAudioRecorder.resetRecording}>
+                      Nova gravação
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div>
               <Label>Notas detalhadas</Label>
               <Textarea

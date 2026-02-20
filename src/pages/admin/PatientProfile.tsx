@@ -8,7 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield, UserPlus, Key, Loader2 } from "lucide-react";
+import { CalendarDays, Mail, Phone, MapPin, Briefcase, CreditCard, CheckCircle2, FileText, DollarSign, Folder, ClipboardList, Save, Search, TrendingUp, Activity as ActivityIcon, Target, Award, Clock, UserCheck, XCircle, BookOpen, Plus, MessageSquare, AlertTriangle, Send, Trash2, Shield, UserPlus, Key, Loader2, Sparkles, Brain, Heart, Mic, Radio, BarChart3 } from "lucide-react";
+import { AIChat } from "@/components/ai/AIChat";
+import { AudioTranscriber } from "@/components/ai/AudioTranscriber";
+import { RealtimeTranscriber } from "@/components/ai/RealtimeTranscriber";
+import { KnowledgeManager } from "@/components/ai/KnowledgeManager";
+import { FavoritePrompts } from "@/components/ai/FavoritePrompts";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMemo, useState, useEffect, useCallback } from "react";
@@ -249,7 +254,8 @@ const PatientProfile = () => {
             { value: "atividades", label: "Atividades" }, { value: "recursos", label: "Recursos" },
             { value: "mensagens", label: "Mensagens" }, { value: "progresso", label: "Progresso" },
             { value: "financeiro", label: "Financeiro" }, { value: "arquivos", label: "Arquivos" },
-            { value: "anamnese", label: "Anamnese" }, { value: "acesso", label: "Acesso" },
+            { value: "anamnese", label: "Anamnese" }, { value: "agentes-ia", label: "Agentes de IA" },
+            { value: "acesso", label: "Acesso" },
           ].map((t) => (
             <TabsTrigger key={t.value} value={t.value} className="rounded-xl whitespace-nowrap">{t.label}</TabsTrigger>
           ))}
@@ -599,6 +605,151 @@ const PatientProfile = () => {
         <TabsContent value="financeiro" className="mt-6"><Card className="card-glass"><CardContent className="p-6 text-muted-foreground">Em breve: dados financeiros por paciente.</CardContent></Card></TabsContent>
         <TabsContent value="arquivos" className="mt-6"><Card className="card-glass"><CardContent className="p-6 text-muted-foreground">Em breve: arquivos do paciente.</CardContent></Card></TabsContent>
         <TabsContent value="anamnese" className="mt-6"><Card className="card-glass"><CardContent className="p-6 text-muted-foreground">Em breve: anamnese.</CardContent></Card></TabsContent>
+
+        {/* AI Agents Tab */}
+        <TabsContent value="agentes-ia" className="mt-6">
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="card-glass border-primary/20">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <Brain className="h-8 w-8 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">TCC Especializada</div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">Formulação cognitiva e intervenções baseadas em evidências</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="card-glass border-pink-500/20">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <Heart className="h-8 w-8 text-pink-500 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">Terapia Sexual</div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">Disfunções sexuais, foco sensorial e questões de sexualidade</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="card-glass">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <Mic className="h-8 w-8 text-blue-500 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">Transcrição</div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">Grave áudios e obtenha transcrições automáticas</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="card-glass">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <FileText className="h-8 w-8 text-green-500 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate">Relatórios Clínicos</div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">Relatórios profissionais com linguagem técnica</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Tabs defaultValue="chat" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-6">
+                <TabsTrigger value="chat" className="flex items-center gap-1">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="hidden sm:inline">Chat</span>
+                </TabsTrigger>
+                <TabsTrigger value="session_summary" className="flex items-center gap-1">
+                  <ClipboardList className="h-4 w-4" />
+                  <span className="hidden sm:inline">Sessão</span>
+                </TabsTrigger>
+                <TabsTrigger value="analysis" className="flex items-center gap-1">
+                  <Brain className="h-4 w-4" />
+                  <span className="hidden sm:inline">Análise</span>
+                </TabsTrigger>
+                <TabsTrigger value="reports" className="flex items-center gap-1">
+                  <FileText className="h-4 w-4" />
+                  <span className="hidden sm:inline">Relatórios</span>
+                </TabsTrigger>
+                <TabsTrigger value="transcription" className="flex items-center gap-1">
+                  <Mic className="h-4 w-4" />
+                  <span className="hidden sm:inline">Transcrição</span>
+                </TabsTrigger>
+                <TabsTrigger value="knowledge" className="flex items-center gap-1">
+                  <BookOpen className="h-4 w-4" />
+                  <span className="hidden sm:inline">Conhecimento</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="chat">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <AIChat
+                      type="chat"
+                      patientId={patient.id}
+                      title="Chat Especialista"
+                      placeholder="Pergunte sobre TCC, terapia sexual, técnicas..."
+                      context={{ patientName: patient.name }}
+                      suggestions={[
+                        `Sugira técnicas de TCC para ${patient.name}`,
+                        "Como aplicar reestruturação cognitiva?",
+                        "Técnicas de foco sensorial",
+                        "Experimento comportamental para ansiedade",
+                      ]}
+                    />
+                  </div>
+                  <FavoritePrompts onSelectPrompt={() => {}} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="session_summary">
+                <AIChat
+                  type="session_summary"
+                  patientId={patient.id}
+                  context={{ patientName: patient.name }}
+                  title="Resumo de Sessão"
+                  placeholder="Cole as notas da sessão para gerar um resumo..."
+                />
+              </TabsContent>
+
+              <TabsContent value="analysis">
+                <AIChat
+                  type="patient_analysis"
+                  patientId={patient.id}
+                  context={{ patientName: patient.name }}
+                  title="Análise do Paciente"
+                  placeholder="Peça uma análise do caso, formulação cognitiva..."
+                  suggestions={[
+                    `Faça uma formulação cognitiva para ${patient.name}`,
+                    "Analise os temas recorrentes nas sessões",
+                    "Sugira hipóteses diagnósticas",
+                  ]}
+                />
+              </TabsContent>
+
+              <TabsContent value="reports">
+                <AIChat
+                  type="report_generation"
+                  patientId={patient.id}
+                  context={{ patientName: patient.name }}
+                  title="Geração de Relatórios"
+                  placeholder="Descreva o tipo de relatório que precisa..."
+                  suggestions={[
+                    "Gere um relatório de evolução",
+                    "Relatório para encaminhamento psiquiátrico",
+                    "Devolutiva para o paciente",
+                  ]}
+                />
+              </TabsContent>
+
+              <TabsContent value="transcription">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <AudioTranscriber onTranscriptionComplete={() => {}} />
+                  <RealtimeTranscriber onTranscriptionComplete={() => {}} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="knowledge">
+                <KnowledgeManager />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </TabsContent>
 
         {/* Access Tab */}
         <TabsContent value="acesso" className="mt-6">
