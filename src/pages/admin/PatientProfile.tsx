@@ -730,26 +730,34 @@ const PatientProfile = () => {
     const content = journalForm.note.trim();
     if (!content) return;
     
-    const { data: newEntry, error } = await supabase
-      .from("journal_entries")
-      .insert({
-        patient_id: patientId,
-        mood: journalForm.mood,
-        note: content,
-      })
-      .select()
-      .single();
-    
-    if (!error && newEntry) {
-      const mapped: JournalEntry = {
-        id: newEntry.id,
-        patientId: newEntry.patient_id,
-        mood: newEntry.mood as JournalEntry["mood"],
-        note: newEntry.note,
-        createdAt: newEntry.created_at,
-      };
-      setJournals((prev) => [mapped, ...prev]);
-      setJournalForm((prev) => ({ ...prev, note: "", tags: "" }));
+    try {
+      const { data: newEntry, error } = await supabase
+        .from("journal_entries")
+        .insert({
+          patient_id: patientId,
+          mood: journalForm.mood,
+          note: content,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      if (newEntry) {
+        const mapped: JournalEntry = {
+          id: newEntry.id,
+          patientId: newEntry.patient_id,
+          mood: newEntry.mood as JournalEntry["mood"],
+          note: newEntry.note,
+          createdAt: newEntry.created_at,
+        };
+        setJournals((prev) => [mapped, ...prev]);
+        setJournalForm((prev) => ({ ...prev, note: "", tags: "" }));
+        toast.success("Evolução registrada com sucesso!");
+      }
+    } catch (error) {
+      console.error("Error saving journal entry:", error);
+      toast.error("Erro ao registrar evolução. Verifique se você está autenticado e tente novamente.");
     }
   };
 
@@ -2111,7 +2119,7 @@ const FullEditForm = ({ initial, onSubmit }: { initial: Partial<Patient>; onSubm
             </div>
             <div>
               <label className="text-sm">Gênero</label>
-              <Select value={form.gender} onValueChange={(v)=>setForm({ ...form, gender: v })}>
+              <Select value={form.gender || undefined} onValueChange={(v)=>setForm({ ...form, gender: v })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o gênero" />
                 </SelectTrigger>
