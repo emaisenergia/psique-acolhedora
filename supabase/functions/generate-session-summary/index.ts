@@ -41,7 +41,47 @@ serve(async (req) => {
     const userId = claimsData.claims.sub;
     console.log("Authenticated user:", userId);
 
-    const { type, detailedNotes, transcription, patientName, previousSessions } = await req.json();
+    const body = await req.json();
+    const { type, detailedNotes, transcription, patientName, previousSessions } = body;
+
+    // Input validation
+    const allowedTypes = ["summary", "insights", "evolution"];
+    if (!type || !allowedTypes.includes(type)) {
+      return new Response(JSON.stringify({ error: "Tipo inválido. Use: summary, insights ou evolution" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const MAX_TEXT_LENGTH = 50000;
+    if (detailedNotes && (typeof detailedNotes !== "string" || detailedNotes.length > MAX_TEXT_LENGTH)) {
+      return new Response(JSON.stringify({ error: "Notas excedem o limite de tamanho permitido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (transcription && (typeof transcription !== "string" || transcription.length > MAX_TEXT_LENGTH)) {
+      return new Response(JSON.stringify({ error: "Transcrição excede o limite de tamanho permitido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (patientName && (typeof patientName !== "string" || patientName.length > 200)) {
+      return new Response(JSON.stringify({ error: "Nome do paciente inválido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (previousSessions && (!Array.isArray(previousSessions) || previousSessions.length > 50)) {
+      return new Response(JSON.stringify({ error: "Sessões anteriores inválidas" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Sanitize patient name to prevent prompt injection
+    const safeName = patientName ? patientName.replace(/[^\p{L}\p{N}\s.-]/gu, "").slice(0, 100) : "paciente";
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -62,7 +102,7 @@ O resumo deve:
 - Manter confidencialidade e linguagem técnica
 - Ter no máximo 3-4 parágrafos`;
 
-      userPrompt = `Gere um resumo terapêutico para a sessão de ${patientName || "paciente"}.
+      userPrompt = `Gere um resumo terapêutico para a sessão de ${safeName}.
 
 ${detailedNotes ? `Notas da sessão:\n${detailedNotes}\n` : ""}
 ${transcription ? `Transcrição:\n${transcription}\n` : ""}`;
@@ -78,7 +118,7 @@ Retorne um JSON válido com a seguinte estrutura:
   "progressIndicators": ["indicador 1", "indicador 2", ...]
 }`;
 
-      userPrompt = `Analise a sessão de ${patientName || "paciente"} e extraia insights:
+      userPrompt = `Analise a sessão de ${safeName} e extraia insights:
 
 ${detailedNotes ? `Notas:\n${detailedNotes}\n` : ""}
 ${transcription ? `Transcrição:\n${transcription}\n` : ""}`;
@@ -92,7 +132,7 @@ O relatório deve:
 - Sugerir ajustes no plano terapêutico
 - Ter formato estruturado e profissional`;
 
-      userPrompt = `Gere um relatório evolutivo para ${patientName || "paciente"}.
+      userPrompt = `Gere um relatório evolutivo para ${safeName}.
 
 Sessões anteriores:
 ${JSON.stringify(previousSessions, null, 2)}`;
@@ -156,7 +196,7 @@ ${JSON.stringify(previousSessions, null, 2)}`;
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }), {
+    return new Response(JSON.stringify({ error: "Erro interno ao processar solicitação" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
