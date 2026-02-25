@@ -41,16 +41,33 @@ serve(async (req) => {
     const userId = claimsData.claims.sub;
     console.log("Authenticated user:", userId);
 
-    const { audioBase64, mimeType } = await req.json();
+    const body = await req.json();
+    const { audioBase64, mimeType } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    if (!audioBase64) {
-      throw new Error("Áudio não fornecido");
+    if (!audioBase64 || typeof audioBase64 !== "string") {
+      return new Response(JSON.stringify({ error: "Áudio não fornecido" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    // Validate base64 data size (max ~10MB, base64 adds ~37% overhead)
+    const maxBase64Size = 10 * 1024 * 1024 * 1.37;
+    if (audioBase64.length > maxBase64Size) {
+      return new Response(JSON.stringify({ error: "Arquivo de áudio muito grande. Máximo 10MB." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate mimeType against allowlist
+    const allowedMimeTypes = ["audio/webm", "audio/mp4", "audio/wav", "audio/mpeg", "audio/ogg", "audio/m4a", "audio/x-m4a"];
+    const safeMimeType = mimeType && allowedMimeTypes.includes(mimeType) ? mimeType : "audio/webm";
 
     // Use Gemini's multimodal capability for transcription
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -82,7 +99,7 @@ Retorne APENAS a transcrição, sem comentários adicionais.`
               {
                 type: "image_url",
                 image_url: {
-                  url: `data:${mimeType || "audio/webm"};base64,${audioBase64}`
+                  url: `data:${safeMimeType};base64,${audioBase64}`
                 }
               }
             ]
@@ -120,7 +137,7 @@ Retorne APENAS a transcrição, sem comentários adicionais.`
     });
   } catch (error) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }), {
+    return new Response(JSON.stringify({ error: "Erro interno ao transcrever áudio" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
