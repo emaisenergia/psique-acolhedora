@@ -80,6 +80,13 @@ export type Database = {
             foreignKeyName: "activities_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -210,6 +217,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_conversations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_conversations_patient_id_fkey"
             columns: ["patient_id"]
@@ -447,6 +461,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "session_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_profile_safe"
             referencedColumns: ["id"]
           },
           {
@@ -716,6 +737,13 @@ export type Database = {
             foreignKeyName: "financial_transactions_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -865,6 +893,13 @@ export type Database = {
             foreignKeyName: "journal_entries_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -902,6 +937,13 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_consents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_consents_patient_id_fkey"
             columns: ["patient_id"]
@@ -1071,6 +1113,13 @@ export type Database = {
             foreignKeyName: "resource_views_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_views_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -1153,6 +1202,13 @@ export type Database = {
           urgent?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "secure_messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "secure_messages_patient_id_fkey"
             columns: ["patient_id"]
@@ -1243,6 +1299,13 @@ export type Database = {
             foreignKeyName: "session_audit_log_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "patient_sessions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_audit_log_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
@@ -1280,6 +1343,13 @@ export type Database = {
           storage_path?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "session_files_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "patient_sessions_safe"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "session_files_session_id_fkey"
             columns: ["session_id"]
@@ -1336,6 +1406,13 @@ export type Database = {
           used_sessions?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "session_packages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "session_packages_patient_id_fkey"
             columns: ["patient_id"]
@@ -1581,6 +1658,13 @@ export type Database = {
             foreignKeyName: "treatment_plans_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -1658,6 +1742,13 @@ export type Database = {
             foreignKeyName: "waitlist_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_profile_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -1665,7 +1756,110 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      admin_profiles_safe: {
+        Row: {
+          id: string | null
+          name: string | null
+        }
+        Insert: {
+          id?: string | null
+          name?: string | null
+        }
+        Update: {
+          id?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      patient_profile_safe: {
+        Row: {
+          birth_date: string | null
+          created_at: string | null
+          email: string | null
+          id: string | null
+          insurance_id: string | null
+          is_favorite: boolean | null
+          name: string | null
+          phone: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          insurance_id?: string | null
+          is_favorite?: boolean | null
+          name?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          insurance_id?: string | null
+          is_favorite?: boolean | null
+          name?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patients_insurance_id_fkey"
+            columns: ["insurance_id"]
+            isOneToOne: false
+            referencedRelation: "insurances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_sessions_safe: {
+        Row: {
+          appointment_id: string | null
+          created_at: string | null
+          duration_minutes: number | null
+          id: string | null
+          patient_id: string | null
+          patient_mood: string | null
+          session_date: string | null
+          status: string | null
+          summary: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string | null
+          patient_id?: string | null
+          patient_mood?: string | null
+          session_date?: string | null
+          status?: string | null
+          summary?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string | null
+          patient_id?: string | null
+          patient_mood?: string | null
+          session_date?: string | null
+          status?: string | null
+          summary?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_user_roles: {
