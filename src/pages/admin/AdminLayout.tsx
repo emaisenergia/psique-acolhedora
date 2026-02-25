@@ -264,19 +264,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           <Code2 className="w-5 h-5 text-muted-foreground" />
           <div className="flex flex-col">
             <span className="font-semibold">DEV</span>
-            <span className="text-xs text-muted-foreground">Documentação técnica</span>
-          </div>
-          <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
-        </NavLink>
-        <NavLink
-          to="/admin/dev/urs"
-          onClick={() => setMobileNavOpen(false)}
-          className={({ isActive }) => `${baseItem} ${isActive ? activeItem : inactiveItem} ${isActive ? 'active' : ''} ml-4`}
-        >
-          <FileText className="w-4 h-4 text-muted-foreground" />
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm">URS</span>
-            <span className="text-xs text-muted-foreground">Requisitos do sistema</span>
+            <span className="text-xs text-muted-foreground">Central de desenvolvimento</span>
           </div>
           <span className="ml-auto w-2.5 h-2.5 rounded-full bg-primary/90 opacity-0 group-[.active]:opacity-100" />
         </NavLink>
