@@ -32,8 +32,7 @@ const Prontuarios = lazy(() => import("@/pages/admin/Prontuarios"));
 const Configuracoes = lazy(() => import("@/pages/admin/Configuracoes"));
 const TarefasCasa = lazy(() => import("@/pages/admin/TarefasCasa"));
 const ReminderHistory = lazy(() => import("@/pages/admin/ReminderHistory"));
-const DevOverview = lazy(() => import("@/pages/admin/DevOverview"));
-const DevURS = lazy(() => import("@/pages/admin/DevURS"));
+const DevHub = lazy(() => import("@/pages/admin/DevHub"));
 
 // Patient portal routes
 const PortalLogin = lazy(() => import("@/pages/patient/PortalLogin"));
@@ -109,8 +108,7 @@ const App = () => (
                   <Route path="/admin/prontuarios" element={<ProtectedRoute roles={["psychologist","admin"]}><Prontuarios /></ProtectedRoute>} />
                   <Route path="/admin/lembretes" element={<ProtectedRoute roles={["psychologist","admin"]}><ReminderHistory /></ProtectedRoute>} />
                   <Route path="/admin/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-                  <Route path="/admin/dev" element={<ProtectedRoute><DevOverview /></ProtectedRoute>} />
-                  <Route path="/admin/dev/urs" element={<ProtectedRoute><DevURS /></ProtectedRoute>} />
+                  <Route path="/admin/dev" element={<ProtectedRoute><DevHub /></ProtectedRoute>} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
