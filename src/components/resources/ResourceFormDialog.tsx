@@ -93,11 +93,13 @@ export function ResourceFormDialog({
       
     if (error) throw error;
     
-    const { data: { publicUrl } } = supabase.storage
+    const { data: signedUrlData, error: signedError } = await supabase.storage
       .from("therapeutic-resources")
-      .getPublicUrl(filePath);
+      .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year signed URL
       
-    return { url: publicUrl, fileName: file.name };
+    if (signedError || !signedUrlData?.signedUrl) throw signedError || new Error("Failed to create signed URL");
+    
+    return { url: signedUrlData.signedUrl, fileName: file.name };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

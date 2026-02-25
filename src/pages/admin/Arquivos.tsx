@@ -217,8 +217,8 @@ const Arquivos = () => {
         const filePath = currentFolder ? `${currentFolder}/${file.name}` : file.name;
         const { data } = await supabase.storage
           .from(selectedBucket)
-          .getPublicUrl(filePath);
-        urls[file.name] = data.publicUrl;
+          .createSignedUrl(filePath, 3600);
+        if (data?.signedUrl) urls[file.name] = data.signedUrl;
       }
       setThumbnailUrls(urls);
     };
@@ -619,9 +619,10 @@ const Arquivos = () => {
       const filePath = currentFolder ? `${currentFolder}/${file.name}` : file.name;
       const { data } = await supabase.storage
         .from(selectedBucket)
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 3600);
 
-      await navigator.clipboard.writeText(data.publicUrl);
+      if (!data?.signedUrl) throw new Error("Failed to create signed URL");
+      await navigator.clipboard.writeText(data.signedUrl);
       toast({ title: "Link copiado!", description: "URL do arquivo copiada para a área de transferência." });
     } catch (error) {
       toast({
@@ -637,15 +638,16 @@ const Arquivos = () => {
       const filePath = currentFolder ? `${currentFolder}/${file.name}` : file.name;
       const { data } = await supabase.storage
         .from(selectedBucket)
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 3600);
 
+      if (!data?.signedUrl) throw new Error("Failed to create signed URL");
       const previewType = getPreviewType(file.metadata?.mimetype);
       
       if (previewType === "other") {
-        window.open(data.publicUrl, "_blank");
+        window.open(data.signedUrl, "_blank");
       } else {
         setPreviewFile({
-          url: data.publicUrl,
+          url: data.signedUrl,
           name: file.name,
           type: previewType,
         });

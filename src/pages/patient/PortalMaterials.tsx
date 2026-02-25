@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,13 @@ import {
   FolderOpen,
   Play,
   Maximize2,
+  Loader2,
 } from "lucide-react";
 import { usePatientAuth } from "@/context/PatientAuth";
 import PortalLayout from "@/components/patient/PortalLayout";
 import { useTherapeuticResources, TherapeuticResourceRow } from "@/hooks/useTherapeuticResources";
 import { useResourceViews } from "@/hooks/useResourceViews";
+import { supabase } from "@/integrations/supabase/client";
 
 const CATEGORY_LABELS: Record<string, string> = {
   psicoeducacao: "Psicoeducação",
@@ -34,6 +36,11 @@ const TYPE_ICONS: Record<string, typeof Link2> = {
   audio: Music,
 };
 
+// Helper to check if a URL is a storage URL that needs signing
+function isStorageUrl(url: string): boolean {
+  return url.includes("/storage/v1/object/");
+}
+
 interface ResourceCardProps {
   resource: TherapeuticResourceRow;
   patientId?: string;
@@ -44,14 +51,47 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
   const { recordView } = useResourceViews();
   const [pdfExpanded, setPdfExpanded] = useState(false);
   const [hasRecordedView, setHasRecordedView] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState(false);
+
+  const needsSigning = resource.resource_url && isStorageUrl(resource.resource_url);
+
+  const getSignedUrl = useCallback(async () => {
+    if (!resource.resource_url) return;
+    if (!needsSigning) {
+      setSignedUrl(resource.resource_url);
+      return;
+    }
+    
+    setLoadingUrl(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("get-resource-url", {
+        body: { resourceId: resource.id },
+      });
+      if (error) throw error;
+      setSignedUrl(data?.signedUrl || resource.resource_url);
+    } catch {
+      // Fallback to original URL
+      setSignedUrl(resource.resource_url);
+    } finally {
+      setLoadingUrl(false);
+    }
+  }, [resource.id, resource.resource_url, needsSigning]);
+
+  useEffect(() => {
+    if (resource.resource_url) {
+      getSignedUrl();
+    }
+  }, [getSignedUrl]);
 
   const handleOpen = async () => {
-    if (resource.resource_url) {
+    const url = signedUrl || resource.resource_url;
+    if (url) {
       if (!hasRecordedView) {
         await recordView(resource.id, patientId);
         setHasRecordedView(true);
       }
-      window.open(resource.resource_url, "_blank", "noopener,noreferrer");
+      window.open(url, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -73,6 +113,17 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
   const isAudio = resource.resource_type === 'audio';
   const isVideo = resource.resource_type === 'video';
   const isYouTubeEmbed = resource.resource_url?.includes('youtube.com') || resource.resource_url?.includes('youtu.be');
+  const displayUrl = signedUrl || resource.resource_url;
+
+  if (loadingUrl) {
+    return (
+      <Card className="bg-card/95 border border-border/60 rounded-2xl">
+        <CardContent className="p-5 flex items-center justify-center min-h-[120px]">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-card/95 border border-border/60 rounded-2xl hover:shadow-soft transition-all">
@@ -102,7 +153,7 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
         </div>
 
         {/* Audio Player Inline */}
-        {isAudio && resource.resource_url && (
+        {isAudio && displayUrl && (
           <div className="mt-4">
             <div className="bg-muted/50 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
@@ -115,9 +166,9 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
                 onPlay={handleAudioPlay}
                 preload="metadata"
               >
-                <source src={resource.resource_url} type="audio/mpeg" />
-                <source src={resource.resource_url} type="audio/wav" />
-                <source src={resource.resource_url} type="audio/ogg" />
+                <source src={displayUrl} type="audio/mpeg" />
+                <source src={displayUrl} type="audio/wav" />
+                <source src={displayUrl} type="audio/ogg" />
                 Seu navegador não suporta o elemento de áudio.
               </audio>
             </div>
@@ -125,7 +176,7 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
         )}
 
         {/* PDF Preview Inline */}
-        {isPdf && resource.resource_url && (
+        {isPdf && displayUrl && (
           <div className="mt-4 space-y-3">
             <div 
               className={`rounded-lg overflow-hidden border bg-muted/30 transition-all ${
@@ -133,7 +184,7 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
               }`}
             >
               <iframe
-                src={`${resource.resource_url}#toolbar=1&navpanes=0&scrollbar=1`}
+                src={`${displayUrl}#toolbar=1&navpanes=0&scrollbar=1`}
                 className="w-full h-full border-0"
                 title={resource.title}
                 onLoad={handlePdfLoad}
@@ -179,7 +230,7 @@ function PatientResourceCard({ resource, patientId }: ResourceCardProps) {
         )}
 
         {/* Default button for links and non-embeddable videos */}
-        {resource.resource_url && !isAudio && !isPdf && !(isVideo && isYouTubeEmbed) && (
+        {displayUrl && !isAudio && !isPdf && !(isVideo && isYouTubeEmbed) && (
           <Button
             onClick={handleOpen}
             className="w-full mt-4"
